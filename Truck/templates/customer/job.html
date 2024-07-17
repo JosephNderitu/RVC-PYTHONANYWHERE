@@ -1,0 +1,190 @@
+{% extends 'customer/base.html' %}
+{% load static %}
+
+{% block head %}
+
+<!--<script async src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAP_API_KEY }}&libraries=places&callback=initMap"></script>-->
+<!--updated scrript-->
+<script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAP_API_KEY }}&callback=initMap&libraries=places&v=weekly" defer></script>
+
+<script>
+
+    var pickupLat = parseFloat("{{ job.pickup_lat }}");
+    var pickupLng = parseFloat("{{ job.pickup_lng }}");
+
+    var deliveryLat = parseFloat("{{ job.delivery_lat }}");
+    var deliveryLng = parseFloat("{{ job.delivery_lng }}");
+
+    function initMap() {
+        const directionsService = new google.maps.DirectionsService();
+        const directionsRenderer = new google.maps.DirectionsRenderer();
+        const map = new google.maps.Map(document.getElementById("map"), {
+          zoom: 7,
+          center: { lat: 41.85, lng: -87.65 },
+        });
+      
+        directionsRenderer.setMap(map);
+
+        calculateAndDisplayRoute(map, directionsService, directionsRenderer);  
+      }
+      
+      function calculateAndDisplayRoute(map, directionsService, directionsRenderer) {
+        directionsService
+          .route({
+            origin: new google.maps.LatLng(pickupLat, pickupLng),
+            destination: new google.maps.LatLng(deliveryLat, deliveryLng),
+            travelMode: google.maps.TravelMode.DRIVING,
+          })
+          .then((response) => {
+            new google.maps.DirectionsRenderer({
+                map: map,
+                directions: response,
+                suppressMarkers: true,
+                polylineOptions:  { 
+                    strokeColor: "black",
+                    strokeWeight: 5,
+                    strokeOpacity : 0.9,
+                }
+            });
+
+            var leg = response.routes[0].legs[0];
+            new google.maps.Marker({
+                position: leg.start_location,
+                map: map,
+                icon: "{% static '/images/start.png' %}"
+            });
+
+            new google.maps.Marker({
+                position: leg.end_location,
+                map: map,
+                icon: "{% static '/images/end.jpg' %}"
+            })
+
+            
+          })
+          .catch((e) => window.alert("Directions request failed due to " + status));
+      }
+      
+      window.initMap = initMap;
+
+      console.log("happy happy")
+
+</script>
+
+{% endblock %}
+
+{% block main %}
+
+<!--Job Description-->
+<div class="media mb-4">
+    <img src= "{{ job.photo.url }}"  width="150" height="150" class="mr-3 rounded-lg">
+    <div class="media-body">
+
+       {% if job.status == 'processing'%} 
+        <form  method='POST' class="float-right">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Cancel Job</button>
+        </form>
+
+       {% endif %}
+
+        <h4>{{ job.names }}</h4>
+        <p class= "text-secondary">{{ job.description }} </p>
+
+        <div class="row">
+            <div class="col-lg-3">
+                <small class= "text-secondary">CATEGORY</small><br>
+                <span><b>{{  job.category.name }}</b></span>
+            </div>
+
+            <div class="col-lg-3">
+                <small class= "text-secondary">SIZE</small><br>
+                <span><b>{{  job.get_size_display }}</b></span>
+            </div>
+
+            <div class="col-lg-3">
+                <small class= "text-secondary">PRICE</small><br>
+                <span><b>${{  job.price }}</b></span>
+            </div>
+
+            <div class="col-lg-3">
+                <small class= "text-secondary">QUANTITY</small><br>
+                <span><b>{{  job.quantity }}</b></span>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<!--DELIVERY INFORMATION-->
+<b class="text-secondary">DELIVERY INFORMATION</b><br/>
+<div  class="card bg-light mt-2 mb-5">
+    <div  class="card-body p-4">
+        <h4 class="mb-3">PICKUP</h4>
+        <div class="row">
+            <div class="col-lg-4">
+                <b>Address</b><br>
+                <span>{{  job.pickup_address }}</span><br>
+            </div>
+            <div class="col-lg-4">
+                <b>name: {{ job.pickup_name}}</b><br>
+                <span>Contact: {{  job.pickup_phone }}</span><br>
+            </div>
+            <div id="pickup_photo" class="col-lg-4">
+
+                {% if job.pickup_photo %}
+                    <img src="{{ job.pickup_photo.url }}" class="rounded-lg photo" width="150" height="150px" style="object-fit: cover;">
+                {% else %}
+                    <div class="photo-blank" style="border: 2px dashed #DFDFDF; height: 150px; width: 150px; border-radius: 8px; align-items: center; display: flex; justify-content: center; text-align: center; padding: 10px;">
+                        Pickup Photo will appear here.
+                    </div>
+                {% endif %}
+
+            </div>
+        </div>
+
+        <hr class="my-4" />
+
+        <h4 class="mb-3">DELIVERY</h4>
+        <div class="row">
+            <div class="col-lg-4">
+                <b>Address</b><br>
+                <span>{{  job.delivery_address }}</span><br>
+            </div>
+            <div class="col-lg-4">
+                <b>name: {{ job.delivery_name}}</b><br>
+                <span>Contact: {{  job.delivery_phone }}</span><br>
+            </div>
+            <div id="pickup_delivery" class="col-lg-4">
+
+                {% if job.delivery_photo %}
+                <img src="{{ job.delivery_photo.url }}" class="rounded-lg photo" width="150" height="150px" style="object-fit: cover;">
+            {% else %}
+                <div class="photo-blank" style="border: 2px dashed #DFDFDF; height: 150px; width: 150px; border-radius: 8px; align-items: center; display: flex; justify-content: center; text-align: center; padding: 10px;">
+                    Delivery Photo will appear here.
+                </div>
+            {% endif %}
+            
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!--Map Area-->
+<div class="d-flex justify-content-between">
+    <b class="text-secondary">TRACK DELIVERY</b>
+    <div>
+        <span class="badge badge-warning">{{ job.get_status_display }}</span>
+    </div>
+</div>
+
+<div class="card bg-white mt-2">
+    <div class="card-body p-0">
+        <div id="map" style="height: 500px;">
+           <!-- <iframe src="https://maps.google.com/maps?q=Tangesir%20Dates%20Products&amp;t=&amp;z=13&amp;ie=UTF8&amp;iwloc=&amp;output=embed"width=740  height=500 allowfullscreen></iframe>-->
+        </div>
+        
+    </div>
+</div>
+{% endblock %}

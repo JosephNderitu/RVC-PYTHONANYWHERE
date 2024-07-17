@@ -1,0 +1,312 @@
+{% extends 'base.html' %}
+{% load static %} 
+
+{% load bootstrap4 %}
+{% block head %}
+
+
+<!--<script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAP_API_KEY }}&callback=initMap" async defer></script>
+<script async src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAP_API_KEY }}&libraries=places&callback=initMap"></script>
+<script async defer src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAP_API_KEY }}&libraries=places&callback=initMap"></script>-->
+
+
+<link rel="stylesheet" href="{% static 'css/styles.css' %}">
+{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!---left col-->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    JOB SUMMARY
+                </div>
+                <div class="card-body">
+                    {% if not job %}
+                        <p class="text-muted">A summary of your job will appear here once you have submitted it.</p>
+                    {% else %}
+                        {% if step > 1 %}
+                            <h4>{{ job.names }}</h4>
+                            <p><b>Job:</b> {{ job.get_size_display }}</p>
+                            <p><b>Item:</b> {{ job.quantity }}</p>
+                            <p><b>Category:</b> {{ job.category }}</p>
+                            <p><b>Description:</b> {{ job.description }}</p>
+                            <p><b>Time Zone:</b> {{ job.created_at }}</p>
+                        {% else %}
+                            <p class="text-muted">A summary of your job will appear here once you have submitted it.</p>
+                        {% endif %}
+        
+                        {% if step > 2 %}
+                            <hr>
+                            <p class="text-secondary">
+                                <b>PICKUP</b>
+                            </p>
+                            <h4>{{ job.pickup_name }}</h4>
+                            <p><b>Pickup Address:</b> {{ job.pickup_address }}</p>
+                        {% endif %}
+        
+                        {% if step > 3 %}
+                            <hr>
+                            <p class="text-secondary">
+                                <b>DELIVERY</b>
+                            </p>
+                            <h4>{{ job.delivery_name }}</h4>
+                            <p><b>Delivery Address:</b> {{ job.delivery_address }}</p>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        
+        <!---right col-->
+        <div class="col-lg-8">
+            <!--steps tab-->
+            <div>
+                <div class="card-body">
+                    <ul class="nav nav-pills nav-justified align-items-center mb-3" id="pills-tab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <a class="{% if step == 1 %}active{% endif %}" id="pills-info-tab" data-toggle="pill" href="#pills-info" role="tab"
+                                aria-controls="pills-info" aria-selected="true">Item Info</a>
+                        </li>
+                        <i class="fas fa-chevron-right"></i>
+                        <li class="nav-item" role="presentation">
+                            <a class="{% if step == 2 %}active{% endif %}" id="pills-pickup-tab" data-toggle="pill" href="#pills-pickup" role="tab"
+                                aria-controls="pills-pickup" aria-selected="false">Pickup</a>
+                        </li>
+                        <i class="fas fa-chevron-right"></i>
+                        <li class="nav-item" role="presentation">
+                            <a class="{% if step == 3 %}active{% endif %}" id="pills-delivery-tab" data-toggle="pill" href="#pills-delivery" role="tab"
+                                aria-controls="pills-delivery" aria-selected="false">Delivery</a>
+                        </li>
+                        
+                        <i class="fas fa-chevron-right"></i>
+                        <li class="nav-item" role="presentation">
+                            <a class="{% if step == 4 %}active{% endif %}" id="pills-payment-tab" data-toggle="pill" href="#pills-payment" role="tab"
+                                aria-controls="pills-payment" aria-selected="false">Payment</a>
+                        </li>
+                    </ul>
+
+                </div>
+            </div>
+            <!--Steps form-->
+            <b>CREATE A JOB</b>
+            <div class="tab-content" id="pills-tabContent">
+
+                <!--Step 1-->
+                <div class="tab-pane fade {% if step == 1 %}show active{% endif %}" id="pills-info" role="tabpanel"
+                    aria-labelledby="pills-info-tab">
+                    <h1>Item Info</h1>
+
+                    <form method="POST" enctype="multipart/form-data">
+                        <b class="text-secondary">Item Information</b><br>
+                        <div>
+                            <div class="card-body">
+                                {% csrf_token %}
+                                {% bootstrap_form step1_form %}
+                            </div>
+                        </div>
+                        <input type="hidden" name="step" value="1" />
+                        <button type="submit" class="btn btn-warning">Save and Continue</button>
+                    </form>
+
+                </div>
+
+                <!--Step 2-->
+                <div class="tab-pane fade {% if step == 2 %}show active{% endif %}" id="pills-pickup" role="tabpanel" aria-labelledby="pills-pickup-tab">
+                    <h1>Pickup</h1>
+
+                    <form method="POST" enctype="multipart/form-data">
+                        <b class="text-secondary">Pickup Information</b><br>
+                        <div>
+                            <div>
+
+                                <div class="row">
+                                    <div class="col-lg-8">
+                                        {% csrf_token %}
+                                        {% bootstrap_form step2_form exclude='pickup_lat, pickup_lng'  %}
+                                        <input hidden id="pickup_lat" name="pickup_lat" value="{{ job.pickup_lat }}">
+                                        <input hidden id="pickup_lng" name="pickup_lng" value="{{ job.pickup_lng }}">
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <div id="pickup-map"></div>
+                                        <div id="pickup-infowindow-content">
+                                            <img src="" width="16" id="pickup-place-icon" />
+                                            <span id="pickup-place-name" class="title"></span><br />
+                                            <span id="pickup-place-address"></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                        <input type="hidden" name="step" value="2" />
+                        <button type="button" class="btn btn-outline-warning" onclick="$('#pills-info-tab').tab('show');">Back</button>
+                        <button type="submit" class="btn btn-warning">Save and Continue</button>
+                    </form>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="tab-pane fade{% if step == 3 %} show active{% endif %}" id="pills-delivery" role="tabpanel"
+                aria-labelledby="pills-delivery-tab">
+                <h1>Delivery</h1>
+
+                <form method="POST" enctype="multipart/form-data">
+                    <b class="text-secondary">Delivery Information</b><br>
+                    <div class="card bg-white mt-2 mb-5">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-8">
+                                    {% csrf_token %}
+                                    {% bootstrap_form step3_form exclude='delivery_lat, delivery_lng, manual_distance, distance_unit' %}
+                                    <input hidden id="delivery_lat" name="delivery_lat" value="{{ job.delivery_lat }}">
+                                    <input hidden id="delivery_lng" name="delivery_lng" value="{{ job.delivery_lng }}">
+                                    
+                                    {% if show_manual_distance %}
+                                        <div class="alert alert-warning" role="alert">
+                                            <h5 class="alert-heading">Security Note</h5>
+                                            <p>Please confirm the units of measurement before continuing to avoid any discrepancies.</p>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="manual_distance" class="form-label">Enter Distance Manually</label>
+                                            {{ step3_form.manual_distance }}
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="distance_unit" class="form-label">Select Unit</label>
+                                            {{ step3_form.distance_unit }}
+                                        </div>
+                                    {% endif %}
+
+                                </div>
+                                <div class="col-lg-4">
+                                    <div id="delivery-map"></div>
+                                    <div id="delivery-infowindow-content">
+                                        <img src="" width="16" id="delivery-place-icon" />
+                                        <span id="delivery-place-name" class="title"></span><br />
+                                        <span id="delivery-place-address"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" name="step" value="3" />
+                    <button type="button" class="btn btn-outline-warning" onclick="$('#pills-info-tab').tab('show');">Back</button>
+                    <button type="submit" class="btn btn-warning">Save and Continue</button>
+                </form>
+                </div>
+
+                <!--Step 4-->
+                <div class="tab-pane fade {% if step == 4 %}show active{% endif %}" id="pills-payment" role="tabpanel"
+                    aria-labelledby="pills-payment-tab">
+                    <h1>Payment</h1>
+
+                    <form method="POST">
+                        <b class= "text-secondary">Payment Methods:</b><br>
+                        <div class="card bg-white  mt-2 mb-5">
+                            <div class="card-body">
+                                {% csrf_token %}
+                                <div class="form-group">
+                                    <label>Your Debit/Credit Card.</label>
+                                    <input class="form-control" value="**** **** **** {{ request.user.customer.stripe_card_last4 }}" disabled>
+
+                                </div>
+                                <div class="form-group">
+                                    <label>Price</label>
+                                    <input class= "form-control" value="${{ job.price }}" disabled >
+                                </div>
+                            </div>
+                            <input type="hidden" name="step" value="4" />
+                            
+                        </div>
+                        <button type="button" class="btn btn-outline-warning" onclick="$('#pills-delivery-tab').tab('show');">Back</button>
+                            <button type="submit" class="btn btn-success">CREATE JOB</button>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAF6hd7oJfxsA3fBpxWnYuevkn8booYrUE&libraries=places&callback=initMap"></script>
+<script>
+    var pickupLat = parseFloat('{{ job.pickup_lat }}') || null;
+    var pickupLng = parseFloat('{{ job.pickup_lng }}') || null;
+    var deliveryLat = parseFloat('{{ job.delivery_lat }}') || null;
+    var deliveryLng = parseFloat('{{ job.delivery_lng }}') || null;
+
+    function initMapByType(type, initLat, initLng) {
+        const map = new google.maps.Map(document.getElementById(type + "-map"), {
+            center: { lat: initLat || -33.8688, lng: initLng || 151.2195 },
+            zoom: 13,
+        });
+
+        if (initLat && initLng) {
+            new google.maps.Marker({
+                position: { lat: initLat, lng: initLng },
+                map: map,
+            });
+        }
+
+        const input = document.getElementById("id_" + type + "_address");
+
+        const autocomplete = new google.maps.places.Autocomplete(input);
+
+        autocomplete.bindTo("bounds", map);
+
+        autocomplete.setFields(['address_components', 'geometry', 'icon', 'name']);
+
+        const infowindow = new google.maps.InfoWindow();
+        const infowindowContent = document.getElementById(type + "-infowindow-content");
+        infowindow.setContent(infowindowContent);
+
+        const marker = new google.maps.Marker({
+            map,
+            anchorPoint: new google.maps.Point(0, -29),
+        });
+
+        autocomplete.addListener("place_changed", () => {
+            infowindow.close();
+            marker.setVisible(false);
+            const place = autocomplete.getPlace();
+            if (!place.geometry) {
+                window.alert("No details available for input: " + place.name);
+                return;
+            }
+            if (place.geometry.viewport) {
+                map.fitBounds(place.geometry.viewport);
+            } else {
+                map.setCenter(place.geometry.location);
+                map.setZoom(17); // Why 17? Because it looks good.
+            }
+            marker.setPosition(place.geometry.location);
+            marker.setVisible(true);
+
+            let address = '';
+            if (place.address_components) {
+                address = [
+                    (place.address_components[0] && place.address_components[0].short_name || ''),
+                    (place.address_components[1] && place.address_components[1].short_name || ''),
+                    (place.address_components[2] && place.address_components[2].short_name || '')
+                ].join(' ');
+            }
+
+            infowindowContent.children[type + "-place-icon"].src = place.icon;
+            infowindowContent.children[type + "-place-name"].textContent = place.name;
+            infowindowContent.children[type + "-place-address"].textContent = address;
+            infowindow.open(map, marker);
+
+            $("#" + type + "_lat").val(place.geometry.location.lat());
+            $("#" + type + "_lng").val(place.geometry.location.lng());
+        });
+    }
+
+    function initMap() {
+        initMapByType("pickup", pickupLat, pickupLng);
+        initMapByType("delivery", deliveryLat, deliveryLng);
+    }
+</script>
+
+{% endblock %}
+
+                                    

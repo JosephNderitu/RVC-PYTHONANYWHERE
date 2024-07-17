@@ -1,0 +1,132 @@
+{% extends 'courier/base.html' %}
+
+{% block head %}
+<script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAP_API_KEY }}&callback=initMap&libraries=places&v=weekly" defer></script>
+
+<script>
+    function initMap() {
+        const map = new google.maps.Map(document.getElementById("map"), {
+          zoom: 13,
+          center: { lat: 41.85, lng: -87.65 },
+        });
+
+        // Get available jobs via API
+        fetch("{% url 'courier:available_jobs_api' %}")
+        .then(response => response.json())
+        .then(json => {
+            //create a new viewpoint bound 
+            var bounds = new google.maps.LatLngBounds();
+
+            for(let i = 0; i < json.jobs.length; i++) {
+                const job = json.jobs[i];
+                const position = { lat: job.pickup_lat, lng: job.pickup_lng };
+                const marker = new google.maps.Marker({
+                    position: position,
+                    map: map,
+                });
+
+                // Increase the bounds
+                bounds.extend(position);
+
+                const infoWindow = new google.maps.InfoWindow({
+                    content: "<small><b>" + job.name  + "</b></small><br><small>" + job.distance + "km</small>"
+                });
+
+                infoWindow.open(map, marker);
+
+                //click event for each job
+                marker.addListener('click', () => {
+                    showJobDetails(job);
+                });
+
+                //Fit these bounds to the map
+                map.fitBounds(bounds);
+            }
+        });
+    }
+
+    function showJobDetails(job) {
+        $("#job-details").css("display","block");
+        $("#job-names").html(job.names);
+        $("#job-photo").attr('src',"/media/" + job.photo);
+        $("#pickup-address").html(job.pickup_address);
+        $("#delivery-address").html(job.delivery_address);
+        $("#duration").html(job.duration);
+        $("#distance").html(job.distance);
+        $("#price").html(job.price);
+
+        $("#job-details").on("click", function() {
+            window.location.href = "/courier/jobs/available/" + job.id + "/";
+        });
+    }
+</script>
+<style>
+    .gm-ui-hover-effect { 
+        display: none !important;
+    } 
+    #map {
+        flex: 1;
+    }
+
+    #job-details {
+        display: none;
+        background: #f9f9f9;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 20px;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+
+    #job-details h3 {
+        font-size: 1.5em;
+        color: #333;
+        margin-bottom: 15px;
+    }
+
+    #job-details img {
+        display: block;
+        width: 100%;
+        max-width: 400px;
+        height: auto;
+        border-radius: 8px;
+        margin-bottom: 15px;
+    }
+
+    #job-details p {
+        font-size: 1em;
+        color: #666;
+        margin-bottom: 10px;
+    }
+
+    #job-details span {
+        font-weight: bold;
+        color: #444;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<br>
+<b class="text-success">click on a job in the map and scroll down to view additional details.</b>
+<br><br>
+<div class="d-flex flex-column h-100" style="padding-bottom: 60px;">
+    <div id="map"></div>
+</div>
+<b class="text-success">click anywhere on the job if you want to accept the job accept.</b>
+<div id="job-details" style="display:none; display: flex; align-items: center;">
+    <h3 id="job-names"></h3>
+    <img id="job-photo" src="" alt="Job Photo" />
+    <div style="display: flex; flex-direction: column; margin-left: 10px;">
+        <p><i class="fas fa-map-marker-alt"></i> Pickup Address: <span id="pickup-address"></span></p>
+        <p><i class="fas fa-map-marker-alt"></i> Delivery Address: <span id="delivery-address"></span></p>
+        <p><i class="fas fa-clock"></i> Duration: <span id="duration"></span> minutes</p>
+        <p><i class="fas fa-route"></i> Distance: <span id="distance"></span> km</p>
+        <p><i class="fas fa-money-bill"></i> Price: <span id="price"></span></p>
+    </div>
+</div>
+<br><hr>
+
+
+{% include 'courier/bottom_tabs.html' %}
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">RiftValley Carrier - Billing Policy</h1>
+  
+    <div class="card">
+      <div class="card-body">
+        <h2 class="card-title">1. Payment Method</h2>
+        <p class="card-text">All payments are securely processed through our Stripe integration. When creating a job, customers authorize us to charge their credit cards. Couriers receive payments via PayPal within 12 hours of completing a job.</p>
+        <strong>For a courier one is required to have a paypal account for receiving payments after successfully completing a job and for our customers a fully working card.</strong>
+      </div>
+    </div>
+  
+    <div class="card mt-3">
+      <div class="card-body">
+        <h2 class="card-title">2. Billing Cycle</h2>
+        <p class="card-text">We operate on a pay-as-you-go basis. Customers' credit cards are charged immediately they finish creating a job. Invoices and receipts are emailed automatically. Couriers receive payment via PayPal within 12 hours of completing a job.</p>
+      </div>
+    </div>
+  
+    <div class="card mt-3">
+      <div class="card-body">
+        <h2 class="card-title">3. Refunds</h2>
+        <p class="card-text">Refunds may be issued for canceled jobs or billing errors.Customers will receive 95% of the money back this is inorder to cater for the transaction expenses and to eliminate jokers.Refunds will be credited back to the original payment method used. Couriers receive payment only for completed jobs.</p>
+      </div>
+    </div>
+  
+    <div class="card mt-3">
+      <div class="card-body">
+        <h2 class="card-title">4. Contact Us</h2>
+        <p class="card-text">If you have any questions or concerns about billing, please contact our billing department at <a class="btn btn-success btn-outline-light" href="mailto:rvcarriers76@gmail.com">Contacts</a>.</p>
+      </div>
+    </div>
+  
+    <div class="mt-4">
+      <p class="text-muted">For more information, please refer to the <a href="#">USA Terms and Conditions for Logistics Companies in Atlanta, Georgia</a>.</p>
+    </div>
+  </div>
+
+
+{% endblock  %}

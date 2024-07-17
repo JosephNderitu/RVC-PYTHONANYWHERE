@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Courier On The Way</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+        }
+        .container {
+            width: 90%;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            border: 1px solid #ddd;
+        }
+        h1 {
+            color: #4CAF50;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        p {
+            line-height: 1.6;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            background: #f2f2f2;
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            color: #777;
+            font-size: 0.9em;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 20px 0;
+            color: #fff;
+            background-color: #4CAF50;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Courier On The Way</h1>
+        <p>Dear {{ customer_name }},</p>
+        <p>We are pleased to inform you that <strong>{{ courier_name }} <b>(Courier)</b></strong> is on the way to pick up your item. Here are the details of your job:</p>
+        <ul>
+            <li><strong>Pickup Address:</strong> {{ job.pickup_address }}</li>
+            <li><strong>Delivery Address:</strong> {{ job.delivery_address }}</li>
+            <li><strong>Distance:</strong> {{ job.distance }} km</li>
+            <li><strong>Price:</strong> ${{ job.price }}</li>
+            <li><strong>Job Created At:</strong> {{ job_created_time }}</li>
+        </ul>
+        <p>We urge you to leave us feedback once your job is completed. Thank you!</p>
+        <p>If you have any questions or need further assistance, please feel free to <a href="mailto:rvcarriers76@gmail.com">contact us</a>.</p>
+        <p>Best regards,<br>RiftValley Carrier</p>
+        <div class="footer">
+            <p>&copy; {{ current_year }} Your Company. All rights reserved.</p>
+            <p><a href="https://josephnderitu.github.io/myportfolio/" class="btn">Visit Our Website</a></p>
+        </div>
+    </div>
+</body>
+</html>

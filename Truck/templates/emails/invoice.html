@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+{% load static %}
+<html>
+<head>
+    <title>Invoice for Your Job</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+        }
+        .container {
+            width: 80%;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            text-align: center; /* Center align content */
+        }
+        h1 {
+            color: #4CAF50;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        p {
+            line-height: 1.6;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            background: #f2f2f2;
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            color: #777;
+            font-size: 0.9em;
+        }
+        .header-image {
+            margin-top: 20px; /* Adjust as needed */
+            margin-bottom: 20px; /* Adjust as needed */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img class="header-image" src="https://1208-102-213-251-138.ngrok-free.app/static/images/the%20(1).png" alt="Invoice Header Image">
+        <h1>Invoice for Job #{{ job.id }}</h1>
+        <p>Dear {{ customer_name }},</p>
+        <p>Thank you for using our service. Here are the details of your job:</p>
+        <ul>
+            <li><strong>Pickup Address:</strong> {{ job.pickup_address }}</li>
+            <li><strong>Delivery Address:</strong> {{ job.delivery_address }}</li>
+            <li><strong>Distance:</strong> {{ job.distance }} km</li>
+            <li><strong>Price:</strong> ${{ job.price }}</li>
+            <li><strong>Job Created At:</strong> {{ job_created_time }}</li>
+        </ul>
+        <p>In case you have any issues with the current job, feel free to <a href="mailto:rvcarriers76@gmail.com">contact us</a>.</p>
+        <p>Best regards,<br>RiftValley Carrier</p>
+        <div class="footer">
+            <p>We are looking forward to seeing you again.</p>
+            <p>&copy; {{ current_year }} RiftValley Carrier. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

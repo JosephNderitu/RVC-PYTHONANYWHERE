@@ -1,0 +1,337 @@
+{% extends 'base.html' %}
+{% block content %}
+{% load static %}
+<link rel="stylesheet" href="{% static "css/styles.css" %}">
+
+
+
+<div class="container">
+    <div class="row">
+        <div class = "col-lg-12">
+            <h1 class ="custom-heading  fw-bold text-center mt-3 mb-0 text-success">WELCOME TO RIFTVALLEY CARRIERS</h1><br/><hr/>
+            <div class="container mt-2">
+                <div class="alert alert-info">
+                  <p class="lead">
+                    Welcome to RiftValley Courier, where seamless logistics solutions await both our valued customers and dedicated couriers. Whether you're looking to send parcels or join our network, explore our platform to sign in as a courier or customer. Your journey with us starts here.
+                  </p>
+                  <p>
+                    <strong>Read our <a href="{% url "terms_and_conditions" %}">terms and conditions</a> before using our services. Learn about our <a href="{% url "billing" %}">billing policy</a> for more information. Dont forget to check our cookie policy if you are using cookies <a href="{% url 'cookie_policy' %}">Cookie Policy.</a></strong>
+                  </p>
+                </div>
+              </div>
+        </div>
+
+
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <div>
+                        <img src="{% static '/images/customerlogo.png' %}" alt="customer logo" style="width: 67px; display: inline-block; vertical-align: middle;">
+                        <u><h3 class="card-title text-danger" style="font-style: italic; font-family: 'Times New Roman', Times, serif; font-weight: bold; display: inline-block; vertical-align: middle;">CUSTOMER PAGE</h3></u>
+                    </div>
+                    <br>
+                    
+                    <h5 class="card-title">Customer</h5>
+                    <p class="card-text">Explore our services tailored for efficient parcel handling and logistics management.</p>
+                    <p class="card-text">As a customer, ensure accurate parcel information and adhere to scheduled pickup and delivery times. Failure to provide accurate details or repeated cancellations may affect service availability.</p>
+                    {% if not request.user.is_authenticated %}
+                    <div class="container mt-5">
+                        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                          <strong>Attention!</strong> Make sure you are logged in as a customer to view the Details. <a href="/sign_in/?next=/customer/" class="alert-link">Log-In</a>
+                          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                          </button>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <a href="{% url 'customer:home' %}" class="btn btn-warning">Details</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <div>
+                        <img src="{% static '/images/courierlogo.png' %}" alt="Logo" style="width: 90px; display: inline-block; vertical-align: middle;">
+                        <u><h3 class="card-title text-danger" style="font-style: italic; font-family: 'Times New Roman', Times, serif; font-weight: bold; display: inline-block; vertical-align: middle;">COURIER PAGE</h3></u>
+                    </div>
+                    <br>
+
+                    <h5 class="card-title">Courier</h5>
+                    <p class="card-text">
+                        Join our courier network for reliable delivery services. Couriers must assess their availability and capability responsibly. <br><br>
+                        Upholding high service standards is crucial; failure to do so may cause disruptions, affect customer satisfaction, and result in legal action or contract termination.
+                    </p>
+                    
+
+                    {% if not request.user.is_authenticated %}
+                    <div class="container mt-5">
+                        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                          <strong>Attention!</strong> Make sure you are logged in as a courier to view the Details. <a href="/sign_in/?next=/courier/" class="alert-link">Log-In</a>
+                          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                          </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if not request.user.is_authenticated %}
+                    <a href="/sign_in/?next=/courier/" class="btn btn-warning">Details</a>
+                    {% else %}
+                    <a href="{% url 'courier:home' %}" class="btn btn-warning">Details</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+        <!-- Trucks Section -->
+        <section id="trucks" class="py-5 bg-light">
+            <div class="container">
+                <h2 class="text-center mb-5">Our Fleet</h2>
+                <div class="row">
+                    {% for truck in trucks %}
+                    <div class="col-md-4 mb-4">
+                        <div class="card border-0 shadow-sm">
+                            <img src="{{ truck.image.url }}" class="card-img-top" alt="{{ truck.name }}" style="width: 100%; height: 300px; object-fit: cover;">
+                            <div class="card-body">
+                                <h5 class="card-title text-center">{{ truck.name }}</h5>
+                                <p class="card-text text-muted">{{ truck.description }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+        
+        <!-- Services Section -->
+        <!-- Similar structure for Services and Workers -->
+        <!-- Services Section -->
+        <section id="services" class="py-5 bg-light">
+            <div class="container">
+                <h2 class="text-center mb-5">Our Services</h2>
+                <div class="row">
+                    {% for service in services %}
+                    <div class="col-lg-4 mb-4">
+                        <div class="card border-0 shadow-sm">
+                            <img src="{{ service.image.url }}" class="card-img-top rounded" alt="{{ service.title }}" style="height: 200px; object-fit: cover;">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">{{ service.title }}</h5>
+                                <p class="card-text">{{ service.description }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+        
+        <!-- Workers Section -->
+        <section id="workers" class="py-5">
+            <div class="container">
+                <h2 class="text-center mb-5">Our Team</h2>
+                <div class="row">
+                    {% for worker in workers %}
+                    <div class="col-lg-3 mb-4">
+                        <div class="card border-0 shadow-sm">
+                            <img src="{{ worker.image.url }}" class="card-img-top rounded-circle" alt="{{ worker.name }}" style="width: 200px; height: 200px; object-fit: cover;">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">{{ worker.name }}</h5>
+                                <p class="card-text">{{ worker.job_title }}</p>
+                                <p class="card-text">{{ worker.description }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+        
+        <!-- Owner Section -->
+        <section id="owner" class="py-5">
+            <div class="container">
+                <h2 class="text-center mb-5">Meet the Founder</h2>
+                <div class="row">
+                    <div class="col-md-6 mx-auto">
+                        <div class="card border-0 text-center" style="box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);">
+                            <img src="{{ owner.image.url }}" class="card-img-top rounded-circle mx-auto mt-3" alt="Owner" style="width: 200px; height: 200px;">
+                            <div class="card-body">
+                                <h4 class="card-title">{{ owner.name }}</h4>
+                                <p class="card-text text-muted">{{ owner.job_title }}</p>
+                                <p class="card-text">{{ owner.description }}</p>
+                            </div>
+                        </div>                    
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+<!-- Job Statistics Section -->
+<section id="job-stats" class="py-5 bg-light">
+    <div class="container">
+        <h2 class="text-center mb-5">Job Statistics</h2>
+        <p class="text-center text-muted mb-4">Our performance metrics reflect the dedication and hard work of our team. Here are the latest statistics:</p>
+        <div class="row text-center">
+            <div class="col-md-4 mb-4">
+                <div class="circle-stat slide-in">
+                    <h5 class="text-success">Successful Jobs</h5>
+                    <p id="successful-jobs" class="text-dark">0</p>
+                    <small class="text-danger" style="font: 1.1em sans-serif;">Completed jobs that met all criteria.</small>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="circle-stat slide-in">
+                    <h5 class="text-primary">Total Jobs Posted</h5>
+                    <p id="total-jobs" class="text-dark">0</p>
+                    <small class="text-danger" style="font: 1.1em sans-serif;">All jobs posted to date.</small>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="circle-stat slide-in">
+                    <h5 class="text-info">Couriers in Team</h5>
+                    <p id="total-couriers" class="text-dark">0</p>
+                    <small class="text-danger" style="font: 1.1em sans-serif;">Total couriers currently in our team.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    .circle-stat {
+        background-color: #ffffff;
+        border-radius: 50%;
+        padding: 30px;
+        margin-bottom: 20px;
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .circle-stat:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+        background-color: black;
+    }
+
+    .circle-stat:before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(135deg, rgba(0, 123, 255, 0.2), rgba(255, 255, 255, 0));
+        transition: all 0.5s ease;
+        z-index: 0;
+    }
+
+    .circle-stat:hover:before {
+        top: -30%;
+        left: -30%;
+    }
+
+    .circle-stat h5 {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 10px;
+        color: #333;
+        position: relative;
+        z-index: 1;
+        transition: color 0.3s ease;
+    }
+
+    .circle-stat:hover h5 {
+        color: #000;
+    }
+
+    .circle-stat p {
+        font-size: 26px;
+        font-weight: 700;
+        margin: 0;
+        color: #007bff;
+        position: relative;
+        z-index: 1;
+        transition: color 0.3s ease;
+    }
+
+    .circle-stat:hover p {
+        color: #0056b3;
+    }
+
+    .circle-stat small {
+        display: block;
+        font-size: 14px;
+        color: #666666;
+        margin-top: 10px;
+        position: relative;
+        z-index: 1;
+        transition: color 0.3s ease;
+    }
+
+    .circle-stat:hover small {
+        color: #444;
+    }
+
+    @media (max-width: 768px) {
+        .circle-stat {
+            margin-bottom: 20px;
+        }
+    }
+
+    .slide-in {
+        opacity: 0;
+        transform: translateX(-50px);
+        transition: all 0.5s ease-out;
+    }
+
+    .slide-in.visible {
+        opacity: 1;
+        transform: translateX(0);
+    }
+</style>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    function fetchStats() {
+        $.ajax({
+            url: "{% url 'fetch_stats' %}",
+            method: "GET",
+            success: function(data) {
+                $('#total-jobs').text(data.total_jobs);
+                $('#successful-jobs').text(data.successful_jobs);
+                $('#total-couriers').text(data.total_couriers);
+            },
+            error: function(error) {
+                console.error("Error fetching stats:", error);
+            }
+        });
+    }
+
+    function checkVisibility() {
+        $('.slide-in').each(function() {
+            var elementTop = $(this).offset().top;
+            var viewportBottom = $(window).scrollTop() + $(window).height();
+
+            if (elementTop < viewportBottom) {
+                $(this).addClass('visible');
+            }
+        });
+    }
+
+    $(document).ready(function() {
+        fetchStats();
+        setInterval(fetchStats, 30000); // Update every 30 seconds
+        $(window).on('scroll', checkVisibility);
+        checkVisibility(); // Initial check
+    });
+</script>
+ 
+{% endblock %}

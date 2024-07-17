@@ -1,0 +1,35 @@
+{% extends "courier/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container d-flex flex-column align-items-center justify-content-center text-center vh-100">
+    <div class="row w-100">
+        <div class="col-12">
+            <br><br>
+            <img src="{% static 'images/completed.gif' %}" class="mb-2 mt-4 img-fluid" alt="Job Completed" style="max-width: 180px; height: auto;">
+            <h5 class="text-success mb-2">Job Completed!</h5>
+            <p class="lead mb-2">Congratulations on completing your job. Your dedication and hard work are greatly appreciated.</p>
+        </div>
+    </div>
+    
+    <div class="row w-100">
+        <div class="col-12">
+            <div class="alert alert-info mx-auto mb-4" role="alert" style="max-width: 400px;">
+                <h5 class="alert-heading">Reminder</h5>
+                <p class="mb-0">Please ensure your profile is up to date. Verify that your PayPal email is correctly set to avoid any payment issues.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row w-100">
+        <div class="col-12 d-flex justify-content-center mb-4">
+            <a href="{% url 'courier:profile' %}" class="btn btn-primary mx-2">Profile</a>
+            <a href="{% url 'courier:home' %}" class="btn btn-warning mx-2">Available Jobs</a>
+        </div>
+    </div>
+    
+    <footer class="mt-2 w-100">
+        <p class="text-muted">&copy; 2024 RiftValley Carriers. All rights reserved.</p>
+    </footer>
+</div>
+{% endblock %}

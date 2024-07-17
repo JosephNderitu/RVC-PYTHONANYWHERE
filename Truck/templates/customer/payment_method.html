@@ -1,0 +1,122 @@
+{% extends "customer/base.html" %}
+{% load bootstrap4 %}
+
+{% block head %}
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/css/toastr.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js"></script>
+
+
+
+
+<style>
+    .StripeElement {
+        height: 40px;
+        width: 100%;
+        color:dark;
+        background-color: white;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        -webkit-transition: box-shadow 150ms ease;
+        transition: box-shadow 150ms ease;
+    }
+    .StripeElement--focus {
+        border-color: #80bdff;
+        box-shadow: 0 1px 3px 0 #cfd7df;
+    }
+    .StripeElement--invalid {
+        border-color: #fa755a;
+    }
+    .StripeElement--webkit-autofill{
+        background-color: #fefde5 !important;
+    }
+</style>
+{% endblock %}
+{% block main %}
+<script src="https://js.stripe.com/v3/"></script>
+{% if not request.user.customer.stripe_payment_method_id %}
+<div class="alert alert-danger alert-dismissible  fade show " role= "alert">
+lets add your Credit or Debit card to <strong>Create a job</strong>!
+<button type="button" class="close" data-dismiss="alert" aria-label="Close">
+    <span aria-hidden="true">&times;</span>
+
+</button>
+</div>
+{% endif %}
+<h3>STRIPE PAYEMENT</h3>
+<b class="text-secondary">Add Your Credit/Debit Card</b>
+<div class="card bg-white mt-2 mb-5">
+    <div class = "card-body">
+
+        {% if request.user.customer.stripe_payment_method_id %}
+        <div id="change-card" class="input-group">
+            <input type="text" class="form-control" disabled value="**** **** **** {{ request.user.customer.stripe_card_last4 }}">
+            <div class="input-group-append">
+                <form method="POST">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Remove</button>
+                </form>
+            </div>
+        </div>
+
+        {% else %}
+        {% csrf_token %}
+        <form id="setup-form" data-secret="{{ client_secret }}">
+            <div id="card-element"></div>
+            <button id="card-button" class="btn btn-warning mt-3" type="button">Save Card</button>
+        </form>
+        
+
+        {% endif %}
+
+    </div>
+</div>
+
+<br>
+
+{% if not request.user.customer.stripe_payment_method_id %}
+
+<script>
+    console.log("Customer1.");
+    var stripe = Stripe("{{ STRIPE_API_PUBLIC_KEY }}");
+    var elements = stripe.elements();
+    var cardElement  = elements.create('card');
+    cardElement.mount('#card-element');
+
+    var cardholderName = document.getElementById('card-holder-name');
+    var cardButton = document.getElementById('card-button');
+    var clientSecret = "{{ client_secret }}";
+
+    cardButton.addEventListener('click', function(ev) {
+        stripe.confirmCardSetup(
+            clientSecret,
+            {
+                payment_method: {
+                    card: cardElement,
+                }
+            }
+        ).then(function(result) {
+            if (result.error) {
+                // Show error to your customer (e.g., insufficient funds, invalid state, etc.)
+                alert(result.error.message);
+            } else {
+                alert("Payment method is added successfully");
+                window.location.reload(true); // Force reload from the server
+            }
+        }).catch(function(error) {
+            console.error(error);
+            // Handle any other errors
+        });
+    });
+
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+            if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                xhr.setRequestHeader("X-CSRFToken", getToken());
+            }
+        }
+    });
+</script>
+{% endif %}
+
+{% endblock %}

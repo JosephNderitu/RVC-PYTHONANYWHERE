@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Job Created</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            margin: 0;
+            padding: 0;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .email-header {
+            background-color: #004AAD;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px 5px 0 0;
+        }
+        .email-body {
+            background-color: #ffffff;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 0 0 5px 5px;
+        }
+        .job-details {
+            margin-bottom: 20px;
+        }
+        .job-details table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .job-details th, .job-details td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .job-details th {
+            text-align: left;
+            background-color: #f2f2f2;
+            font-weight: normal;
+        }
+        .job-details td {
+            text-align: left;
+        }
+        .job-image {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .email-footer {
+            margin-top: 20px;
+            text-align: center;
+            color: black;
+        }
+        .email-footer p {
+            margin: 10px 0;
+            font-weight: bold;
+            font-size: 20px;
+        }
+        .email-footer a {
+            color: #004AAD;
+            text-decoration: none;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 20px 0;
+            color: #fff;
+            background-color: #4CAF50;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="email-header">
+            <h1>New Job Has Been Created</h1>
+        </div>
+        <div class="email-body">
+            <p>A new job has been created by {{ full_name }} at {{ job_created_time }}.</p>
+            <div class="job-details">
+                <table>
+                    <tr>
+                        <th>Name:</th>
+                        <td>{{ job.names }}</td>
+                    </tr>
+                    <tr>
+                        <th>Description:</th>
+                        <td>{{ job.description }}</td>
+                    </tr>
+                    <tr>
+                        <th>Category:</th>
+                        <td>{{ job.category }}</td>
+                    </tr>
+                    <tr>
+                        <th>Size:</th>
+                        <td>{{ job.get_size_display }}</td>
+                    </tr>
+                    <tr>
+                        <th>Quantity:</th>
+                        <td>{{ job.quantity }} tonne(s)</td>
+                    </tr>
+                    <tr>
+                        <th>Price:</th>
+                        <td>${{ job.price }}</td>
+                    </tr>
+                    <tr>
+                        <th>Pickup Name:</th>
+                        <td>{{ pickup_name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Pickup Phone:</th>
+                        <td><a href="tel:{{ pickup_phone }}">{{ pickup_phone }}</a></td>
+                    </tr>
+                    <tr>
+                        <th>Pickup Address:</th>
+                        <td>{{ pickup_address }}</td>
+                    </tr>
+                    <tr>
+                        <th>Delivery Address:</th>
+                        <td>{{ delivery_address }}</td>
+                    </tr>
+                </table>
+            </div>
+            <p>Please feel free to check on the new job post and notify any available courier of the job. Thank you.</p>
+            <p><a href="{{ site_url }}" class="btn">Visit the website for more information.</a></p>
+            {% if job_image_url %}
+            <div class="job-image">
+                <img src="{{ job_image_url }}" alt="Job Image" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 5px;">
+            </div>
+            {% endif %}
+        </div>
+        <div class="email-footer">
+            <p><strong>Your all-time developer Gikuru Joseph Nderitu 😎</strong></p>
+            <strong>Regards, <b>RIFT-VALLEY CARRIER</b></strong>
+        </div>
+    </div>
+</body>
+</html>
