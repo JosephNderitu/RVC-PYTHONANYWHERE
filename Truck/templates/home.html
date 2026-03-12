@@ -2,6 +2,7 @@
 {% block content %}
 {% load static %}
 <link rel="stylesheet" href="{% static "css/styles.css" %}">
+<meta name="google-site-verification" content="CVYE_GiiMoFZFSV9FcutWwlx3pamGv-vyTRblFMc-LI" />
 
 
 
@@ -30,7 +31,7 @@
                         <u><h3 class="card-title text-danger" style="font-style: italic; font-family: 'Times New Roman', Times, serif; font-weight: bold; display: inline-block; vertical-align: middle;">CUSTOMER PAGE</h3></u>
                     </div>
                     <br>
-                    
+
                     <h5 class="card-title">Customer</h5>
                     <p class="card-text">Explore our services tailored for efficient parcel handling and logistics management.</p>
                     <p class="card-text">As a customer, ensure accurate parcel information and adhere to scheduled pickup and delivery times. Failure to provide accurate details or repeated cancellations may affect service availability.</p>
@@ -64,7 +65,7 @@
                         Join our courier network for reliable delivery services. Couriers must assess their availability and capability responsibly. <br><br>
                         Upholding high service standards is crucial; failure to do so may cause disruptions, affect customer satisfaction, and result in legal action or contract termination.
                     </p>
-                    
+
 
                     {% if not request.user.is_authenticated %}
                     <div class="container mt-5">
@@ -87,8 +88,6 @@
     </div>
 </div>
 
-
-
         <!-- Trucks Section -->
         <section id="trucks" class="py-5 bg-light">
             <div class="container">
@@ -96,7 +95,7 @@
                 <div class="row">
                     {% for truck in trucks %}
                     <div class="col-md-4 mb-4">
-                        <div class="card border-0 shadow-sm">
+                        <div class="card border-0 shadow-sm" style="height: 100%;">
                             <img src="{{ truck.image.url }}" class="card-img-top" alt="{{ truck.name }}" style="width: 100%; height: 300px; object-fit: cover;">
                             <div class="card-body">
                                 <h5 class="card-title text-center">{{ truck.name }}</h5>
@@ -108,17 +107,17 @@
                 </div>
             </div>
         </section>
-        
+
         <!-- Services Section -->
         <!-- Similar structure for Services and Workers -->
         <!-- Services Section -->
-        <section id="services" class="py-5 bg-light">
+        <section id="services" class="py-5 bg-secondary">
             <div class="container">
                 <h2 class="text-center mb-5">Our Services</h2>
                 <div class="row">
                     {% for service in services %}
                     <div class="col-lg-4 mb-4">
-                        <div class="card border-0 shadow-sm">
+                        <div class="card border-0 shadow-sm" style="height: 100%;">
                             <img src="{{ service.image.url }}" class="card-img-top rounded" alt="{{ service.title }}" style="height: 200px; object-fit: cover;">
                             <div class="card-body text-center">
                                 <h5 class="card-title">{{ service.title }}</h5>
@@ -130,208 +129,1319 @@
                 </div>
             </div>
         </section>
-        
+
         <!-- Workers Section -->
-        <section id="workers" class="py-5">
+        <section id="team" class="team-section">
+            <div class="team-background-overlay"></div>
             <div class="container">
-                <h2 class="text-center mb-5">Our Team</h2>
-                <div class="row">
+                <div class="section-header" data-aos="fade-up">
+                    <span class="section-subtitle">The People Behind Our Success</span>
+                    <h2 class="section-title">Meet Our Talented Team</h2>
+                    <div class="title-underline"></div>
+                </div>
+
+                <div class="team-grid">
                     {% for worker in workers %}
-                    <div class="col-lg-3 mb-4">
-                        <div class="card border-0 shadow-sm">
-                            <img src="{{ worker.image.url }}" class="card-img-top rounded-circle" alt="{{ worker.name }}" style="width: 200px; height: 200px; object-fit: cover;">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">{{ worker.name }}</h5>
-                                <p class="card-text">{{ worker.job_title }}</p>
-                                <p class="card-text">{{ worker.description }}</p>
+                    <div class="team-member-card" data-aos="fade-up" data-aos-delay="{{ forloop.counter0 }}00">
+                        <div class="member-image-wrapper">
+                            <div class="member-shape"></div>
+                            <img src="{{ worker.image.url }}" alt="{{ worker.name }}" class="member-image">
+                            <div class="member-social">
+                                <a href="#" class="member-social-icon" aria-label="LinkedIn">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                                    </svg>
+                                </a>
+                                <a href="#" class="member-social-icon" aria-label="Twitter">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
+                                    </svg>
+                                </a>
                             </div>
+                        </div>
+                        <div class="member-details">
+                            <h3 class="member-name">{{ worker.name }}</h3>
+                            <span class="member-title">{{ worker.job_title }}</span>
+                            <div class="member-divider"></div>
+                            <p class="member-bio">{{ worker.description }}</p>
+                        </div>
+                        <div class="member-hover-content">
+                            <div class="member-expertise">
+                                <span class="expertise-label">Core Skills</span>
+                                <div class="expertise-tags">
+                                    <span class="expertise-tag">Leadership</span>
+                                    <span class="expertise-tag">Innovation</span>
+                                    <span class="expertise-tag">Teamwork</span>
+                                </div>
+                            </div>
+                            <a href="#contact" class="connect-link">Contact {{ worker.name.split.0 }}</a>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
             </div>
         </section>
-        
-        <!-- Owner Section -->
-        <section id="owner" class="py-5">
-            <div class="container">
-                <h2 class="text-center mb-5">Meet the Founder</h2>
-                <div class="row">
-                    <div class="col-md-6 mx-auto">
-                        <div class="card border-0 text-center" style="box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);">
-                            <img src="{{ owner.image.url }}" class="card-img-top rounded-circle mx-auto mt-3" alt="Owner" style="width: 200px; height: 200px;">
-                            <div class="card-body">
-                                <h4 class="card-title">{{ owner.name }}</h4>
-                                <p class="card-text text-muted">{{ owner.job_title }}</p>
-                                <p class="card-text">{{ owner.description }}</p>
+
+        <style>
+        /* Team Section Styles */
+        .team-section {
+            position: relative;
+            padding: 110px 0;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            overflow: hidden;
+        }
+
+        .team-background-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                radial-gradient(circle at 20% 10%, rgba(67, 97, 238, 0.03) 0%, transparent 20%),
+                radial-gradient(circle at 80% 80%, rgba(114, 9, 183, 0.03) 0%, transparent 20%),
+                radial-gradient(circle at 50% 50%, rgba(67, 97, 238, 0.05) 0%, transparent 40%);
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-subtitle {
+            display: inline-block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #4361ee;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            position: relative;
+            padding: 0 10px;
+        }
+
+        .section-subtitle:before,
+        .section-subtitle:after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            width: 30px;
+            height: 1px;
+            background: #4361ee;
+        }
+
+        .section-subtitle:before {
+            left: -30px;
+        }
+
+        .section-subtitle:after {
+            right: -30px;
+        }
+
+        .section-title {
+            font-size: 40px;
+            font-weight: 700;
+            color: #212529;
+            margin-bottom: 20px;
+        }
+
+        .title-underline {
+            width: 80px;
+            height: 4px;
+            background: linear-gradient(90deg, #4361ee, #7209b7);
+            margin: 0 auto;
+            border-radius: 4px;
+        }
+
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .team-member-card {
+            background-color: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+            transition: all 0.4s ease;
+            position: relative;
+            height: 420px;
+        }
+
+        .team-member-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(67, 97, 238, 0.15);
+        }
+
+        .member-image-wrapper {
+            position: relative;
+            height: 220px;
+            background: linear-gradient(135deg, #4361ee, #7209b7);
+            overflow: hidden;
+        }
+
+        .member-shape {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 40%;
+            background-color: white;
+            clip-path: polygon(0 100%, 100% 100%, 100% 0);
+        }
+
+        .member-image {
+            width: 160px;
+            height: 160px;
+            object-fit: cover;
+            border-radius: 50%;
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid white;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            transition: all 0.4s ease;
+        }
+
+        .team-member-card:hover .member-image {
+            transform: translateX(-50%) scale(1.05);
+        }
+
+        .member-social {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.4s ease;
+        }
+
+        .team-member-card:hover .member-social {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .member-social-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            background: white;
+            color: #4361ee;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .member-social-icon:hover {
+            background: #4361ee;
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(67, 97, 238, 0.2);
+        }
+
+        .member-details {
+            padding: 25px 20px;
+            text-align: center;
+        }
+
+        .member-name {
+            font-size: 22px;
+            font-weight: 700;
+            color: #212529;
+            margin-bottom: 5px;
+        }
+
+        .member-title {
+            font-size: 14px;
+            color: #4361ee;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 12px;
+        }
+
+        .member-divider {
+            width: 40px;
+            height: 3px;
+            background: linear-gradient(90deg, #4361ee, #7209b7);
+            margin: 0 auto 15px;
+            border-radius: 4px;
+        }
+
+        .member-bio {
+            font-size: 14px;
+            line-height: 1.7;
+            color: #6c757d;
+            margin: 0;
+            /* Remove these to show full text */
+            /* display: -webkit-box; */
+            /* -webkit-line-clamp: 3; */
+            /* -webkit-box-orient: vertical; */
+            /* overflow: hidden; */
+        }
+
+
+        .member-hover-content {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 25px 20px;
+            background: linear-gradient(0deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.95) 80%, rgba(255, 255, 255, 0) 100%);
+            opacity: 0;
+            transform: translateY(100%);
+            transition: all 0.4s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .team-member-card:hover .member-hover-content {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .member-expertise {
+            text-align: center;
+        }
+
+        .expertise-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #212529;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .expertise-tags {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .expertise-tag {
+            font-size: 11px;
+            font-weight: 500;
+            padding: 4px 10px;
+            background: rgba(67, 97, 238, 0.1);
+            color: #4361ee;
+            border-radius: 30px;
+        }
+
+        .connect-link {
+            display: inline-block;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #4361ee, #7209b7);
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            border-radius: 50px;
+            text-align: center;
+            margin: 0 auto;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 15px rgba(67, 97, 238, 0.2);
+        }
+
+        .connect-link:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(67, 97, 238, 0.3);
+        }
+
+        /* Responsive Styles */
+        @media (max-width: 991px) {
+            .team-section {
+                padding: 90px 0;
+            }
+
+            .section-title {
+                font-size: 36px;
+            }
+
+            .team-grid {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 25px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .team-section {
+                padding: 70px 0;
+            }
+
+            .section-title {
+                font-size: 32px;
+            }
+
+            .member-name {
+                font-size: 20px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .team-section {
+                padding: 60px 0;
+            }
+
+            .section-subtitle {
+                font-size: 12px;
+            }
+
+            .section-title {
+                font-size: 28px;
+            }
+
+            .team-grid {
+                grid-template-columns: 1fr;
+                max-width: 320px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+        }
+
+        /* Animation Classes for AOS library */
+        [data-aos] {
+            opacity: 0;
+            transition-property: opacity, transform;
+        }
+
+        [data-aos].aos-animate {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        [data-aos="fade-up"] {
+            transform: translateY(50px);
+        }
+        </style>
+
+        <!-- AOS Animation Library (Include if not already added to your page) -->
+        <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+        <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                // Initialize AOS animation
+                AOS.init({
+                    duration: 800,
+                    once: true,
+                    offset: 100
+                });
+            });
+        </script>
+
+       <!-- Founder Section -->
+        <section id="founder" class="founder-section">
+            <div class="founder-background-overlay"></div>
+            <div class="founder-content container">
+                <div class="section-header" data-aos="fade-up">
+                    <span class="section-subtitle">Visionary Leadership</span>
+                    <h2 class="section-title">Meet Our Founder</h2>
+                    <div class="title-underline"></div>
+                </div>
+
+                <div class="founder-wrapper">
+                    <div class="founder-card" data-aos="fade-up" data-aos-delay="200">
+                        <div class="founder-image-container">
+                            <div class="founder-shape"></div>
+                            <div class="founder-image">
+                                <img src="{{ owner.image.url }}" alt="{{ owner.name }}" class="founder-portrait">
+                                <div class="founder-social">
+                                    <a href="#" class="social-icon" aria-label="LinkedIn">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                                        </svg>
+                                    </a>
+                                    <a href="#" class="social-icon" aria-label="Twitter">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
+                                        </svg>
+                                    </a>
+                                    <a href="#" class="social-icon" aria-label="Instagram">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                                        </svg>
+                                    </a>
+                                </div>
                             </div>
-                        </div>                    
+                        </div>
+
+                        <div class="founder-details" data-aos="fade-up" data-aos-delay="400">
+                            <div class="founder-bio">
+                                <div class="founder-name-title">
+                                    <h3 class="founder-name">{{ owner.name }}</h3>
+                                    <span class="founder-title">{{ owner.job_title }}</span>
+                                </div>
+
+                                <div class="founder-quote">
+                                    <svg class="quote-icon" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M13 14.725c0-5.141 3.892-10.519 10-11.725l.984 2.126c-2.215.835-4.163 3.742-4.38 5.746 2.491.392 4.396 2.547 4.396 5.149 0 3.182-2.584 4.979-5.199 4.979-3.015 0-5.801-2.305-5.801-6.275zm-13 0c0-5.141 3.892-10.519 10-11.725l.984 2.126c-2.215.835-4.163 3.742-4.38 5.746 2.491.392 4.396 2.547 4.396 5.149 0 3.182-2.584 4.979-5.199 4.979-3.015 0-5.801-2.305-5.801-6.275z"/>
+                                    </svg>
+                                    <p class="founder-description">{{ owner.description }}</p>
+                                </div>
+
+                                <div class="founder-achievements">
+                                    <div class="achievement">
+                                        <span class="achievement-number">10+</span>
+                                        <span class="achievement-label">Years Experience</span>
+                                    </div>
+                                    <div class="achievement">
+                                        <span class="achievement-number">50+</span>
+                                        <span class="achievement-label">Major Projects</span>
+                                    </div>
+                                    <div class="achievement">
+                                        <span class="achievement-number">3</span>
+                                        <span class="achievement-label">Industry Awards</span>
+                                    </div>
+                                </div>
+
+                                <a href="#contact" class="connect-button">Connect With Me</a>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </section>
 
-
-<!-- Job Statistics Section -->
-<section id="job-stats" class="py-5 bg-light">
-    <div class="container">
-        <h2 class="text-center mb-5">Job Statistics</h2>
-        <p class="text-center text-muted mb-4">Our performance metrics reflect the dedication and hard work of our team. Here are the latest statistics:</p>
-        <div class="row text-center">
-            <div class="col-md-4 mb-4">
-                <div class="circle-stat slide-in">
-                    <h5 class="text-success">Successful Jobs</h5>
-                    <p id="successful-jobs" class="text-dark">0</p>
-                    <small class="text-danger" style="font: 1.1em sans-serif;">Completed jobs that met all criteria.</small>
-                </div>
-            </div>
-            <div class="col-md-4 mb-4">
-                <div class="circle-stat slide-in">
-                    <h5 class="text-primary">Total Jobs Posted</h5>
-                    <p id="total-jobs" class="text-dark">0</p>
-                    <small class="text-danger" style="font: 1.1em sans-serif;">All jobs posted to date.</small>
-                </div>
-            </div>
-            <div class="col-md-4 mb-4">
-                <div class="circle-stat slide-in">
-                    <h5 class="text-info">Couriers in Team</h5>
-                    <p id="total-couriers" class="text-dark">0</p>
-                    <small class="text-danger" style="font: 1.1em sans-serif;">Total couriers currently in our team.</small>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<style>
-    .circle-stat {
-        background-color: #ffffff;
-        border-radius: 50%;
-        padding: 30px;
-        margin-bottom: 20px;
-        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .circle-stat:hover {
-        transform: translateY(-10px);
-        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
-        background-color: black;
-    }
-
-    .circle-stat:before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: linear-gradient(135deg, rgba(0, 123, 255, 0.2), rgba(255, 255, 255, 0));
-        transition: all 0.5s ease;
-        z-index: 0;
-    }
-
-    .circle-stat:hover:before {
-        top: -30%;
-        left: -30%;
-    }
-
-    .circle-stat h5 {
-        font-size: 20px;
-        font-weight: 700;
-        margin-bottom: 10px;
-        color: #333;
-        position: relative;
-        z-index: 1;
-        transition: color 0.3s ease;
-    }
-
-    .circle-stat:hover h5 {
-        color: #000;
-    }
-
-    .circle-stat p {
-        font-size: 26px;
-        font-weight: 700;
-        margin: 0;
-        color: #007bff;
-        position: relative;
-        z-index: 1;
-        transition: color 0.3s ease;
-    }
-
-    .circle-stat:hover p {
-        color: #0056b3;
-    }
-
-    .circle-stat small {
-        display: block;
-        font-size: 14px;
-        color: #666666;
-        margin-top: 10px;
-        position: relative;
-        z-index: 1;
-        transition: color 0.3s ease;
-    }
-
-    .circle-stat:hover small {
-        color: #444;
-    }
-
-    @media (max-width: 768px) {
-        .circle-stat {
-            margin-bottom: 20px;
-        }
-    }
-
-    .slide-in {
-        opacity: 0;
-        transform: translateX(-50px);
-        transition: all 0.5s ease-out;
-    }
-
-    .slide-in.visible {
-        opacity: 1;
-        transform: translateX(0);
-    }
-</style>
-
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-    function fetchStats() {
-        $.ajax({
-            url: "{% url 'fetch_stats' %}",
-            method: "GET",
-            success: function(data) {
-                $('#total-jobs').text(data.total_jobs);
-                $('#successful-jobs').text(data.successful_jobs);
-                $('#total-couriers').text(data.total_couriers);
-            },
-            error: function(error) {
-                console.error("Error fetching stats:", error);
+        <style>
+            /* Founder Section Styles */
+            .founder-section {
+                position: relative;
+                padding: 120px 0;
+                overflow: hidden;
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
             }
-        });
-    }
 
-    function checkVisibility() {
-        $('.slide-in').each(function() {
-            var elementTop = $(this).offset().top;
-            var viewportBottom = $(window).scrollTop() + $(window).height();
-
-            if (elementTop < viewportBottom) {
-                $(this).addClass('visible');
+            .founder-background-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-image:
+                    radial-gradient(circle at 10% 20%, rgba(0, 123, 255, 0.03) 0%, transparent 20%),
+                    radial-gradient(circle at 90% 80%, rgba(0, 123, 255, 0.03) 0%, transparent 20%),
+                    radial-gradient(circle at 50% 50%, rgba(0, 123, 255, 0.05) 0%, transparent 40%);
             }
-        });
-    }
 
-    $(document).ready(function() {
-        fetchStats();
-        setInterval(fetchStats, 30000); // Update every 30 seconds
-        $(window).on('scroll', checkVisibility);
-        checkVisibility(); // Initial check
-    });
-</script>
- 
+            .founder-content {
+                position: relative;
+                z-index: 10;
+            }
+
+            .section-header {
+                text-align: center;
+                margin-bottom: 60px;
+            }
+
+            .section-subtitle {
+                display: inline-block;
+                font-size: 14px;
+                font-weight: 600;
+                color: #4361ee;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+                margin-bottom: 10px;
+                position: relative;
+                padding: 0 10px;
+            }
+
+            .section-subtitle:before,
+            .section-subtitle:after {
+                content: "";
+                position: absolute;
+                top: 50%;
+                width: 30px;
+                height: 1px;
+                background: #4361ee;
+            }
+
+            .section-subtitle:before {
+                left: -30px;
+            }
+
+            .section-subtitle:after {
+                right: -30px;
+            }
+
+            .section-title {
+                font-size: 42px;
+                font-weight: 700;
+                color: #212529;
+                margin-bottom: 20px;
+            }
+
+            .title-underline {
+                width: 80px;
+                height: 4px;
+                background: linear-gradient(90deg, #4361ee, #7209b7);
+                margin: 0 auto;
+                border-radius: 4px;
+            }
+
+            .founder-wrapper {
+                max-width: 1100px;
+                margin: 0 auto;
+            }
+
+            .founder-card {
+                display: flex;
+                background-color: white;
+                border-radius: 20px;
+                box-shadow: 0 30px 60px rgba(0, 0, 0, 0.08);
+                overflow: hidden;
+                transition: all 0.4s ease;
+            }
+
+            .founder-card:hover {
+                transform: translateY(-10px);
+                box-shadow: 0 40px 70px rgba(0, 0, 0, 0.12);
+            }
+
+            .founder-image-container {
+                position: relative;
+                width: 40%;
+                min-height: 550px;
+                background: linear-gradient(135deg, #4361ee, #7209b7);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+            }
+
+            .founder-shape {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+                clip-path: polygon(0 0, 100% 0, 70% 100%, 0% 100%);
+            }
+
+            .founder-image {
+                position: relative;
+                z-index: 10;
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .founder-portrait {
+                width: 85%;
+                height: auto;
+                object-fit: cover;
+                border-radius: 10px;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+                transition: all 0.4s ease;
+            }
+
+            .founder-card:hover .founder-portrait {
+                transform: scale(1.03);
+            }
+
+            .founder-social {
+                position: absolute;
+                bottom: 30px;
+                left: 50%;
+                transform: translateX(-50%);
+                display: flex;
+                gap: 15px;
+                z-index: 20;
+            }
+
+            .social-icon {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 40px;
+                height: 40px;
+                background: white;
+                color: #4361ee;
+                border-radius: 50%;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            }
+
+            .social-icon:hover {
+                transform: translateY(-5px);
+                background: #4361ee;
+                color: white;
+                box-shadow: 0 8px 16px rgba(67, 97, 238, 0.2);
+            }
+
+            .founder-details {
+                width: 60%;
+                padding: 50px;
+            }
+
+            .founder-bio {
+                display: flex;
+                flex-direction: column;
+                height: 100%;
+            }
+
+            .founder-name-title {
+                margin-bottom: 30px;
+            }
+
+            .founder-name {
+                font-size: 32px;
+                font-weight: 700;
+                color: #212529;
+                margin-bottom: 10px;
+            }
+
+            .founder-title {
+                font-size: 18px;
+                color: #4361ee;
+                font-weight: 500;
+                display: block;
+            }
+
+            .founder-quote {
+                position: relative;
+                margin-bottom: 40px;
+            }
+
+            .quote-icon {
+                position: absolute;
+                top: -20px;
+                left: -10px;
+                opacity: 0.1;
+                color: #212529;
+                transform: scaleX(-1);
+            }
+
+            .founder-description {
+                font-size: 16px;
+                line-height: 1.8;
+                color: #495057;
+                position: relative;
+                z-index: 5;
+            }
+
+            .founder-achievements {
+                display: flex;
+                justify-content: space-between;
+                margin: 30px 0;
+            }
+
+            .achievement {
+                text-align: center;
+                padding: 0 15px;
+            }
+
+            .achievement-number {
+                display: block;
+                font-size: 42px;
+                font-weight: 700;
+                color: #4361ee;
+                margin-bottom: 5px;
+            }
+
+            .achievement-label {
+                font-size: 14px;
+                color: #6c757d;
+            }
+
+            .connect-button {
+                display: inline-block;
+                padding: 14px 32px;
+                background: linear-gradient(135deg, #4361ee, #7209b7);
+                color: white;
+                text-decoration: none;
+                font-weight: 600;
+                border-radius: 50px;
+                box-shadow: 0 10px 20px rgba(67, 97, 238, 0.3);
+                transition: all 0.3s ease;
+                text-align: center;
+                margin-top: auto;
+                align-self: flex-start;
+            }
+
+            .connect-button:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 15px 30px rgba(67, 97, 238, 0.4);
+            }
+
+            /* Responsive Styles */
+            @media (max-width: 991px) {
+                .founder-card {
+                    flex-direction: column;
+                }
+
+                .founder-image-container {
+                    width: 100%;
+                    min-height: 400px;
+                }
+
+                .founder-details {
+                    width: 100%;
+                    padding: 40px 30px;
+                }
+
+                .founder-social {
+                    left: auto;
+                    right: 30px;
+                    bottom: auto;
+                    top: 30px;
+                    transform: none;
+                }
+
+                .founder-achievements {
+                    flex-wrap: wrap;
+                    gap: 20px;
+                }
+
+                .achievement {
+                    flex: 1 0 30%;
+                }
+            }
+
+            @media (max-width: 768px) {
+                .founder-section {
+                    padding: 80px 0;
+                }
+
+                .section-title {
+                    font-size: 32px;
+                }
+
+                .founder-name {
+                    font-size: 28px;
+                }
+
+                .achievement-number {
+                    font-size: 32px;
+                }
+            }
+
+            @media (max-width: 576px) {
+                .founder-image-container {
+                    min-height: 350px;
+                }
+
+                .founder-achievements {
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 20px;
+                }
+
+                .achievement {
+                    width: 100%;
+                }
+
+                .connect-button {
+                    width: 100%;
+                }
+            }
+
+            /* Animation Classes for AOS library */
+            [data-aos] {
+                opacity: 0;
+                transition-property: opacity, transform;
+            }
+
+            [data-aos].aos-animate {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            [data-aos="fade-up"] {
+                transform: translateY(50px);
+            }
+        </style>
+
+        <!-- AOS Animation Library (add to your page if not already included) -->
+        <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+        <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                // Initialize AOS animation
+                AOS.init({
+                    duration: 800,
+                    once: true,
+                    offset: 100
+                });
+            });
+        </script>
+
+
+        <!-- Job Statistics Section -->
+        <section id="job-stats" class="py-5">
+            <div class="container">
+                <div class="stats-header text-center mb-5">
+                    <h2 class="display-4 fw-bold">Performance Dashboard</h2>
+                    <div class="header-underline"></div>
+                    <p class="lead text-muted mt-3">Our real-time metrics showcase our commitment to excellence</p>
+                </div>
+
+                <div class="stats-container">
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <div class="stat-card success-card">
+                                <div class="stat-icon">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                                    </svg>
+                                </div>
+                                <div class="stat-content">
+                                    <h3 class="stat-title">Successful Jobs</h3>
+                                    <div class="stat-number" id="successful-jobs">0</div>
+                                    <div class="stat-progress">
+                                        <div class="progress-bar success-progress" id="success-progress"></div>
+                                    </div>
+                                    <p class="stat-description">Completed jobs meeting all quality standards</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="stat-card primary-card">
+                                <div class="stat-icon">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2zm15 0a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2z"/>
+                                        <path d="M5.5 4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm8 8a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm-4-4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                                    </svg>
+                                </div>
+                                <div class="stat-content">
+                                    <h3 class="stat-title">Total Jobs</h3>
+                                    <div class="stat-number" id="total-jobs">0</div>
+                                    <div class="stat-progress">
+                                        <div class="progress-bar primary-progress" id="total-progress"></div>
+                                    </div>
+                                    <p class="stat-description">All jobs posted on our platform to date</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="stat-card info-card">
+                                <div class="stat-icon">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                                        <path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/>
+                                        <path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
+                                    </svg>
+                                </div>
+                                <div class="stat-content">
+                                    <h3 class="stat-title">Couriers in Team</h3>
+                                    <div class="stat-number" id="total-couriers">0</div>
+                                    <div class="stat-progress">
+                                        <div class="progress-bar info-progress" id="courier-progress"></div>
+                                    </div>
+                                    <p class="stat-description">Professional couriers delivering excellence</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="update-notification">
+                    <div class="update-badge">
+                        <span class="update-pulse"></span>
+                        <span class="update-text">Live Stats</span>
+                    </div>
+                    <p class="text-muted">Data refreshes automatically every 30 seconds</p>
+                </div>
+            </div>
+        </section>
+
+        <style>
+            /* Modern Color Palette */
+            :root {
+                --primary: #4361ee;
+                --primary-light: #4895ef;
+                --primary-dark: #3a0ca3;
+                --success: #4cc9f0;
+                --success-light: #80ffdb;
+                --success-dark: #0096c7;
+                --info: #f72585;
+                --info-light: #ff758f;
+                --info-dark: #b5179e;
+                --dark: #2b2d42;
+                --light: #f8f9fa;
+                --gradient-primary: linear-gradient(135deg, var(--primary), var(--primary-light));
+                --gradient-success: linear-gradient(135deg, var(--success), var(--success-light));
+                --gradient-info: linear-gradient(135deg, var(--info), var(--info-light));
+                --shadow-sm: 0 .125rem .25rem rgba(0,0,0,.075);
+                --shadow: 0 .5rem 1rem rgba(0,0,0,.15);
+                --shadow-lg: 0 1rem 3rem rgba(0,0,0,.175);
+            }
+
+            /* Base Styles */
+            #job-stats {
+                background: linear-gradient(135deg, #f6f9fc, #edf2f7);
+                position: relative;
+                overflow: hidden;
+            }
+
+            #job-stats::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%232b2d42' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E");
+                z-index: 0;
+            }
+
+            .stats-header {
+                position: relative;
+                z-index: 1;
+            }
+
+            .header-underline {
+                height: 4px;
+                width: 80px;
+                background: var(--gradient-primary);
+                margin: 0 auto;
+                border-radius: 2px;
+            }
+
+            .stats-container {
+                position: relative;
+                z-index: 1;
+            }
+
+            /* Stat Cards */
+            .stat-card {
+                background: white;
+                border-radius: 16px;
+                overflow: hidden;
+                box-shadow: var(--shadow);
+                transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+                position: relative;
+                z-index: 1;
+                padding: 2rem;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                transform: translateY(0);
+                opacity: 0;
+                animation: fadeIn 0.8s forwards;
+            }
+
+            .stat-card::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 6px;
+                z-index: 1;
+            }
+
+            .stat-card.success-card::before {
+                background: var(--gradient-success);
+            }
+
+            .stat-card.primary-card::before {
+                background: var(--gradient-primary);
+            }
+
+            .stat-card.info-card::before {
+                background: var(--gradient-info);
+            }
+
+            .stat-card:hover {
+                transform: translateY(-10px);
+                box-shadow: var(--shadow-lg);
+            }
+
+            .stat-card:nth-child(1) {
+                animation-delay: 0.1s;
+            }
+
+            .stat-card:nth-child(2) {
+                animation-delay: 0.3s;
+            }
+
+            .stat-card:nth-child(3) {
+                animation-delay: 0.5s;
+            }
+
+            .stat-icon {
+                position: relative;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 80px;
+                height: 80px;
+                border-radius: 50%;
+                margin-bottom: 1.5rem;
+                color: white;
+                transition: all 0.3s ease;
+            }
+
+            .success-card .stat-icon {
+                background: var(--gradient-success);
+                box-shadow: 0 10px 20px rgba(76, 201, 240, 0.3);
+            }
+
+            .primary-card .stat-icon {
+                background: var(--gradient-primary);
+                box-shadow: 0 10px 20px rgba(67, 97, 238, 0.3);
+            }
+
+            .info-card .stat-icon {
+                background: var(--gradient-info);
+                box-shadow: 0 10px 20px rgba(247, 37, 133, 0.3);
+            }
+
+            .stat-card:hover .stat-icon {
+                transform: scale(1.1) rotate(10deg);
+            }
+
+            .stat-content {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .stat-title {
+                font-size: 1.25rem;
+                font-weight: 600;
+                margin-bottom: 0.5rem;
+                color: var(--dark);
+            }
+
+            .stat-number {
+                font-size: 3rem;
+                font-weight: 700;
+                margin-bottom: 1rem;
+                transition: all 0.3s ease;
+                position: relative;
+            }
+
+            .success-card .stat-number {
+                color: var(--success-dark);
+            }
+
+            .primary-card .stat-number {
+                color: var(--primary-dark);
+            }
+
+            .info-card .stat-number {
+                color: var(--info-dark);
+            }
+
+            .stat-card:hover .stat-number {
+                transform: scale(1.05);
+            }
+
+            .stat-progress {
+                width: 100%;
+                height: 6px;
+                background-color: #e9ecef;
+                border-radius: 3px;
+                margin-bottom: 1rem;
+                overflow: hidden;
+            }
+
+            .progress-bar {
+                height: 100%;
+                width: 0;
+                border-radius: 3px;
+                transition: width 1.5s ease-in-out;
+            }
+
+            .success-progress {
+                background: var(--gradient-success);
+            }
+
+            .primary-progress {
+                background: var(--gradient-primary);
+            }
+
+            .info-progress {
+                background: var(--gradient-info);
+            }
+
+            .stat-description {
+                color: #6c757d;
+                font-size: 0.9rem;
+                margin-top: auto;
+            }
+
+            /* Update Notification */
+            .update-notification {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+                margin-top: 3rem;
+            }
+
+            .update-badge {
+                display: inline-flex;
+                align-items: center;
+                background: rgba(43, 45, 66, 0.05);
+                padding: 0.5rem 1rem;
+                border-radius: 50px;
+                margin-bottom: 0.5rem;
+            }
+
+            .update-pulse {
+                display: inline-block;
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                background: #10b981;
+                margin-right: 8px;
+                position: relative;
+            }
+
+            .update-pulse::after {
+                content: "";
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                border-radius: 50%;
+                background: rgba(16, 185, 129, 0.6);
+                animation: pulse 2s infinite;
+            }
+
+            .update-text {
+                font-weight: 600;
+                color: var(--dark);
+                font-size: 0.9rem;
+            }
+
+            /* Animations */
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            @keyframes pulse {
+                0% {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+                100% {
+                    transform: scale(2.5);
+                    opacity: 0;
+                }
+            }
+
+            /* Responsive Design */
+            @media (max-width: 768px) {
+                .stat-card {
+                    padding: 1.5rem;
+                    margin-bottom: 1.5rem;
+                }
+
+                .stat-icon {
+                    width: 60px;
+                    height: 60px;
+                }
+
+                .stat-icon svg {
+                    width: 30px;
+                    height: 30px;
+                }
+
+                .stat-number {
+                    font-size: 2.5rem;
+                }
+            }
+        </style>
+
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script>
+            function fetchStats() {
+                $.ajax({
+                    url: "{% url 'fetch_stats' %}",
+                    method: "GET",
+                    success: function(data) {
+                        // Update numbers with animation
+                        animateNumber('total-jobs', data.total_jobs);
+                        animateNumber('successful-jobs', data.successful_jobs);
+                        animateNumber('total-couriers', data.total_couriers);
+
+                        // Update progress bars
+                        const maxValue = Math.max(data.total_jobs, data.successful_jobs, data.total_couriers);
+
+                        // Set progress bar widths with animation
+                        $("#success-progress").css('width', (data.successful_jobs / maxValue * 100) + '%');
+                        $("#total-progress").css('width', (data.total_jobs / maxValue * 100) + '%');
+                        $("#courier-progress").css('width', (data.total_couriers / maxValue * 100) + '%');
+                    },
+                    error: function(error) {
+                        console.error("Error fetching stats:", error);
+                    }
+                });
+            }
+
+            function animateNumber(elementId, targetValue) {
+                const $element = $(`#${elementId}`);
+                const startValue = parseInt($element.text()) || 0;
+                const duration = 1500;
+                const frameRate = 60;
+                const increment = (targetValue - startValue) / (duration / (1000 / frameRate));
+
+                let currentValue = startValue;
+                const timer = setInterval(() => {
+                    currentValue += increment;
+                    if ((increment > 0 && currentValue >= targetValue) ||
+                        (increment < 0 && currentValue <= targetValue)) {
+                        clearInterval(timer);
+                        $element.text(targetValue);
+                    } else {
+                        $element.text(Math.round(currentValue));
+                    }
+                }, 1000 / frameRate);
+            }
+
+            // Check if element is in viewport
+            function isInViewport(element) {
+                const rect = element.getBoundingClientRect();
+                return (
+                    rect.top <= (window.innerHeight || document.documentElement.clientHeight) &&
+                    rect.bottom >= 0
+                );
+            }
+
+            // Handle animations on scroll
+            function handleScrollAnimations() {
+                const cards = document.querySelectorAll('.stat-card');
+                cards.forEach(card => {
+                    if (isInViewport(card) && !card.classList.contains('animated')) {
+                        card.style.opacity = "1";
+                        card.classList.add('animated');
+                    }
+                });
+            }
+
+            $(document).ready(function() {
+                // Initial fetch
+                fetchStats();
+
+                // Update every 30 seconds
+                setInterval(fetchStats, 30000);
+
+                // Handle animations on scroll
+                window.addEventListener('scroll', handleScrollAnimations);
+                handleScrollAnimations(); // Initial check
+            });
+        </script>
+
 {% endblock %}

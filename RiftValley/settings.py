@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 import os
 from pathlib import Path
 
+from whitenoise.storage import CompressedManifestStaticFilesStorage
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -25,7 +27,7 @@ SECRET_KEY = 'django-insecure-019yyjws5m8cc+$8x**(+$#k0)$!jug=+h2rvb#p5e3ee6ecy=
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*','https://6e64-102-213-251-138.ngrok-free.app/']
+ALLOWED_HOSTS = ['RiftValleyCarrier.pythonanywhere.com']
 
 
 # Application definition
@@ -45,6 +47,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -53,6 +56,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'Truck.middleware.ProfileMiddleware',
 ]
+
 
 ROOT_URLCONF = 'RiftValley.urls'
 
@@ -122,22 +126,19 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = 'static/'
-
-# settings.py
-
-# Define the path to your static root directory
-#STATIC_ROOT = '/Users/gikur/HTMLdjangoProjects/LOGISTICS/RiftValley/RiftValley/Truck/static_root/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
-# Define the path to your additional static directory
+# Static files configuration
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Where collectstatic puts files
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'Truck/static'),
+    os.path.join(BASE_DIR, 'Truck/static'),  # Your app-specific static files
 ]
 
+# WhiteNoise configuration
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# Media files configuration
 MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
@@ -175,24 +176,24 @@ PAYPAL_CLIENT_SECRET = "ECzjHyP3wjj8xismmtBYgkGB72fo2gnug5dw7GZOOGpVkHEyYxzi7IFV
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-#Email configuration
+#Email setup codes for password reset
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'gikurujoseph53@gmail.com'
-EMAIL_HOST_PASSWORD = 'oegc obda mlfy oulv'
+EMAIL_HOST_PASSWORD = 'lsov xexn glub dixu'
 
 #email setup (invoice and job acceptance) to Customer and (job created) to owner.
 DEFAULT_FROM_EMAIL = 'gikurujoseph53@gmail.com'
 OWNER_EMAIL = 'joseph.gikuru@students.jkuat.ac.ke'
 
-NOTIFICATION_URL = "https://1208-102-213-251-138.ngrok-free.app/"
+NOTIFICATION_URL = "https://RiftValleyCarrier.pythonanywhere.com/"
 
 
 # List of trusted origins for CSRF protection
 CSRF_TRUSTED_ORIGINS = [
-    'https://6e64-102-213-251-138.ngrok-free.app',
+    'https://RiftValleyCarrier.pythonanywhere.com/',
     # Add any other ngrok URLs if necessary  running ngrok command./ngrok http 8000
 
 ]
