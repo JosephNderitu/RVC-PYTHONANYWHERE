@@ -1,312 +1,679 @@
 {% extends 'base.html' %}
-{% load static %} 
-
+{% load static %}
 {% load bootstrap4 %}
+
 {% block head %}
-
-
-<!--<script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAP_API_KEY }}&callback=initMap" async defer></script>
-<script async src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAP_API_KEY }}&libraries=places&callback=initMap"></script>
-<script async defer src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAP_API_KEY }}&libraries=places&callback=initMap"></script>-->
-
-
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+<style>
+  .map-wrapper {
+    position: relative;
+    width: 100%;
+    height: 320px;
+    margin-bottom: 8px;
+  }
+  .map-wrapper > div {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+  }
+  .autocomplete-wrapper { position: relative; }
+  .autocomplete-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    background: #fff;
+    border: 1px solid #ced4da;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 220px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,.12);
+    display: none;
+  }
+  .autocomplete-results.open { display: block; }
+  .autocomplete-item {
+    padding: 9px 12px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    line-height: 1.3;
+  }
+  .autocomplete-item:last-child { border-bottom: none; }
+  .autocomplete-item:hover,
+  .autocomplete-item.active { background: #fff3cd; }
+  .autocomplete-item .main-text { font-weight: 500; }
+  .autocomplete-item .sub-text  { font-size: 0.78rem; color: #6c757d; }
+  .autocomplete-loading {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-style: italic;
+  }
+  .coord-badge { font-size: 0.78rem; color: #6c757d; margin-bottom: 8px; min-height: 1.2em; }
+  .search-box  { margin-bottom: 10px; }
+
+  /* Address field locked state */
+  .address-locked {
+    background-color: #f8f9fa !important;
+    cursor: not-allowed !important;
+    color: #495057 !important;
+  }
+  .address-locked:focus { box-shadow: none !important; border-color: #ced4da !important; }
+
+  /* Pin confirmation badge */
+  .pin-confirmed {
+    display: inline-block;
+    background: #d4edda;
+    color: #155724;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 0.78rem;
+    margin-left: 6px;
+  }
+  .pin-unset {
+    display: inline-block;
+    background: #fff3cd;
+    color: #856404;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 0.78rem;
+  }
+</style>
 {% endblock %}
+
 {% block content %}
 <div class="container mt-4">
-    <div class="row">
-        <!---left col-->
-        <div class="col-lg-4">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    JOB SUMMARY
-                </div>
-                <div class="card-body">
-                    {% if not job %}
-                        <p class="text-muted">A summary of your job will appear here once you have submitted it.</p>
-                    {% else %}
-                        {% if step > 1 %}
-                            <h4>{{ job.names }}</h4>
-                            <p><b>Job:</b> {{ job.get_size_display }}</p>
-                            <p><b>Item:</b> {{ job.quantity }}</p>
-                            <p><b>Category:</b> {{ job.category }}</p>
-                            <p><b>Description:</b> {{ job.description }}</p>
-                            <p><b>Time Zone:</b> {{ job.created_at }}</p>
-                        {% else %}
-                            <p class="text-muted">A summary of your job will appear here once you have submitted it.</p>
-                        {% endif %}
-        
-                        {% if step > 2 %}
-                            <hr>
-                            <p class="text-secondary">
-                                <b>PICKUP</b>
-                            </p>
-                            <h4>{{ job.pickup_name }}</h4>
-                            <p><b>Pickup Address:</b> {{ job.pickup_address }}</p>
-                        {% endif %}
-        
-                        {% if step > 3 %}
-                            <hr>
-                            <p class="text-secondary">
-                                <b>DELIVERY</b>
-                            </p>
-                            <h4>{{ job.delivery_name }}</h4>
-                            <p><b>Delivery Address:</b> {{ job.delivery_address }}</p>
-                        {% endif %}
-                    {% endif %}
-                </div>
-            </div>
+  <div class="row">
+
+    <!-- Left: Job summary -->
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-header bg-primary text-white">JOB SUMMARY</div>
+        <div class="card-body">
+          {% if not job %}
+            <p class="text-muted">A summary of your job will appear once you submit it.</p>
+          {% else %}
+            {% if step > 1 %}
+              <h5>{{ job.names }}</h5>
+              <p><b>Size:</b> {{ job.get_size_display }}</p>
+              <p><b>Qty:</b>  {{ job.quantity }}</p>
+              <p><b>Category:</b> {{ job.category }}</p>
+              <p><b>Description:</b> {{ job.description }}</p>
+            {% else %}
+              <p class="text-muted">Fill in item details to see a summary.</p>
+            {% endif %}
+            {% if step > 2 %}
+              <hr>
+              <p class="text-secondary mb-1"><b>PICKUP</b></p>
+              <p class="mb-0">{{ job.pickup_name }}</p>
+              <small class="text-muted">{{ job.pickup_address }}</small>
+            {% endif %}
+            {% if step > 3 %}
+              <hr>
+              <p class="text-secondary mb-1"><b>DELIVERY</b></p>
+              <p class="mb-0">{{ job.delivery_name }}</p>
+              <small class="text-muted">{{ job.delivery_address }}</small>
+              <hr>
+              <p><b>Distance:</b> {{ job.distance }} km</p>
+              <p><b>Duration:</b> ~{{ job.duration }} min</p>
+              <p><b>Price:</b> KES {{ job.price }}</p>
+            {% endif %}
+          {% endif %}
         </div>
-        
-        
-        <!---right col-->
-        <div class="col-lg-8">
-            <!--steps tab-->
-            <div>
-                <div class="card-body">
-                    <ul class="nav nav-pills nav-justified align-items-center mb-3" id="pills-tab" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <a class="{% if step == 1 %}active{% endif %}" id="pills-info-tab" data-toggle="pill" href="#pills-info" role="tab"
-                                aria-controls="pills-info" aria-selected="true">Item Info</a>
-                        </li>
-                        <i class="fas fa-chevron-right"></i>
-                        <li class="nav-item" role="presentation">
-                            <a class="{% if step == 2 %}active{% endif %}" id="pills-pickup-tab" data-toggle="pill" href="#pills-pickup" role="tab"
-                                aria-controls="pills-pickup" aria-selected="false">Pickup</a>
-                        </li>
-                        <i class="fas fa-chevron-right"></i>
-                        <li class="nav-item" role="presentation">
-                            <a class="{% if step == 3 %}active{% endif %}" id="pills-delivery-tab" data-toggle="pill" href="#pills-delivery" role="tab"
-                                aria-controls="pills-delivery" aria-selected="false">Delivery</a>
-                        </li>
-                        
-                        <i class="fas fa-chevron-right"></i>
-                        <li class="nav-item" role="presentation">
-                            <a class="{% if step == 4 %}active{% endif %}" id="pills-payment-tab" data-toggle="pill" href="#pills-payment" role="tab"
-                                aria-controls="pills-payment" aria-selected="false">Payment</a>
-                        </li>
-                    </ul>
-
-                </div>
-            </div>
-            <!--Steps form-->
-            <b>CREATE A JOB</b>
-            <div class="tab-content" id="pills-tabContent">
-
-                <!--Step 1-->
-                <div class="tab-pane fade {% if step == 1 %}show active{% endif %}" id="pills-info" role="tabpanel"
-                    aria-labelledby="pills-info-tab">
-                    <h1>Item Info</h1>
-
-                    <form method="POST" enctype="multipart/form-data">
-                        <b class="text-secondary">Item Information</b><br>
-                        <div>
-                            <div class="card-body">
-                                {% csrf_token %}
-                                {% bootstrap_form step1_form %}
-                            </div>
-                        </div>
-                        <input type="hidden" name="step" value="1" />
-                        <button type="submit" class="btn btn-warning">Save and Continue</button>
-                    </form>
-
-                </div>
-
-                <!--Step 2-->
-                <div class="tab-pane fade {% if step == 2 %}show active{% endif %}" id="pills-pickup" role="tabpanel" aria-labelledby="pills-pickup-tab">
-                    <h1>Pickup</h1>
-
-                    <form method="POST" enctype="multipart/form-data">
-                        <b class="text-secondary">Pickup Information</b><br>
-                        <div>
-                            <div>
-
-                                <div class="row">
-                                    <div class="col-lg-8">
-                                        {% csrf_token %}
-                                        {% bootstrap_form step2_form exclude='pickup_lat, pickup_lng'  %}
-                                        <input hidden id="pickup_lat" name="pickup_lat" value="{{ job.pickup_lat }}">
-                                        <input hidden id="pickup_lng" name="pickup_lng" value="{{ job.pickup_lng }}">
-                                    </div>
-                                    <div class="col-lg-4">
-                                        <div id="pickup-map"></div>
-                                        <div id="pickup-infowindow-content">
-                                            <img src="" width="16" id="pickup-place-icon" />
-                                            <span id="pickup-place-name" class="title"></span><br />
-                                            <span id="pickup-place-address"></span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                            </div>
-                        </div>
-                        <input type="hidden" name="step" value="2" />
-                        <button type="button" class="btn btn-outline-warning" onclick="$('#pills-info-tab').tab('show');">Back</button>
-                        <button type="submit" class="btn btn-warning">Save and Continue</button>
-                    </form>
-                </div>
-
-                <!-- Step 3 -->
-                <div class="tab-pane fade{% if step == 3 %} show active{% endif %}" id="pills-delivery" role="tabpanel"
-                aria-labelledby="pills-delivery-tab">
-                <h1>Delivery</h1>
-
-                <form method="POST" enctype="multipart/form-data">
-                    <b class="text-secondary">Delivery Information</b><br>
-                    <div class="card bg-white mt-2 mb-5">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-lg-8">
-                                    {% csrf_token %}
-                                    {% bootstrap_form step3_form exclude='delivery_lat, delivery_lng, manual_distance, distance_unit' %}
-                                    <input hidden id="delivery_lat" name="delivery_lat" value="{{ job.delivery_lat }}">
-                                    <input hidden id="delivery_lng" name="delivery_lng" value="{{ job.delivery_lng }}">
-                                    
-                                    {% if show_manual_distance %}
-                                        <div class="alert alert-warning" role="alert">
-                                            <h5 class="alert-heading">Security Note</h5>
-                                            <p>Please confirm the units of measurement before continuing to avoid any discrepancies.</p>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="manual_distance" class="form-label">Enter Distance Manually</label>
-                                            {{ step3_form.manual_distance }}
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="distance_unit" class="form-label">Select Unit</label>
-                                            {{ step3_form.distance_unit }}
-                                        </div>
-                                    {% endif %}
-
-                                </div>
-                                <div class="col-lg-4">
-                                    <div id="delivery-map"></div>
-                                    <div id="delivery-infowindow-content">
-                                        <img src="" width="16" id="delivery-place-icon" />
-                                        <span id="delivery-place-name" class="title"></span><br />
-                                        <span id="delivery-place-address"></span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <input type="hidden" name="step" value="3" />
-                    <button type="button" class="btn btn-outline-warning" onclick="$('#pills-info-tab').tab('show');">Back</button>
-                    <button type="submit" class="btn btn-warning">Save and Continue</button>
-                </form>
-                </div>
-
-                <!--Step 4-->
-                <div class="tab-pane fade {% if step == 4 %}show active{% endif %}" id="pills-payment" role="tabpanel"
-                    aria-labelledby="pills-payment-tab">
-                    <h1>Payment</h1>
-
-                    <form method="POST">
-                        <b class= "text-secondary">Payment Methods:</b><br>
-                        <div class="card bg-white  mt-2 mb-5">
-                            <div class="card-body">
-                                {% csrf_token %}
-                                <div class="form-group">
-                                    <label>Your Debit/Credit Card.</label>
-                                    <input class="form-control" value="**** **** **** {{ request.user.customer.stripe_card_last4 }}" disabled>
-
-                                </div>
-                                <div class="form-group">
-                                    <label>Price</label>
-                                    <input class= "form-control" value="${{ job.price }}" disabled >
-                                </div>
-                            </div>
-                            <input type="hidden" name="step" value="4" />
-                            
-                        </div>
-                        <button type="button" class="btn btn-outline-warning" onclick="$('#pills-delivery-tab').tab('show');">Back</button>
-                            <button type="submit" class="btn btn-success">CREATE JOB</button>
-                    </form>
-                </div>
-
-            </div>
-        </div>
+      </div>
     </div>
-</div>
 
-<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAF6hd7oJfxsA3fBpxWnYuevkn8booYrUE&libraries=places&callback=initMap"></script>
+    <!-- Right: Step forms -->
+    <div class="col-lg-8">
+
+      <!-- Tab nav -->
+      <ul class="nav nav-pills nav-justified mb-3" id="pills-tab" role="tablist">
+        <li class="nav-item">
+          <a class="nav-link {% if step == 1 %}active{% endif %}"
+             id="pills-info-tab" data-toggle="pill" href="#pills-info" role="tab">Item Info</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if step == 2 %}active{% endif %}"
+             id="pills-pickup-tab" data-toggle="pill" href="#pills-pickup" role="tab">Pickup</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if step == 3 %}active{% endif %}"
+             id="pills-delivery-tab" data-toggle="pill" href="#pills-delivery" role="tab">Delivery</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if step == 4 %}active{% endif %}"
+             id="pills-payment-tab" data-toggle="pill" href="#pills-payment" role="tab">Payment</a>
+        </li>
+      </ul>
+
+      <div class="tab-content" id="pills-tabContent">
+
+        <!-- ── Step 1: Item info ── -->
+        <div class="tab-pane fade {% if step == 1 %}show active{% endif %}"
+             id="pills-info" role="tabpanel">
+          <h4>Item Information</h4>
+          <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            {% bootstrap_form step1_form %}
+            <input type="hidden" name="step" value="1">
+            <button type="submit" class="btn btn-warning">Save and Continue</button>
+          </form>
+        </div>
+
+        <!-- ── Step 2: Pickup ── -->
+        <div class="tab-pane fade {% if step == 2 %}show active{% endif %}"
+             id="pills-pickup" role="tabpanel">
+          <h4>Pickup Location</h4>
+          <form method="POST" enctype="multipart/form-data" id="pickup-form">
+            {% csrf_token %}
+
+            <div class="search-box">
+              <label class="form-label"><b>Search pickup address</b></label>
+              <div class="autocomplete-wrapper">
+                <div class="input-group">
+                  <input type="text" id="pickup-search-input" class="form-control"
+                         placeholder="e.g. Westlands, Nairobi"
+                         autocomplete="off"
+                         autocorrect="off"
+                         autocapitalize="off"
+                         spellcheck="false">
+                  <button type="button" class="btn btn-outline-secondary"
+                          onclick="searchAddress('pickup')">Search</button>
+                </div>
+                <div id="pickup-autocomplete" class="autocomplete-results"></div>
+              </div>
+              <small class="text-muted">
+                Type at least 3 characters to see suggestions. Results are limited to Kenya.
+                You can also click the map to drop a pin.
+              </small>
+            </div>
+
+            <div class="map-wrapper">
+              <div id="pickup-map"></div>
+            </div>
+            <div id="pickup-coord-display" class="coord-badge">
+              {% if job.pickup_lat %}
+                <span class="pin-confirmed">Pin confirmed: {{ job.pickup_lat }}, {{ job.pickup_lng }}</span>
+              {% else %}
+                <span class="pin-unset">No pin placed yet — search or click map</span>
+              {% endif %}
+            </div>
+
+            {# Render all step2 fields except pickup_address, pickup_lat, pickup_lng #}
+            {# We render pickup_address manually below so we can control its attributes #}
+            {% bootstrap_form step2_form exclude='pickup_lat,pickup_lng,pickup_address' %}
+
+            {# pickup_address: read-only, only populated by map/search — never browser autofill #}
+            <div class="form-group">
+              <label for="id_pickup_address">Pickup address <small class="text-muted">(auto-filled from map)</small></label>
+              <input
+                type="text"
+                id="id_pickup_address"
+                name="pickup_address"
+                class="form-control address-locked"
+                value="{{ job.pickup_address|default:'' }}"
+                placeholder="Will fill automatically when you select a location above"
+                readonly
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
+                tabindex="-1"
+              >
+            </div>
+
+            <input type="hidden" id="pickup_lat" name="pickup_lat"
+                   value="{{ job.pickup_lat|default:'' }}">
+            <input type="hidden" id="pickup_lng" name="pickup_lng"
+                   value="{{ job.pickup_lng|default:'' }}">
+            <input type="hidden" name="step" value="2">
+
+            <div class="d-flex gap-2 mt-3">
+              <button type="button" class="btn btn-outline-warning"
+                      onclick="$('#pills-info-tab').tab('show')">Back</button>
+              <button type="submit" class="btn btn-warning" id="pickup-submit-btn">
+                Save and Continue
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- ── Step 3: Delivery ── -->
+        <div class="tab-pane fade {% if step == 3 %}show active{% endif %}"
+             id="pills-delivery" role="tabpanel">
+          <h4>Delivery Location</h4>
+          <form method="POST" enctype="multipart/form-data" id="delivery-form">
+            {% csrf_token %}
+
+            <div class="search-box">
+              <label class="form-label"><b>Search delivery address</b></label>
+              <div class="autocomplete-wrapper">
+                <div class="input-group">
+                  <input type="text" id="delivery-search-input" class="form-control"
+                         placeholder="e.g. Kilimani, Nairobi"
+                         autocomplete="off"
+                         autocorrect="off"
+                         autocapitalize="off"
+                         spellcheck="false">
+                  <button type="button" class="btn btn-outline-secondary"
+                          onclick="searchAddress('delivery')">Search</button>
+                </div>
+                <div id="delivery-autocomplete" class="autocomplete-results"></div>
+              </div>
+              <small class="text-muted">
+                Type at least 3 characters to see suggestions. Results are limited to Kenya.
+                You can also click the map to drop a pin.
+              </small>
+            </div>
+
+            <div class="map-wrapper">
+              <div id="delivery-map"></div>
+            </div>
+            <div id="delivery-coord-display" class="coord-badge">
+              {% if job.delivery_lat %}
+                <span class="pin-confirmed">Pin confirmed: {{ job.delivery_lat }}, {{ job.delivery_lng }}</span>
+              {% else %}
+                <span class="pin-unset">No pin placed yet — search or click map</span>
+              {% endif %}
+            </div>
+
+            {% bootstrap_form step3_form exclude='delivery_lat,delivery_lng,delivery_address,manual_distance,distance_unit' %}
+
+            <div class="form-group">
+              <label for="id_delivery_address">Delivery address <small class="text-muted">(auto-filled from map)</small></label>
+              <input
+                type="text"
+                id="id_delivery_address"
+                name="delivery_address"
+                class="form-control address-locked"
+                value="{{ job.delivery_address|default:'' }}"
+                placeholder="Will fill automatically when you select a location above"
+                readonly
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
+                tabindex="-1"
+              >
+            </div>
+
+            <input type="hidden" id="delivery_lat" name="delivery_lat"
+                   value="{{ job.delivery_lat|default:'' }}">
+            <input type="hidden" id="delivery_lng" name="delivery_lng"
+                   value="{{ job.delivery_lng|default:'' }}">
+
+            {% if show_manual_distance %}
+              <div class="alert alert-warning mt-3">
+                <b>Auto-distance failed.</b> Please enter the distance manually.
+              </div>
+              <div class="form-group mt-2">
+                <label>Distance</label>{{ step3_form.manual_distance }}
+              </div>
+              <div class="form-group mt-2">
+                <label>Unit</label>{{ step3_form.distance_unit }}
+              </div>
+            {% endif %}
+
+            <input type="hidden" name="step" value="3">
+            <div class="d-flex gap-2 mt-3">
+              <button type="button" class="btn btn-outline-warning"
+                      onclick="$('#pills-pickup-tab').tab('show')">Back</button>
+              <button type="submit" class="btn btn-warning" id="delivery-submit-btn">
+                Calculate Distance &amp; Continue
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- ── Step 4: Payment ── -->
+        <div class="tab-pane fade {% if step == 4 %}show active{% endif %}"
+             id="pills-payment" role="tabpanel">
+          <h4>Payment</h4>
+          <form method="POST">
+            {% csrf_token %}
+            <div class="card mb-3">
+              <div class="card-body">
+                <div class="form-group">
+                  <label>Card</label>
+                  <input class="form-control"
+                         value="**** **** **** {{ request.user.customer.stripe_card_last4 }}" disabled>
+                </div>
+                <div class="form-group">
+                  <label>Price</label>
+                  <input class="form-control" value="KES {{ job.price }}" disabled>
+                </div>
+                <div class="form-group">
+                  <label>Distance</label>
+                  <input class="form-control" value="{{ job.distance }} km" disabled>
+                </div>
+                <div class="form-group">
+                  <label>Est. Duration</label>
+                  <input class="form-control" value="~{{ job.duration }} min" disabled>
+                </div>
+              </div>
+            </div>
+            <input type="hidden" name="step" value="4">
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-outline-warning"
+                      onclick="$('#pills-delivery-tab').tab('show')">Back</button>
+              <button type="submit" class="btn btn-success">Confirm &amp; Pay</button>
+            </div>
+          </form>
+        </div>
+
+      </div><!-- /tab-content -->
+    </div><!-- /col -->
+  </div><!-- /row -->
+</div><!-- /container -->
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    var pickupLat = parseFloat('{{ job.pickup_lat }}') || null;
-    var pickupLng = parseFloat('{{ job.pickup_lng }}') || null;
-    var deliveryLat = parseFloat('{{ job.delivery_lat }}') || null;
-    var deliveryLng = parseFloat('{{ job.delivery_lng }}') || null;
+// ── Constants ────────────────────────────────────────────────────────────────
+var NAIROBI  = [-1.2921, 36.8219];
+var TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+var TILE_OPT = { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 };
 
-    function initMapByType(type, initLat, initLng) {
-        const map = new google.maps.Map(document.getElementById(type + "-map"), {
-            center: { lat: initLat || -33.8688, lng: initLng || 151.2195 },
-            zoom: 13,
-        });
+// ── Saved coords from Django (0 = not set) ───────────────────────────────────
+var INIT_P_LAT = parseFloat('{{ job.pickup_lat|default:"0" }}')   || null;
+var INIT_P_LNG = parseFloat('{{ job.pickup_lng|default:"0" }}')   || null;
+var INIT_D_LAT = parseFloat('{{ job.delivery_lat|default:"0" }}') || null;
+var INIT_D_LNG = parseFloat('{{ job.delivery_lng|default:"0" }}') || null;
 
-        if (initLat && initLng) {
-            new google.maps.Marker({
-                position: { lat: initLat, lng: initLng },
-                map: map,
-            });
+// ── Per-map state ────────────────────────────────────────────────────────────
+var maps = {
+  pickup:   { instance: null, marker: null, ready: false },
+  delivery: { instance: null, marker: null, ready: false }
+};
+
+// ── buildMap ─────────────────────────────────────────────────────────────────
+function buildMap(type) {
+  var state = maps[type];
+  if (state.ready) {
+    state.instance.invalidateSize(true);
+    return;
+  }
+  state.ready = true;
+
+  var iLat   = (type === 'pickup') ? INIT_P_LAT : INIT_D_LAT;
+  var iLng   = (type === 'pickup') ? INIT_P_LNG : INIT_D_LNG;
+  var centre = (iLat && iLng) ? [iLat, iLng] : NAIROBI;
+  var zoom   = (iLat && iLng) ? 15 : 12;
+
+  var map = L.map(type + '-map', { zoomControl: true }).setView(centre, zoom);
+  L.tileLayer(TILE_URL, TILE_OPT).addTo(map);
+  state.instance = map;
+
+  if (iLat && iLng) {
+    state.marker = L.marker([iLat, iLng]).addTo(map);
+    showCoords(type, iLat, iLng);
+  }
+
+  map.on('click', function(e) {
+    dropPin(type, e.latlng.lat, e.latlng.lng);
+    reverseGeocode(type, e.latlng.lat, e.latlng.lng);
+  });
+
+  setTimeout(function() { map.invalidateSize(true); }, 100);
+  setTimeout(function() { map.invalidateSize(true); }, 500);
+}
+
+// ── Pin helpers ───────────────────────────────────────────────────────────────
+function dropPin(type, lat, lng) {
+  var state = maps[type];
+  if (!state.instance) return;
+  if (state.marker) state.marker.remove();
+  state.marker = L.marker([lat, lng]).addTo(state.instance);
+  saveCoords(type, lat, lng);
+}
+
+function saveCoords(type, lat, lng) {
+  document.getElementById(type + '_lat').value = lat.toFixed(6);
+  document.getElementById(type + '_lng').value = lng.toFixed(6);
+  showCoords(type, lat, lng);
+}
+
+function showCoords(type, lat, lng) {
+  var el = document.getElementById(type + '-coord-display');
+  el.innerHTML = '<span class="pin-confirmed">Pin confirmed: '
+    + parseFloat(lat).toFixed(5) + ', '
+    + parseFloat(lng).toFixed(5) + '</span>';
+}
+
+// ── Set address field (read-only — only called programmatically) ──────────────
+function setAddressField(type, value) {
+  var field = document.getElementById('id_' + type + '_address');
+  if (field) field.value = value;
+}
+
+// ── Validate coordinates before form submission ───────────────────────────────
+function validateAndSubmit(type) {
+  var lat = document.getElementById(type + '_lat').value;
+  var lng = document.getElementById(type + '_lng').value;
+
+  if (!lat || !lng || parseFloat(lat) === 0 || parseFloat(lng) === 0) {
+    alert(
+      'Please select a ' + type + ' location first.\n\n' +
+      'Search for an address using the search box or click directly on the map.'
+    );
+    return false;
+  }
+  return true;
+}
+
+// ── Autocomplete ──────────────────────────────────────────────────────────────
+var acTimers = {};
+
+function onSearchInput(type) {
+  clearTimeout(acTimers[type]);
+  var val = document.getElementById(type + '-search-input').value.trim();
+  var box = document.getElementById(type + '-autocomplete');
+  if (val.length < 3) { box.innerHTML = ''; box.classList.remove('open'); return; }
+  box.innerHTML = '<div class="autocomplete-loading">Searching&hellip;</div>';
+  box.classList.add('open');
+  acTimers[type] = setTimeout(function() { fetchSuggestions(type, val); }, 350);
+}
+
+function fetchSuggestions(type, query) {
+  // countrycodes=ke restricts results to Kenya only
+  var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=6'
+            + '&countrycodes=ke&addressdetails=1&q=' + encodeURIComponent(query);
+  fetch(url, { headers: { 'Accept-Language': 'en' } })
+    .then(function(r) { return r.json(); })
+    .then(function(data) { renderSuggestions(type, data); })
+    .catch(function() {
+      document.getElementById(type + '-autocomplete').innerHTML =
+        '<div class="autocomplete-loading">Search failed. Check connection.</div>';
+    });
+}
+
+function renderSuggestions(type, data) {
+  var box = document.getElementById(type + '-autocomplete');
+
+  // Filter: only show results that have a meaningful place type
+  // This blocks vague or non-geographic results
+  var filtered = (data || []).filter(function(item) {
+    var t = (item.type || '').toLowerCase();
+    var c = (item.class || '').toLowerCase();
+    // Accept: amenity, building, road, neighbourhood, suburb, city, town, village, etc.
+    // Reject: postcode-only, very generic administrative areas without a name
+    var blocked = ['postcode', 'country', 'continent'];
+    return blocked.indexOf(t) === -1 && item.display_name.length > 5;
+  });
+
+  if (!filtered.length) {
+    box.innerHTML = '<div class="autocomplete-loading">No results in Kenya. Try a different search.</div>';
+    return;
+  }
+
+  var html = '';
+  filtered.forEach(function(item) {
+    var parts = item.display_name.split(',');
+    var main  = esc(parts[0].trim());
+    var sub   = esc(parts.slice(1, 4).join(', ').trim());
+    html += '<div class="autocomplete-item"'
+          + ' data-lat="' + item.lat + '"'
+          + ' data-lng="' + item.lon + '"'
+          + ' data-name="' + esc(item.display_name) + '"'
+          + ' onclick="selectSuggestion(\'' + type + '\', this)">'
+          + '<div class="main-text">' + main + '</div>'
+          + '<div class="sub-text">'  + sub  + '</div>'
+          + '</div>';
+  });
+  box.innerHTML = html;
+  box.classList.add('open');
+}
+
+function selectSuggestion(type, el) {
+  var lat  = parseFloat(el.getAttribute('data-lat'));
+  var lng  = parseFloat(el.getAttribute('data-lng'));
+  var name = el.getAttribute('data-name');
+
+  // Close dropdown
+  var box = document.getElementById(type + '-autocomplete');
+  box.innerHTML = '';
+  box.classList.remove('open');
+
+  // Update search input display (short label only — NOT the full address)
+  var parts = name.split(',');
+  document.getElementById(type + '-search-input').value =
+    parts.slice(0, 2).join(',').trim();
+
+  // Build map if needed, then pan and drop pin
+  buildMap(type);
+  maps[type].instance.setView([lat, lng], 15);
+  dropPin(type, lat, lng);
+
+  // Set the locked address field with the clean Nominatim display_name
+  // This is the ONLY place address fields get written — never from user keyboard input
+  setAddressField(type, parts.slice(0, 4).join(', ').trim());
+}
+
+// "Search" button — forces top result
+function searchAddress(type) {
+  var query = document.getElementById(type + '-search-input').value.trim();
+  if (!query) return;
+  fetch(
+    'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ke&q='
+    + encodeURIComponent(query),
+    { headers: { 'Accept-Language': 'en' } }
+  )
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data || !data.length) {
+        alert('No results found in Kenya for "' + query + '". Try a more specific search.');
+        return;
+      }
+      // Reuse selectSuggestion
+      selectSuggestion(type, {
+        getAttribute: function(k) {
+          var m = {
+            'data-lat':  data[0].lat,
+            'data-lng':  data[0].lon,
+            'data-name': data[0].display_name
+          };
+          return m[k];
         }
+      });
+    })
+    .catch(function() { alert('Search failed. Check your internet connection.'); });
+}
 
-        const input = document.getElementById("id_" + type + "_address");
+// ── Reverse geocode on map click ──────────────────────────────────────────────
+function reverseGeocode(type, lat, lng) {
+  fetch(
+    'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng
+  )
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data && data.display_name) {
+        // Always overwrite address field with fresh reverse-geocoded result
+        setAddressField(type, data.display_name.split(',').slice(0, 4).join(', ').trim());
+      }
+    })
+    .catch(function() {});
+}
 
-        const autocomplete = new google.maps.places.Autocomplete(input);
+// ── Utility ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-        autocomplete.bindTo("bounds", map);
-
-        autocomplete.setFields(['address_components', 'geometry', 'icon', 'name']);
-
-        const infowindow = new google.maps.InfoWindow();
-        const infowindowContent = document.getElementById(type + "-infowindow-content");
-        infowindow.setContent(infowindowContent);
-
-        const marker = new google.maps.Marker({
-            map,
-            anchorPoint: new google.maps.Point(0, -29),
-        });
-
-        autocomplete.addListener("place_changed", () => {
-            infowindow.close();
-            marker.setVisible(false);
-            const place = autocomplete.getPlace();
-            if (!place.geometry) {
-                window.alert("No details available for input: " + place.name);
-                return;
-            }
-            if (place.geometry.viewport) {
-                map.fitBounds(place.geometry.viewport);
-            } else {
-                map.setCenter(place.geometry.location);
-                map.setZoom(17); // Why 17? Because it looks good.
-            }
-            marker.setPosition(place.geometry.location);
-            marker.setVisible(true);
-
-            let address = '';
-            if (place.address_components) {
-                address = [
-                    (place.address_components[0] && place.address_components[0].short_name || ''),
-                    (place.address_components[1] && place.address_components[1].short_name || ''),
-                    (place.address_components[2] && place.address_components[2].short_name || '')
-                ].join(' ');
-            }
-
-            infowindowContent.children[type + "-place-icon"].src = place.icon;
-            infowindowContent.children[type + "-place-name"].textContent = place.name;
-            infowindowContent.children[type + "-place-address"].textContent = address;
-            infowindow.open(map, marker);
-
-            $("#" + type + "_lat").val(place.geometry.location.lat());
-            $("#" + type + "_lng").val(place.geometry.location.lng());
-        });
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+  ['pickup','delivery'].forEach(function(type) {
+    var inp = document.getElementById(type + '-search-input');
+    if (!inp) return;
+    var wrapper = inp.closest('.autocomplete-wrapper');
+    if (wrapper && !wrapper.contains(e.target)) {
+      var box = document.getElementById(type + '-autocomplete');
+      if (box) { box.innerHTML = ''; box.classList.remove('open'); }
     }
+  });
+});
 
-    function initMap() {
-        initMapByType("pickup", pickupLat, pickupLng);
-        initMapByType("delivery", deliveryLat, deliveryLng);
+// Block any paste or keyboard input on the address fields — they are read-only
+// but we add this as an extra safety net against browser extension tampering
+document.addEventListener('DOMContentLoaded', function() {
+  ['pickup', 'delivery'].forEach(function(type) {
+    var addrField = document.getElementById('id_' + type + '_address');
+    if (addrField) {
+      addrField.addEventListener('keydown',  function(e) { e.preventDefault(); });
+      addrField.addEventListener('paste',    function(e) { e.preventDefault(); });
+      addrField.addEventListener('drop',     function(e) { e.preventDefault(); });
+      addrField.addEventListener('cut',      function(e) { e.preventDefault(); });
+      // Block autofill from browser password managers / saved form data
+      addrField.setAttribute('autocomplete', 'new-password');
+      addrField.setAttribute('readonly',     'readonly');
     }
+  });
+});
+
+// ── Tab listeners ─────────────────────────────────────────────────────────────
+$('#pills-pickup-tab').on('shown.bs.tab',   function() { buildMap('pickup');   });
+$('#pills-delivery-tab').on('shown.bs.tab', function() { buildMap('delivery'); });
+
+// ── Form submission guards ────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  var step = parseInt('{{ step|default:1 }}', 10);
+
+  if (step === 2) { buildMap('pickup');   }
+  if (step === 3) { buildMap('delivery'); }
+
+  // Wire up search inputs
+  ['pickup', 'delivery'].forEach(function(type) {
+    var inp = document.getElementById(type + '-search-input');
+    if (!inp) return;
+    inp.addEventListener('input', function() { onSearchInput(type); });
+    inp.addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      var first = document.querySelector('#' + type + '-autocomplete .autocomplete-item');
+      if (first) { selectSuggestion(type, first); }
+      else        { searchAddress(type); }
+    });
+  });
+
+  // Guard Step 2 form submission
+  var pickupForm = document.getElementById('pickup-form');
+  if (pickupForm) {
+    pickupForm.addEventListener('submit', function(e) {
+      if (!validateAndSubmit('pickup')) e.preventDefault();
+    });
+  }
+
+  // Guard Step 3 form submission
+  var deliveryForm = document.getElementById('delivery-form');
+  if (deliveryForm) {
+    deliveryForm.addEventListener('submit', function(e) {
+      if (!validateAndSubmit('delivery')) e.preventDefault();
+    });
+  }
+});
 </script>
-
 {% endblock %}
-
-                                    

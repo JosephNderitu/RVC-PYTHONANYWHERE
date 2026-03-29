@@ -1,71 +1,405 @@
-{% extends "courier/base.html" %}
- {% load static %}
+{% extends 'courier/base.html' %}
+{% load static %}
 
 {% block head %}
-    <style>
-        .header{
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            padding: 0 20px;
-            background-color: #ffc106;
-            box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
-        }
-    </style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-{% endblock  %}
+<style>
+  html, body { overflow-y: auto; overflow-x: hidden; }
+
+  /* ── Top bar ── */
+  .top-bar {
+    position: sticky;
+    top: 0; left: 0; right: 0;
+    height: 56px;
+    background: rgba(26,29,39,0.98);
+    border-bottom: 1px solid #2E3352;
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    gap: 14px;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .back-btn {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: #22263A;
+    border: 1px solid #2E3352;
+    display: flex; align-items: center; justify-content: center;
+    color: #94A3B8;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+  }
+  .back-btn:hover { background: #2E3352; color: #F8FAFC; text-decoration: none; }
+  .top-title { font-size: 0.95rem; font-weight: 600; color: #F8FAFC; }
+
+  /* ── Page content ── */
+  .page-content {
+    padding: 18px 18px calc(var(--tab-h, 64px) + 80px);
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  /* ── Hero card ── */
+  .hero-card {
+    background: #1A1D27;
+    border: 1px solid #2E3352;
+    border-radius: 18px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .hero-photo {
+    width: 100%; height: 180px;
+    object-fit: cover;
+    display: block;
+  }
+  .hero-body { padding: 16px; }
+  .hero-title { font-size: 1.2rem; font-weight: 700; color: #F8FAFC; margin-bottom: 4px; }
+  .hero-meta  { font-size: 0.8rem; color: #6B7280; }
+
+  /* ── Stats ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .stat-card {
+    background: #1A1D27;
+    border: 1px solid #2E3352;
+    border-radius: 14px;
+    padding: 14px 10px;
+    text-align: center;
+  }
+  .stat-val { font-size: 1.05rem; font-weight: 700; color: #F8FAFC; margin-bottom: 3px; }
+  .stat-lbl { font-size: 0.65rem; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* ── Section card ── */
+  .section-card {
+    background: #1A1D27;
+    border: 1px solid #2E3352;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .section-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #4B5563;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 12px;
+  }
+
+  /* ── Route ── */
+  .route-stop { display: flex; align-items: flex-start; gap: 12px; }
+  .route-stop + .route-stop { margin-top: 12px; }
+  .stop-dot { width: 12px; height: 12px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+  .stop-name    { font-size: 0.9rem; font-weight: 600; color: #F8FAFC; }
+  .stop-addr    { font-size: 0.8rem; color: #94A3B8; margin-top: 2px; line-height: 1.4; }
+  .stop-contact { font-size: 0.76rem; color: #6B7280; margin-top: 2px; }
+  .route-divider { height: 16px; border-left: 2px dashed #2E3352; margin-left: 5px; }
+
+  /* ── Map ── */
+  #job-map {
+    width: 100%; height: 220px;
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 14px;
+    border: 1px solid #2E3352;
+  }
+
+  /* ── Customer card ── */
+  .cust-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .cust-avatar {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #3B82F6;
+    flex-shrink: 0;
+  }
+  .cust-name  { font-size: 0.95rem; font-weight: 600; color: #F8FAFC; }
+  .cust-info  { font-size: 0.78rem; color: #6B7280; margin-top: 2px; }
+
+  /* ── Description ── */
+  .desc-text { font-size: 0.85rem; color: #94A3B8; line-height: 1.6; }
+
+  /* ── Accept bar (fixed bottom) ── */
+  .accept-bar {
+    position: fixed;
+    bottom: var(--tab-h, 64px);
+    left: 0; right: 0;
+    z-index: 200;
+    background: rgba(26,29,39,0.97);
+    border-top: 1px solid #2E3352;
+    padding: 12px 18px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .accept-btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    background: #3B82F6;
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+  .accept-btn:hover { background: #2563EB; }
+
+  /* ── Leaflet dark ── */
+  .leaflet-control-attribution {
+    background: rgba(15,17,23,0.7) !important;
+    color: #4B5563 !important;
+    font-size: 9px !important;
+  }
+  .leaflet-control-zoom {
+    border: 1px solid #2E3352 !important;
+    border-radius: 10px !important;
+    overflow: hidden;
+  }
+  .leaflet-control-zoom a {
+    background: rgba(26,29,39,0.95) !important;
+    color: #94A3B8 !important;
+    border-bottom-color: #2E3352 !important;
+  }
+  .leaflet-control-zoom a:hover { background: #22263A !important; color: #F8FAFC !important; }
+
+  /* Popup dark */
+  .leaflet-popup-content-wrapper {
+    background: #1A1D27 !important;
+    border: 1px solid #2E3352 !important;
+    border-radius: 12px !important;
+    color: #F8FAFC !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5) !important;
+  }
+  .leaflet-popup-tip { background: #1A1D27 !important; }
+
+  /* Desktop */
+  @media (min-width: 768px) {
+    .accept-bar { left: 64px; }
+    .top-bar     { margin-left: 0; }
+
+    .desktop-nav { display: flex !important; }
+  }
+
+  .desktop-nav {
+    display: none;
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 64px;
+    background: rgba(26,29,39,0.98);
+    border-right: 1px solid #2E3352;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+    gap: 8px;
+    z-index: 300;
+  }
+  .desktop-nav a {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: #6B7280; text-decoration: none; font-size: 18px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .desktop-nav a:hover { background: #22263A; color: #3B82F6; }
+
+  @media (min-width: 768px) {
+    .page-content { margin-left: 64px; }
+    .top-bar { margin-left: 64px; }
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-    <div class="header">
-        <a href="{% url 'courier:available_jobs' %}" class="mr-2">
-            <i class="fas fa-chevron-left text-dark"></i>
-        </a>
 
-        <h5 class="mt-1 mb-0">Available Jobs</h5>
+<!-- Top bar -->
+<div class="top-bar">
+  <a href="{% url 'courier:available_jobs' %}" class="back-btn">
+    <i class="fas fa-chevron-left" style="font-size:13px;"></i>
+  </a>
+  <span class="top-title">Job Details</span>
+</div>
+
+<div class="page-content">
+
+  <!-- Hero card -->
+  <div class="hero-card">
+    <img class="hero-photo" src="{{ job.photo.url }}" alt="{{ job.names }}">
+    <div class="hero-body">
+      <div class="hero-title">{{ job.names }}</div>
+      <div class="hero-meta">
+        {{ job.get_size_display }} size
+        &middot; {{ job.quantity }} tonne(s)
+        {% if job.category %}&middot; {{ job.category }}{% endif %}
+      </div>
     </div>
+  </div>
 
-    <div class="container-fluid" style="padding-top: 80px;">
-        <div class="media">
-            <img src="{{ job.photo.url }}" class="rounded-lg mr-3" width="100" height="100">
-            <div class="media-body">
-                <h4>{{ job.names }}</h4>
-                <span>{{ job.get_size_display }} Size</span><br>
-                <span>{{ job.quantity }} tonne(s)</span><br>
-                <span>${{ job.price }}</span><br>
-            </div>
-        </div>
-        <hr>
-
-        <div class="d-flex align-items-center text-secondary mb-3">
-            <i class="fas fa-map-marker-alt"></i>
-            <span class="ml-2"><b>Pickup Address: </b> {{ job.pickup_address}}</span>
-        </div>
-
-        <div class="d-flex align-items-center text-secondary mb-2">
-            <i class="fas fa-flag-checkered"></i>
-            <span class="ml-2"><b>Delivary Address:  </b> {{ job.delivery_address}}</span>
-        </div>
-        <hr>
-
-        <b class="text-secondary">CUSTOMER</b>
-        <div class="media align-items-center mt-2">
-            <img src="{% if job.Customer.avatar %}{{ job.Customer.avatar.url }}{% else %}{% static '/images/avatar.png' %}{% endif %}" class="rounded-circle mr-3" width="60" height="60">
-            <div class="media-body">
-                <h5 class="text-warning">{{ job.Customer.user.get_full_name }}</h5>
-                <span><b>Email: </b> {{ job.Customer.user.email }}</span><br> <!-- You can display the email if needed -->
-                <span><b>Contacts: </b>{{ job.Customer.phone_number }}</span>
-            </div>
-        </div>
-        <hr>
-
-        <form method="POST">
-            {% csrf_token %}
-            <button class="btn btn-warning btn-block">Accept This Job</button>
-        </form>
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-val" style="color:#3B82F6;">KES {{ job.price }}</div>
+      <div class="stat-lbl">Earnings</div>
     </div>
+    <div class="stat-card">
+      <div class="stat-val">{{ job.distance }} km</div>
+      <div class="stat-lbl">Distance</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">~{{ job.duration }}</div>
+      <div class="stat-lbl">min est.</div>
+    </div>
+  </div>
 
-{% endblock  %}
+  <!-- Description -->
+  {% if job.description %}
+  <div class="section-card">
+    <div class="section-label">Description</div>
+    <p class="desc-text mb-0">{{ job.description }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Route -->
+  <div class="section-card">
+    <div class="section-label">Route</div>
+    <div class="route-stop">
+      <div class="stop-dot" style="background:#10B981;"></div>
+      <div>
+        <div class="stop-name">{{ job.pickup_name }}</div>
+        <div class="stop-addr">{{ job.pickup_address }}</div>
+        <div class="stop-contact">
+          <i class="fas fa-phone-alt" style="font-size:10px;margin-right:4px;"></i>{{ job.pickup_phone }}
+        </div>
+      </div>
+    </div>
+    <div class="route-divider"></div>
+    <div class="route-stop">
+      <div class="stop-dot" style="background:#EF4444;"></div>
+      <div>
+        <div class="stop-name">{{ job.delivery_name }}</div>
+        <div class="stop-addr">{{ job.delivery_address }}</div>
+        <div class="stop-contact">
+          <i class="fas fa-phone-alt" style="font-size:10px;margin-right:4px;"></i>{{ job.delivery_phone }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div id="job-map"></div>
+
+  <!-- Customer -->
+  <div class="section-card">
+    <div class="section-label">Customer</div>
+    <div class="cust-row">
+      <img class="cust-avatar"
+           src="{% if job.Customer.avatar %}{{ job.Customer.avatar.url }}{% else %}{% static 'images/avatar.png' %}{% endif %}"
+           alt="{{ job.Customer.user.get_full_name }}"
+           onerror="this.src='{% static 'images/avatar.png' %}'">
+      <div>
+        <div class="cust-name">{{ job.Customer.user.get_full_name }}</div>
+        <div class="cust-info">
+          <i class="fas fa-envelope" style="font-size:10px;margin-right:4px;"></i>{{ job.Customer.user.email }}
+        </div>
+        {% if job.Customer.phone_number %}
+        <div class="cust-info">
+          <i class="fas fa-phone-alt" style="font-size:10px;margin-right:4px;"></i>{{ job.Customer.phone_number }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Fixed accept bar -->
+<div class="accept-bar">
+  <form method="POST">
+    {% csrf_token %}
+    <button type="submit" class="accept-btn">
+      <i class="fas fa-check-circle mr-2"></i>
+      Accept This Job
+    </button>
+  </form>
+</div>
+
+{% include 'courier/bottom_tabs.html' %}
+
+<!-- Desktop side nav -->
+<nav class="desktop-nav">
+  <a href="{% url 'courier:available_jobs' %}" class="active" title="Jobs">
+    <i class="fas fa-map-marked-alt"></i>
+  </a>
+  <a href="{% url 'courier:current_job' %}" title="My Job">
+    <i class="fas fa-truck"></i>
+  </a>
+  <a href="{% url 'courier:profile' %}" title="Profile">
+    <i class="fas fa-user-circle"></i>
+  </a>
+</nav>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+var pLat = {{ job.pickup_lat|default:0 }};
+var pLng = {{ job.pickup_lng|default:0 }};
+var dLat = {{ job.delivery_lat|default:0 }};
+var dLng = {{ job.delivery_lng|default:0 }};
+
+var TILE = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+var OPT  = { attribution:'&copy; OSM &copy; CARTO', maxZoom:19 };
+
+var map = L.map('job-map', { zoomControl:true, scrollWheelZoom:false });
+L.tileLayer(TILE, OPT).addTo(map);
+
+function mkIcon(color, icon) {
+  return L.divIcon({
+    className: '',
+    html: '<div style="background:' + color + ';width:36px;height:36px;border-radius:50%;'
+        + 'display:flex;align-items:center;justify-content:center;'
+        + 'box-shadow:0 4px 14px rgba(0,0,0,0.55);border:3px solid rgba(255,255,255,0.15);">'
+        + '<i class="fas ' + icon + '" style="color:#fff;font-size:14px;"></i></div>',
+    iconSize:[36,36], iconAnchor:[18,18], popupAnchor:[0,-22],
+  });
+}
+
+var hasPickup   = pLat && pLng;
+var hasDelivery = dLat && dLng;
+
+if (hasPickup) {
+  L.marker([pLat,pLng], { icon: mkIcon('#10B981','fa-box') }).addTo(map)
+   .bindPopup('<span style="color:#F8FAFC;font-size:12px;font-family:Inter,sans-serif;"><b>Pickup</b><br>{{ job.pickup_address|escapejs }}</span>');
+}
+if (hasDelivery) {
+  L.marker([dLat,dLng], { icon: mkIcon('#EF4444','fa-flag-checkered') }).addTo(map)
+   .bindPopup('<span style="color:#F8FAFC;font-size:12px;font-family:Inter,sans-serif;"><b>Delivery</b><br>{{ job.delivery_address|escapejs }}</span>');
+}
+if (hasPickup && hasDelivery) {
+  L.polyline([[pLat,pLng],[dLat,dLng]], {
+    color:'#3B82F6', weight:3, dashArray:'6 8', opacity:0.75
+  }).addTo(map);
+  map.fitBounds(L.latLngBounds([[pLat,pLng],[dLat,dLng]]), { padding:[40,40] });
+} else if (hasPickup) {
+  map.setView([pLat,pLng], 14);
+} else {
+  map.setView([-1.2921,36.8219], 12);
+}
+</script>
+{% endblock %}

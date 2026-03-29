@@ -2,6 +2,8 @@ from django.utils import timezone
 import uuid
 from django.db import models
 from django.contrib.auth.models import User
+from django.contrib.gis.db import models as gis_models  # ← add this import
+from django.contrib.gis.geos import Point 
 
 class Customer(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -17,14 +19,35 @@ class Customer(models.Model):
     
 class Courier(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    lat = models.FloatField(default=0)
-    lng = models.FloatField(default=0)
+    # Replace lat/lng floats with a proper spatial point
+    location = gis_models.PointField(
+        geography=True,         # uses GEOGRAPHY type — accurate on curved Earth
+        srid=4326,              # WGS84 — standard GPS coordinate system
+        null=True,
+        blank=True,
+        spatial_index=True,     # auto GiST index
+    )
     paypal_email = models.EmailField(max_length=255, blank=True)
     fcm_token = models.TextField(blank=True)
+    is_available = models.BooleanField(default=False)
+    is_on_shift = models.BooleanField(default=False)
     
     
     def __str__(self):
         return self.user.get_full_name()
+
+    def set_location(self, lat, lng):
+        """Helper: update courier position from raw GPS coordinates."""
+        self.location = Point(lng, lat, srid=4326)  # Note: Point takes (lng, lat)
+        self.save(update_fields=['location'])
+
+    @property
+    def lat(self):
+        return self.location.y if self.location else 0
+
+    @property
+    def lng(self):
+        return self.location.x if self.location else 0
     
     
 class Category(models.Model):   
@@ -73,15 +96,17 @@ class Job(models.Model):
     
     #step2
     pickup_address = models.CharField(max_length=255, blank=True)
-    pickup_lat = models.FloatField(default=0.0)
-    pickup_lng = models.FloatField(default=0.0)
+    pickup_location = gis_models.PointField(
+        geography=True, srid=4326, null=True, blank=True, spatial_index=True
+    )
     pickup_name = models.CharField(max_length=255, blank=True)
     pickup_phone = models.CharField(max_length=255, blank=True)
     
     #step3
     delivery_address = models.CharField(max_length=255, blank=True)
-    delivery_lat = models.FloatField(default=0.0)
-    delivery_lng = models.FloatField(default=0.0)
+    delivery_location = gis_models.PointField(
+        geography=True, srid=4326, null=True, blank=True, spatial_index=True
+    )
     delivery_name = models.CharField(max_length=255, blank=True)
     delivery_phone = models.CharField(max_length=255, blank=True)
     
@@ -99,7 +124,24 @@ class Job(models.Model):
     delivered_at = models.DateTimeField(null=True, blank=True)
     
     def __str__(self):
-     return f"{self.names} - {self.Customer}"
+        return f"{self.names} - {self.Customer}"
+
+    # Convenience properties so existing views don't break immediately
+    @property
+    def pickup_lat(self):
+        return self.pickup_location.y if self.pickup_location else 0
+
+    @property
+    def pickup_lng(self):
+        return self.pickup_location.x if self.pickup_location else 0
+
+    @property
+    def delivery_lat(self):
+        return self.delivery_location.y if self.delivery_location else 0
+
+    @property
+    def delivery_lng(self):
+        return self.delivery_location.x if self.delivery_location else 0
 
      
      #TRansactions
@@ -160,3 +202,70 @@ class Owner(models.Model):
     
     def __str__(self):
         return self.name
+
+
+# Truck/models.py — ADD these new models at the bottom
+
+
+class DeliveryZone(models.Model):
+    """
+    Geofence polygon defining a delivery zone.
+    Supports concave polygons — required for real urban boundaries.
+    """
+    name = models.CharField(max_length=255)
+    boundary = gis_models.PolygonField(
+        geography=True,
+        srid=4326,
+        spatial_index=True,
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return self.name
+
+
+class CourierLocationHistory(models.Model):
+    """
+    Stores every GPS update per courier for trajectory analysis
+    and geofence evaluation. Used by the Winding Number PiP engine.
+    """
+    courier = models.ForeignKey(Courier, on_delete=models.CASCADE, related_name='location_history')
+    location = gis_models.PointField(geography=True, srid=4326, spatial_index=True)
+    recorded_at = models.DateTimeField(default=timezone.now, db_index=True)
+    speed_kmh = models.FloatField(default=0, null=True)
+    heading = models.FloatField(default=0, null=True)
+
+    class Meta:
+        ordering = ['-recorded_at']
+        indexes = [
+            models.Index(fields=['courier', 'recorded_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.courier} @ {self.recorded_at}"
+
+
+class GeofenceEvent(models.Model):
+    """
+    Fired by the state machine when a courier enters or exits a zone.
+    The 3-consecutive-point threshold prevents GPS jitter false positives.
+    """
+    ENTER = 'enter'
+    EXIT = 'exit'
+    EVENT_TYPES = (
+        (ENTER, 'Entered zone'),
+        (EXIT, 'Exited zone'),
+    )
+
+    courier = models.ForeignKey(Courier, on_delete=models.CASCADE, related_name='geofence_events')
+    zone = models.ForeignKey(DeliveryZone, on_delete=models.CASCADE)
+    event_type = models.CharField(max_length=10, choices=EVENT_TYPES)
+    triggered_at = models.DateTimeField(default=timezone.now, db_index=True)
+    trigger_location = gis_models.PointField(geography=True, srid=4326)
+
+    class Meta:
+        ordering = ['-triggered_at']
+
+    def __str__(self):
+        return f"{self.courier} {self.event_type} {self.zone} @ {self.triggered_at}"

@@ -1,66 +1,317 @@
-<!-- courier/map.html -->
 {% extends 'courier/base.html' %}
+{% load static %}
+
 {% block head %}
-
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-    small {
-        font-size: 12px;
-        line-height: 1.2rem;
-    }
+  html, body { overflow-y: auto; overflow-x: hidden; }
 
-    .card {
-        border-radius: 0;
-    }
+  /* ── Top bar ── */
+  .top-bar {
+    position: sticky;
+    top: 0; left: 0; right: 0;
+    height: 56px;
+    background: rgba(26,29,39,0.98);
+    border-bottom: 1px solid #2E3352;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .top-left { display: flex; align-items: center; gap: 14px; }
+  .back-btn {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: #22263A;
+    border: 1px solid #2E3352;
+    display: flex; align-items: center; justify-content: center;
+    color: #94A3B8;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+  }
+  .back-btn:hover { background: #2E3352; color: #F8FAFC; text-decoration: none; }
+  .top-title { font-size: 0.95rem; font-weight: 600; color: #F8FAFC; }
+  .job-count-pill {
+    background: #22263A;
+    border: 1px solid #2E3352;
+    color: #6B7280;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  /* ── Page scroll ── */
+  .page-content {
+    padding: 16px 16px calc(var(--tab-h, 64px) + 16px);
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  /* ── Toggle nav ── */
+  .toggle-nav {
+    display: flex;
+    background: #22263A;
+    border: 1px solid #2E3352;
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 18px;
+    gap: 4px;
+  }
+  .toggle-nav a {
+    flex: 1;
+    padding: 9px 8px;
+    border-radius: 9px;
+    text-align: center;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #6B7280;
+    text-decoration: none !important;
+    transition: background 0.15s, color 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .toggle-nav a.active {
+    background: #3B82F6;
+    color: #fff;
+  }
+  .toggle-nav a:not(.active):hover {
+    background: #2E3352;
+    color: #F8FAFC;
+  }
+
+  /* ── Job card ── */
+  .job-card {
+    background: #1A1D27;
+    border: 1px solid #2E3352;
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: border-color 0.15s, background 0.15s;
+    cursor: default;
+  }
+  .job-card:hover { border-color: #3B4280; background: #1E2133; }
+
+  .job-photo {
+    width: 60px; height: 60px;
+    border-radius: 12px;
+    object-fit: cover;
+    border: 2px solid #2E3352;
+    flex-shrink: 0;
+  }
+
+  .job-info { flex: 1; min-width: 0; }
+  .job-name { font-size: 0.92rem; font-weight: 600; color: #F8FAFC; margin-bottom: 3px;
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .job-meta { font-size: 0.75rem; color: #6B7280; margin-bottom: 6px; }
+
+  /* Mini route */
+  .mini-route { display: flex; flex-direction: column; gap: 3px; }
+  .mini-stop  { display: flex; align-items: flex-start; gap: 6px; font-size: 0.74rem; color: #94A3B8; }
+  .mini-dot   { width: 6px; height: 6px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+
+  /* Right side */
+  .job-right { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .job-price { font-size: 1rem; font-weight: 700; color: #3B82F6; }
+  .job-dist  { font-size: 0.72rem; color: #6B7280; }
+  .status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .badge-completed { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.25); color: #10B981; }
+  .badge-cancelled { background: rgba(239,68,68,0.15);  border: 1px solid rgba(239,68,68,0.25);  color: #EF4444; }
+
+  /* ── Empty state ── */
+  .empty-state {
+    text-align: center;
+    padding: 60px 24px;
+  }
+  .empty-icon {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: #22263A;
+    border: 1px solid #2E3352;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+  }
+  .empty-icon i { font-size: 28px; color: #4B5563; }
+  .empty-title { font-size: 1rem; font-weight: 600; color: #F8FAFC; margin-bottom: 6px; }
+  .empty-sub   { font-size: 0.84rem; color: #6B7280; }
+
+  /* ── Stats summary ── */
+  .summary-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .summary-card {
+    background: #1A1D27;
+    border: 1px solid #2E3352;
+    border-radius: 14px;
+    padding: 14px 10px;
+    text-align: center;
+  }
+  .summary-val { font-size: 1.1rem; font-weight: 700; color: #F8FAFC; margin-bottom: 3px; }
+  .summary-lbl { font-size: 0.65rem; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* ── Desktop ── */
+  @media (min-width: 768px) {
+    .page-content { margin-left: 64px; }
+    .top-bar      { margin-left: 64px; }
+    .desktop-nav  { display: flex !important; }
+  }
+
+  .desktop-nav {
+    display: none;
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 64px;
+    background: rgba(26,29,39,0.98);
+    border-right: 1px solid #2E3352;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+    gap: 8px;
+    z-index: 300;
+  }
+  .desktop-nav a {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: #6B7280; text-decoration: none; font-size: 18px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .desktop-nav a.active,
+  .desktop-nav a:hover { background: #22263A; color: #3B82F6; }
 </style>
 {% endblock %}
 
 {% block content %}
-<br><div class="text-center">
-    <div class="btn-group mt-1 mb-1 align-item-center" role="group">
-        <a href="{% url 'courier:current_job' %}" class="btn btn-outline-warning">Current Job</a>
-        <a href="{% url 'courier:archived_jobs' %}" class="btn btn-warning">Archived Job</a>
-    </div>
-</div><br>
 
-{% if jobs %}
-
-{% for job in jobs %}
-<div class="card mb-3">
-    <div class="card-body p-2">
-        <div class="media">
-            <img src="{{ job.photo.url }}" class="rounded-lg mr-3" width="50px" height="50px">
-            <div class="media-body">
-                <b>{{ job.names }}</b>
-                <div class="d-flex">
-                    <div class="flex-grow-1 mr-2">
-                        <small class="text-success">
-                            <i class="fas fa-car"></i><span>{{ job.distance }}</span> km
-                            <i class="far fa-clock ml-2"></i><span>{{ job.duration }}</span> minutes
-                        </small>
-
-                        <div class="d-flex align-items-center mt-2">
-                            <i class="fas fa-map-marker-alt"></i>
-                            <small class="text-secondary ml-2">{{ job.pickup_address }}</small>
-                        </div>
-                        <div class="d-flex align-items-center mt-2">
-                            <i class="fas fa-flag-checkered"></i>
-                            <small class="text-secondary ml-2">{{ job.delivery_address }}</small>
-                        </div>
-                    </div>
-                    <h3>${{ job.price }}</h3>
-                </div>
-            </div>
-        </div>   
-    </div>
+<!-- Top bar -->
+<div class="top-bar">
+  <div class="top-left">
+    <a href="{% url 'courier:available_jobs' %}" class="back-btn">
+      <i class="fas fa-chevron-left" style="font-size:13px;"></i>
+    </a>
+    <span class="top-title">Job History</span>
+  </div>
+  {% if jobs %}
+  <span class="job-count-pill">{{ jobs|length }} job{{ jobs|length|pluralize }}</span>
+  {% endif %}
 </div>
-{% endfor %}
 
-{% else %}
-    <div id="main" class="text-center">
-        <p>You have no job available now. Let's pick a new one.</p>
+<div class="page-content">
+
+  <!-- Toggle nav -->
+  <div class="toggle-nav">
+    <a href="{% url 'courier:current_job' %}">
+      <i class="fas fa-truck" style="font-size:13px;"></i> Active
+    </a>
+    <a href="{% url 'courier:archived_jobs' %}" class="active">
+      <i class="fas fa-history" style="font-size:13px;"></i> Completed
+    </a>
+  </div>
+
+  {% if jobs %}
+
+  <!-- Summary stats -->
+  <div class="summary-row">
+    <div class="summary-card">
+      <div class="summary-val" style="color:#3B82F6;">{{ jobs|length }}</div>
+      <div class="summary-lbl">Total Jobs</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-val" style="color:#10B981;">
+        {% with total_km=0 %}
+          {{ jobs|length }}
+        {% endwith %}
+        —
+      </div>
+      <div class="summary-lbl">Total km</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-val" style="color:#F59E0B;">—</div>
+      <div class="summary-lbl">KES Earned</div>
+    </div>
+  </div>
+
+  <!-- Job list -->
+  {% for job in jobs %}
+  <div class="job-card">
+    <img class="job-photo" src="{{ job.photo.url }}" alt="{{ job.names }}"
+         onerror="this.style.background='#22263A'">
+
+    <div class="job-info">
+      <div class="job-name">{{ job.names }}</div>
+      <div class="job-meta">
+        {{ job.get_size_display }} &middot; {{ job.quantity }} tonne(s)
+        &middot; {{ job.created_at|date:"M d, Y" }}
+      </div>
+      <div class="mini-route">
+        <div class="mini-stop">
+          <div class="mini-dot" style="background:#10B981;"></div>
+          <span class="truncate" style="max-width:200px;">{{ job.pickup_address|truncatechars:40 }}</span>
+        </div>
+        <div class="mini-stop">
+          <div class="mini-dot" style="background:#EF4444;"></div>
+          <span class="truncate" style="max-width:200px;">{{ job.delivery_address|truncatechars:40 }}</span>
+        </div>
+      </div>
     </div>
 
-{% endif %}
+    <div class="job-right">
+      <div class="job-price">KES {{ job.price }}</div>
+      <div class="job-dist">{{ job.distance }} km</div>
+      <span class="status-badge {% if job.status == 'completed' %}badge-completed{% else %}badge-cancelled{% endif %}">
+        {% if job.status == 'completed' %}Done{% else %}Cancelled{% endif %}
+      </span>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% else %}
+
+  <!-- Empty state -->
+  <div class="empty-state">
+    <div class="empty-icon"><i class="fas fa-history"></i></div>
+    <div class="empty-title">No completed jobs yet</div>
+    <div class="empty-sub mb-4">Accepted jobs will appear here once completed.</div>
+    <a href="{% url 'courier:available_jobs' %}"
+       class="d-inline-flex align-items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold"
+       style="background:#3B82F6;color:#fff;text-decoration:none;border-radius:12px;padding:10px 20px;font-size:0.88rem;font-weight:600;gap:8px;">
+      <i class="fas fa-map-marked-alt"></i>
+      Find Available Jobs
+    </a>
+  </div>
+
+  {% endif %}
+
+</div>
 
 {% include 'courier/bottom_tabs.html' %}
+
+<!-- Desktop side nav -->
+<nav class="desktop-nav">
+  <a href="{% url 'courier:available_jobs' %}" title="Jobs"><i class="fas fa-map-marked-alt"></i></a>
+  <a href="{% url 'courier:current_job' %}" title="My Job"><i class="fas fa-truck"></i></a>
+  <a href="{% url 'courier:archived_jobs' %}" class="active" title="History"><i class="fas fa-history"></i></a>
+  <a href="{% url 'courier:profile' %}" title="Profile"><i class="fas fa-user-circle"></i></a>
+</nav>
+
 {% endblock %}

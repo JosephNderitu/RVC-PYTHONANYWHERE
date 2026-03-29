@@ -1,0 +1,64 @@
+# docker-compose.yml
+
+services:
+
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: rvc_postgis
+    environment:
+      POSTGRES_DB: rvc_spatial
+      POSTGRES_USER: rvc_user
+      POSTGRES_PASSWORD: rvc_pass_2026
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rvc_user -d rvc_spatial"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: rvc_redis
+    ports:
+      - "6379:6379"
+
+  web:
+    build: .
+    container_name: rvc_web
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgis://rvc_user:rvc_pass_2026@db:5432/rvc_spatial
+      - REDIS_URL=redis://redis:6379/0
+      - DEBUG=True
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+
+  celery:
+    build: .
+    container_name: rvc_celery
+    command: celery -A RiftValley worker --loglevel=info
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - DATABASE_URL=postgis://rvc_user:rvc_pass_2026@db:5432/rvc_spatial
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+
+volumes:
+  postgis_data:

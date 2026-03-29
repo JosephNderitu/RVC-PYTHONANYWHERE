@@ -1,95 +1,105 @@
-
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Courier | RiftValley Carriers</title>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Courier | RiftValley Carriers</title>
 
-        {% load bootstrap4 %}
-        {% bootstrap_css %}
-        {% bootstrap_javascript  jquery='full' %}
+  {% load bootstrap4 %}
+  {% bootstrap_css %}
+  {% bootstrap_javascript jquery='full' %}
 
-        {% include "load-firebase.html" %}
+  {% include "load-firebase.html" %}
 
-        
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const messaging = firebase.messaging();
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            dark:    '#0F1117',
+            surface: '#1A1D27',
+            card:    '#22263A',
+            border:  '#2E3352',
+            accent:  '#3B82F6',
+          }
+        }
+      },
+      corePlugins: { preflight: false }
+    }
+  </script>
 
-            // Check current permission status
-            if (Notification.permission === 'granted') {
-                getToken();
-            } else if (Notification.permission === 'default') {
-                requestPermission();
-            } else {
-                console.error('Notification permission has been blocked by the user.');
-            }
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.9.0/css/all.css">
 
-            function requestPermission() {
-                Notification.requestPermission().then((permission) => {
-                    if (permission === 'granted') {
-                        console.log('Notification permission granted.');
-                        getToken();
-                    } else {
-                        console.error('Unable to get permission to notify.');
-                    }
-                });
-            }
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const messaging = firebase.messaging();
+      if (Notification.permission === 'granted') {
+        getToken();
+      } else if (Notification.permission === 'default') {
+        Notification.requestPermission().then(p => { if (p === 'granted') getToken(); });
+      }
+      function getToken() {
+        messaging.getToken({ vapidKey: "BA1cWIPYCPUCFZxTMEVfN0aHFib229js50M1qBNjiFvGK4z93ei2HnvwuwMRX2IkJIkaBhCcm1S42R3WLSKYJiI" })
+          .then(t => { if (t) fetch('{% url "courier:fcm_token_update_api" %}?fcm_token=' + t); })
+          .catch(e => console.error(e));
+      }
+    });
+  </script>
 
-            function getToken() {
-                messaging.getToken({ vapidKey: "BA1cWIPYCPUCFZxTMEVfN0aHFib229js50M1qBNjiFvGK4z93ei2HnvwuwMRX2IkJIkaBhCcm1S42R3WLSKYJiI" })
-                .then((currentToken) => {
-                    if (currentToken) {
-                        console.log('Token retrieved: ', currentToken);
-                        fetch('{% url "courier:fcm_token_update_api" %}?fcm_token=' + currentToken);
-                    } else {
-                        console.log('No registration token available. Request permission to generate one.');
-                    }
-                })
-                .catch((err) => {
-                    console.error('An error occurred while retrieving token: ', err);
-                });
-            }
-        });
-    </script>
+  <script>
+    let vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+    window.addEventListener('resize', () => {
+      vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    });
+  </script>
 
-        <script>
-           let vh =  window.innerHeight * 0.01;
-           document.documentElement.style.setProperty("--vh", `${vh}px`);
-        </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: #0F1117;
+      color: #F8FAFC;
+      font-family: 'Inter', system-ui, sans-serif;
+      overflow: hidden;
+    }
+    #content {
+      height: calc(var(--vh, 1vh) * 100);
+      position: relative;
+    }
+    :root {
+      --top-h: 56px;
+      --tab-h: 64px;
+    }
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #1A1D27; }
+    ::-webkit-scrollbar-thumb { background: #3B82F6; border-radius: 2px; }
+  </style>
 
-        <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.9.0/css/all.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div id="content">
+    {% block content %}{% endblock %}
+  </div>
 
-        <style>
-            #content {
-                height: calc(var(--vh, 1vh) * 100);
-            }
-        </style>
-
-        {% block head  %}{% endblock %}
-        
-    </head>
-    <body>
-        
-        <div id="content">
-            {% block content  %}{% endblock %}
-        </div>
-
-        <script src="https://unpkg.com/bootoast@1.0.1/dist/bootoast.min.js"></script>
-        <link rel="stylesheet" href="https://unpkg.com/bootoast@1.0.1/dist/bootoast.min.css">
-        <script>
-            {% if messages %}
-            {% for message in messages %}
-            bootoast.toast({
-                position: 'centerBottom',
-                message: '{{ message }}',
-                type: '{{ message.tags }}',
-                timeout: 10000 
-            });
-            {% endfor %}
-            {% endif %}
-        </script>
-    </body>
+  <script src="https://unpkg.com/bootoast@1.0.1/dist/bootoast.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/bootoast@1.0.1/dist/bootoast.min.css">
+  <script>
+    {% if messages %}
+    {% for message in messages %}
+    bootoast.toast({
+      position: 'centerBottom',
+      message: '{{ message }}',
+      type: '{{ message.tags }}',
+      timeout: 8000
+    });
+    {% endfor %}
+    {% endif %}
+  </script>
+</body>
 </html>
