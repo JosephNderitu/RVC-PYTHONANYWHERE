@@ -1,38 +1,254 @@
 {% extends 'courier/base.html' %}
 {% load bootstrap4 %}
+{% load static %}
 
 {% block head %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-    .header{
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 60px;
-        display: flex;
-        align-items: center;
-        padding: 0 20px;
-        background-color: #ffc106;
-        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
-    }
+  html, body { overflow-y: auto; overflow-x: hidden; }
+
+  .top-bar {
+    position: sticky;
+    top: 0; left: 0; right: 0;
+    height: 56px;
+    background: rgba(26,29,39,0.98);
+    border-bottom: 1px solid #2E3352;
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    gap: 14px;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+  .back-btn {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: #22263A;
+    border: 1px solid #2E3352;
+    display: flex; align-items: center; justify-content: center;
+    color: #94A3B8;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+  }
+  .back-btn:hover { background: #2E3352; color: #F8FAFC; text-decoration: none; }
+  .top-title { font-size: 0.95rem; font-weight: 600; color: #F8FAFC; }
+
+  .page-content {
+    padding: 24px 18px calc(var(--tab-h, 64px) + 24px);
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  /* Hero section */
+  .payout-hero {
+    background: #1A1D27;
+    border: 1px solid #2E3352;
+    border-radius: 20px;
+    padding: 28px 24px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .payout-icon {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1D4ED8, #3B82F6);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+    box-shadow: 0 4px 20px rgba(59,130,246,0.3);
+  }
+  .payout-icon i { font-size: 26px; color: #fff; }
+  .hero-title { font-size: 1.1rem; font-weight: 700; color: #F8FAFC; margin-bottom: 6px; }
+  .hero-sub   { font-size: 0.84rem; color: #6B7280; line-height: 1.5; }
+
+  /* Info card */
+  .info-card {
+    background: rgba(59,130,246,0.08);
+    border: 1px solid rgba(59,130,246,0.2);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .info-card i { color: #3B82F6; font-size: 16px; margin-top: 2px; flex-shrink: 0; }
+  .info-card p { font-size: 0.82rem; color: #94A3B8; margin: 0; line-height: 1.5; }
+
+  /* Form card */
+  .form-card {
+    background: #1A1D27;
+    border: 1px solid #2E3352;
+    border-radius: 18px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .form-label-custom {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .form-input-custom {
+    width: 100%;
+    background: #22263A;
+    border: 1px solid #2E3352;
+    border-radius: 12px;
+    padding: 13px 16px;
+    color: #F8FAFC;
+    font-size: 0.92rem;
+    font-family: 'Inter', sans-serif;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+  }
+  .form-input-custom:focus {
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  }
+  .form-input-custom::placeholder { color: #4B5563; }
+
+  /* Override django bootstrap form fields */
+  .form-card .form-group label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .form-card .form-control {
+    background: #22263A !important;
+    border: 1px solid #2E3352 !important;
+    border-radius: 12px !important;
+    padding: 13px 16px !important;
+    color: #F8FAFC !important;
+    font-size: 0.92rem !important;
+    font-family: 'Inter', sans-serif !important;
+  }
+  .form-card .form-control:focus {
+    border-color: #3B82F6 !important;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15) !important;
+    background: #22263A !important;
+  }
+  .form-card .invalid-feedback { color: #EF4444; font-size: 0.78rem; }
+  .form-card .is-invalid { border-color: #EF4444 !important; }
+
+  /* Save button */
+  .save-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px;
+    background: #3B82F6;
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .save-btn:hover { background: #2563EB; }
+  .save-btn:active { transform: scale(0.98); }
+
+  /* Warning card */
+  .warning-card {
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.2);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-top: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .warning-card i { color: #F59E0B; font-size: 15px; margin-top: 2px; flex-shrink: 0; }
+  .warning-card p { font-size: 0.8rem; color: #94A3B8; margin: 0; line-height: 1.5; }
+
+  @media (min-width: 768px) {
+    .page-content { margin-left: 64px; }
+    .top-bar { margin-left: 64px; }
+    .desktop-nav { display: flex !important; }
+  }
+  .desktop-nav {
+    display: none;
+    position: fixed;
+    left: 0; top: 0; bottom: 0; width: 64px;
+    background: rgba(26,29,39,0.98);
+    border-right: 1px solid #2E3352;
+    flex-direction: column; align-items: center;
+    padding: 16px 0; gap: 8px; z-index: 300;
+  }
+  .desktop-nav a {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: #6B7280; text-decoration: none; font-size: 18px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .desktop-nav a:hover { background: #22263A; color: #3B82F6; }
 </style>
-{% endblock  %}
+{% endblock %}
+
 {% block content %}
-<div class="header">
-    <a href="{% url 'courier:profile' %}" class="mr-2">
-        <i class="fas fa-chevron-left text-dark"></i>
-    </a>
-    <h5 class="mt-1 mb-0">Profile</h5>
+
+<div class="top-bar">
+  <a href="{% url 'courier:profile' %}" class="back-btn">
+    <i class="fas fa-chevron-left" style="font-size:13px;"></i>
+  </a>
+  <span class="top-title">Payout Method</span>
 </div>
 
-<div class="container-fluid" style="padding-top: 80px;">
+<div class="page-content">
+
+  <!-- Hero -->
+  <div class="payout-hero">
+    <div class="payout-icon">
+      <i class="fab fa-paypal"></i>
+    </div>
+    <div class="hero-title">PayPal Payout</div>
+    <div class="hero-sub">
+      Link your PayPal email address to receive your courier earnings directly to your account.
+    </div>
+  </div>
+
+  <!-- Info -->
+  <div class="info-card">
+    <i class="fas fa-info-circle"></i>
+    <p>Payments are processed every week. You will receive 80% of each job's price to your PayPal account.</p>
+  </div>
+
+  <!-- Form -->
+  <div class="form-card">
     <form method="POST">
-        {% csrf_token %}
-        {% bootstrap_form payout_form %}
-        <button type="submit" class="btn btn-block btn-warning">Save</button>
-
+      {% csrf_token %}
+      {% bootstrap_form payout_form %}
+      <button type="submit" class="save-btn mt-3">
+        <i class="fas fa-save" style="font-size:14px;"></i>
+        Save Payout Address
+      </button>
     </form>
+  </div>
+
+  <!-- Warning -->
+  <div class="warning-card">
+    <i class="fas fa-exclamation-triangle"></i>
+    <p>Please double-check your PayPal email before saving. Payments sent to an incorrect address are not refundable.</p>
+  </div>
 
 </div>
 
-{% endblock  %}
+{% include 'courier/bottom_tabs.html' %}
+
+<nav class="desktop-nav">
+  <a href="{% url 'courier:available_jobs' %}" title="Jobs"><i class="fas fa-map-marked-alt"></i></a>
+  <a href="{% url 'courier:current_job' %}" title="My Job"><i class="fas fa-truck"></i></a>
+  <a href="{% url 'courier:archived_jobs' %}" title="History"><i class="fas fa-history"></i></a>
+  <a href="{% url 'courier:profile' %}" class="active" title="Profile"><i class="fas fa-user-circle"></i></a>
+</nav>
+
+{% endblock %}
