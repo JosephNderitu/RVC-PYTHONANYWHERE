@@ -118,9 +118,9 @@
               <p class="mb-0">{{ job.delivery_name }}</p>
               <small class="text-muted">{{ job.delivery_address }}</small>
               <hr>
-              <p><b>Distance:</b> {{ job.distance }} km</p>
+              <p><b>Distance:</b> {{ job.distance }} mi</p>
               <p><b>Duration:</b> ~{{ job.duration }} min</p>
-              <p><b>Price:</b> KES {{ job.price }}</p>
+              <p><b>Price:</b> $ {{ job.price }}</p>
             {% endif %}
           {% endif %}
         </div>
@@ -176,7 +176,7 @@
               <div class="autocomplete-wrapper">
                 <div class="input-group">
                   <input type="text" id="pickup-search-input" class="form-control"
-                         placeholder="e.g. Westlands, Nairobi"
+                         placeholder="e.g. 123 Peachtree St, Atlanta, GA"
                          autocomplete="off"
                          autocorrect="off"
                          autocapitalize="off"
@@ -187,7 +187,7 @@
                 <div id="pickup-autocomplete" class="autocomplete-results"></div>
               </div>
               <small class="text-muted">
-                Type at least 3 characters to see suggestions. Results are limited to Kenya.
+                Type at least 3 characters to see suggestions. Results are limited to the US.
                 You can also click the map to drop a pin.
               </small>
             </div>
@@ -254,7 +254,7 @@
               <div class="autocomplete-wrapper">
                 <div class="input-group">
                   <input type="text" id="delivery-search-input" class="form-control"
-                         placeholder="e.g. Kilimani, Nairobi"
+                         placeholder="e.g. 456 River Rd, Savannah, GA"
                          autocomplete="off"
                          autocorrect="off"
                          autocapitalize="off"
@@ -265,7 +265,7 @@
                 <div id="delivery-autocomplete" class="autocomplete-results"></div>
               </div>
               <small class="text-muted">
-                Type at least 3 characters to see suggestions. Results are limited to Kenya.
+                Type at least 3 characters to see suggestions. Results are limited to the US.
                 You can also click the map to drop a pin.
               </small>
             </div>
@@ -344,11 +344,11 @@
                 </div>
                 <div class="form-group">
                   <label>Price</label>
-                  <input class="form-control" value="KES {{ job.price }}" disabled>
+                  <input class="form-control" value="$ {{ job.price }}" disabled>
                 </div>
                 <div class="form-group">
                   <label>Distance</label>
-                  <input class="form-control" value="{{ job.distance }} km" disabled>
+                  <input class="form-control" value="{{ job.distance }} mi" disabled>
                 </div>
                 <div class="form-group">
                   <label>Est. Duration</label>
@@ -373,7 +373,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ── Constants ────────────────────────────────────────────────────────────────
-var NAIROBI  = [-1.2921, 36.8219];
+var USA_CENTER = [33.7490, -84.3880]; // Atlanta, GA as rough center of US
 var TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 var TILE_OPT = { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 };
 
@@ -400,7 +400,7 @@ function buildMap(type) {
 
   var iLat   = (type === 'pickup') ? INIT_P_LAT : INIT_D_LAT;
   var iLng   = (type === 'pickup') ? INIT_P_LNG : INIT_D_LNG;
-  var centre = (iLat && iLng) ? [iLat, iLng] : NAIROBI;
+  var centre = (iLat && iLng) ? [iLat, iLng] : USA_CENTER;
   var zoom   = (iLat && iLng) ? 15 : 12;
 
   var map = L.map(type + '-map', { zoomControl: true }).setView(centre, zoom);
@@ -478,9 +478,9 @@ function onSearchInput(type) {
 }
 
 function fetchSuggestions(type, query) {
-  // countrycodes=ke restricts results to Kenya only
+  // countrycodes=us restricts results to US
   var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=6'
-            + '&countrycodes=ke&addressdetails=1&q=' + encodeURIComponent(query);
+            + '&countrycodes=us&addressdetails=1&q=' + encodeURIComponent(query);
   fetch(url, { headers: { 'Accept-Language': 'en' } })
     .then(function(r) { return r.json(); })
     .then(function(data) { renderSuggestions(type, data); })
@@ -505,7 +505,7 @@ function renderSuggestions(type, data) {
   });
 
   if (!filtered.length) {
-    box.innerHTML = '<div class="autocomplete-loading">No results in Kenya. Try a different search.</div>';
+    box.innerHTML = '<div class="autocomplete-loading">No results found in the US. Try a different search.</div>';
     return;
   }
 
@@ -557,14 +557,14 @@ function searchAddress(type) {
   var query = document.getElementById(type + '-search-input').value.trim();
   if (!query) return;
   fetch(
-    'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ke&q='
+    'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q='
     + encodeURIComponent(query),
     { headers: { 'Accept-Language': 'en' } }
   )
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (!data || !data.length) {
-        alert('No results found in Kenya for "' + query + '". Try a more specific search.');
+        alert('No results found in the US for "' + query + '". Try a more specific search.');
         return;
       }
       // Reuse selectSuggestion

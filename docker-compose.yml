@@ -59,6 +59,30 @@ services:
       - redis
     env_file:
       - .env
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:v5.27.1
+    container_name: rvc_osrm
+    volumes:
+      - ./osrm_data:/data
+    ports:
+      - "5000:5000"
+    command: >
+      sh -c "
+        if [ ! -f /data/georgia-latest.osrm.ebg ]; then
+          echo 'Preprocessing Georgia OSM data...' &&
+          osrm-extract -p /opt/car.lua /data/georgia-latest.osm.pbf &&
+          osrm-partition /data/georgia-latest.osrm &&
+          osrm-customize /data/georgia-latest.osrm
+        fi &&
+        echo 'Starting OSRM server...' &&
+        osrm-routed --algorithm mld --max-table-size 10000 /data/georgia-latest.osrm
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- 'http://localhost:5000/route/v1/driving/-84.388,33.749;-81.0998,32.0835?overview=false' | grep -q 'Ok' && exit 0 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 45s
 
 volumes:
   postgis_data:

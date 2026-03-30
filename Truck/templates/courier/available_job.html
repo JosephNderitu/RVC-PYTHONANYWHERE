@@ -256,11 +256,11 @@
   <!-- Stats -->
   <div class="stats-row">
     <div class="stat-card">
-      <div class="stat-val" style="color:#3B82F6;">KES {{ job.price }}</div>
+      <div class="stat-val" style="color:#3B82F6;">$ {{ job.price }}</div>
       <div class="stat-lbl">Earnings</div>
     </div>
     <div class="stat-card">
-      <div class="stat-val">{{ job.distance }} km</div>
+      <div class="stat-val">{{ job.distance }} mi</div>
       <div class="stat-lbl">Distance</div>
     </div>
     <div class="stat-card">
@@ -399,7 +399,7 @@ if (hasPickup && hasDelivery) {
 } else if (hasPickup) {
   map.setView([pLat,pLng], 14);
 } else {
-  map.setView([-1.2921,36.8219], 12);
+  map.setView([33.7490, -84.3880], 12);
 }
 </script>
 {% endblock %}

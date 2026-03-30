@@ -208,6 +208,7 @@ def create_job_page(request):
                     if all([p_lat, p_lng, d_lat, d_lng]):
                         result = compute_distance(p_lat, p_lng, d_lat, d_lng)
 
+                        # Replace the distance engine result block
                         if result['error']:
                             messages.error(
                                 request,
@@ -224,15 +225,15 @@ def create_job_page(request):
                                 "show_manual_distance": show_manual_distance,
                             })
 
-                        creating_job.distance = result['distance_km']
+                        creating_job.distance = result['distance_miles']   # ← miles not km
                         creating_job.duration = result['duration_min']
-                        creating_job.price    = result['price']
+                        creating_job.price    = result['price_usd']        # ← USD not KES
                         creating_job.save()
 
                         messages.info(
                             request,
-                            f"Distance calculated via {result['method']}: "
-                            f"{result['distance_km']} km"
+                            f"Distance: {result['distance_miles']} mi via {result['method']} · "
+                            f"Est. {result['duration_min']} min"
                         )
                     else:
                         messages.error(
@@ -250,21 +251,19 @@ def create_job_page(request):
                             "show_manual_distance": show_manual_distance,
                         })
                 else:
-                    # ── Manual distance fallback ─────────────────────────────
+                    # Manual distance entry — convert to miles
                     if distance_unit == 'miles':
-                        distance_km = manual_distance * 1.60934
+                        distance_miles = manual_distance
                     elif distance_unit == 'meters':
-                        distance_km = manual_distance / 1000
-                    else:
-                        distance_km = manual_distance
+                        distance_miles = (manual_distance / 1000) * 0.621371
+                    else:  # km
+                        distance_miles = manual_distance * 0.621371
 
-                    distance_km = round(distance_km, 2)
-                    result = compute_distance(0, 0, 0, 0)  # get pricing only
-                    creating_job.distance = distance_km
-                    creating_job.duration = max(1, int(distance_km * 2.5))
-                    creating_job.price    = round(
-                        max(80, 50 + distance_km * 30), 2
-                    )
+                    distance_miles = round(distance_miles, 2)
+                    from Truck.distance_engine import _compute_price, _compute_duration
+                    creating_job.distance = distance_miles
+                    creating_job.duration = _compute_duration(distance_miles)
+                    creating_job.price    = _compute_price(distance_miles)
                     creating_job.save()
 
                 return render(request, 'customer/create_job.html', {
