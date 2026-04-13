@@ -401,5 +401,5 @@ def job_page(request, job_id):
 
     return render(request, 'customer/job.html', {
         "job": job,
-        "GOOGLE_MAP_API_KEY": settings.GOOGLE_MAP_API_KEY,
+        "OSRM_BASE_URL": settings.OSRM_BASE_URL,
     })

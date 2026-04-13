@@ -451,10 +451,24 @@ if (dLat && dLng) {
     .bindPopup('<span style="color:#F8FAFC;font-family:Inter,sans-serif;font-size:13px;"><b>Delivery</b><br>{{ job.delivery_address|escapejs }}</span>');
 }
 if (pLat && pLng && dLat && dLng) {
-  L.polyline([[pLat,pLng],[dLat,dLng]], {
-    color:'#3B82F6', weight:3, dashArray:'6 8', opacity:0.7
-  }).addTo(map);
-  map.fitBounds(L.latLngBounds([[pLat,pLng],[dLat,dLng]]), { padding:[80,80] });
+  var osrmUrl = '/courier/api/osrm/?coords=' + pLng + ',' + pLat + ';' + dLng + ',' + dLat + '&overview=full&geometries=geojson&steps=false&alternatives=false';
+    + pLng + ',' + pLat + ';' + dLng + ',' + dLat
+    + '?overview=full&geometries=geojson&steps=false&alternatives=false';
+  fetch(osrmUrl)
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (!data || data.code !== 'Ok' || !data.routes.length) throw new Error('no route');
+      var lls = data.routes[0].geometry.coordinates.map(function(c){ return [c[1],c[0]]; });
+      var line = L.polyline(lls, { color:'#3B82F6', weight:4, opacity:0.85 }).addTo(map);
+      map.fitBounds(line.getBounds(), { padding:[80,80] });
+    })
+    .catch(function(){
+      // Fallback: straight dashed line if OSRM unavailable
+      var line = L.polyline([[pLat,pLng],[dLat,dLng]], {
+        color:'#3B82F6', weight:3, dashArray:'6 8', opacity:0.7
+      }).addTo(map);
+      map.fitBounds(line.getBounds(), { padding:[80,80] });
+    });
 }
 
 // ── Card toggle ───────────────────────────────────────────────────────────────
@@ -483,6 +497,7 @@ function toggleCard() {
 
 // ── Live location ─────────────────────────────────────────────────────────────
 var locEl = document.getElementById('loc-status');
+var _lastPush = 0;
 function onPos(pos) {
   var lat = pos.coords.latitude, lng = pos.coords.longitude;
   if (courierMarker) {
@@ -493,6 +508,20 @@ function onPos(pos) {
   }
   locEl.className = 'loc-status live';
   locEl.innerHTML = '<span class="loc-dot"></span>Live location active';
+
+  // Push to server max once every 5s (watchPosition fires more often)
+  var now = Date.now();
+  if (now - _lastPush < 5000) return;
+  _lastPush = now;
+  fetch('/api/courier-location/update/', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': '{{ csrf_token }}'
+    },
+    body: JSON.stringify({ lat: lat, lng: lng })
+  }).catch(function() {}); // silent — map still works if push fails
 }
 function onErr() {
   locEl.className = 'loc-status err';

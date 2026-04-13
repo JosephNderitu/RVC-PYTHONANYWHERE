@@ -78,7 +78,10 @@ def current_job_page(request):
         courier=request.user.courier,
         status__in=[Job.PICKING_STATUS, Job.DELIVERING_STATUS],
     ).last()
-    return render(request, "courier/current_job.html", {"job": job})
+    return render(request, "courier/current_job.html", {
+        "job": job,
+        "OSRM_BASE_URL": settings.OSRM_BASE_URL,
+    })
     
 @login_required(login_url="/sign_in/?next=/courier/")
 def current_job_take_photo(request, id):

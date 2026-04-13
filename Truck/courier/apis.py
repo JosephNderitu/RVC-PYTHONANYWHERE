@@ -1,5 +1,5 @@
 # Truck/courier/apis.py — complete replacement
-
+import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
@@ -120,3 +120,72 @@ def fcm_token_update_api(request):
         return JsonResponse({"success": True})
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
+    
+# ── NEW: Courier pushes GPS ───────────────────────────────────────────────────
+@csrf_exempt
+def courier_location_update_api(request):
+    """
+    POST {"lat": ..., "lng": ...}
+    Calls Courier.set_location() — writes to the existing PointField in models.py.
+    Rejects if no active picking/delivering job.
+    """
+    auth_error = _json_auth_check(request)
+    if auth_error:
+        return auth_error
+ 
+    if request.method != 'POST':
+        return JsonResponse({"success": False, "error": "POST required"}, status=405)
+ 
+    try:
+        courier = request.user.courier
+    except Exception:
+        return JsonResponse({"success": False, "error": "No courier profile"}, status=403)
+ 
+    if not Job.objects.filter(
+        courier=courier,
+        status__in=[Job.PICKING_STATUS, Job.DELIVERING_STATUS],
+    ).exists():
+        return JsonResponse({"success": False, "error": "No active job"}, status=403)
+ 
+    try:
+        body = json.loads(request.body)
+        lat  = float(body['lat'])
+        lng  = float(body['lng'])
+    except (KeyError, ValueError, json.JSONDecodeError):
+        return JsonResponse({"success": False, "error": "Invalid lat/lng"}, status=400)
+ 
+    courier.set_location(lat, lng)   # already defined in Courier model
+    return JsonResponse({"success": True})
+ 
+ 
+# ── NEW: Customer polls courier location ─────────────────────────────────────
+def courier_location_api(request, job_id):
+    """
+    GET — returns courier lat/lng only while job is picking/delivering.
+    Returns visible:false for completed/cancelled — no coordinates ever exposed.
+    """
+    auth_error = _json_auth_check(request)
+    if auth_error:
+        return auth_error
+ 
+    try:
+        job = Job.objects.select_related('courier').get(
+            id=job_id,
+            Customer=request.user.customer,
+        )
+    except Job.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Job not found"}, status=404)
+ 
+    if job.status in (Job.COMPLETED_STATUS, Job.CANCELED_STATUS):
+        return JsonResponse({"success": True, "visible": False, "status": job.status})
+ 
+    if not job.courier or not job.courier.location:
+        return JsonResponse({"success": True, "visible": False, "status": job.status})
+ 
+    return JsonResponse({
+        "success": True,
+        "visible": True,
+        "lat":     job.courier.lat,   # Courier.lat property → location.y
+        "lng":     job.courier.lng,   # Courier.lng property → location.x
+        "status":  job.status,
+    })

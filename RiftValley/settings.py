@@ -220,7 +220,8 @@ CELERY_TASK_SERIALIZER = 'json'
 GOOGLE_MAP_API_KEY = env('GOOGLE_MAP_API_KEY', default='')
 
 # ── OSRM (Phase 2) ─────────────────────────────────────────────────────────
-OSRM_BASE_URL = env('OSRM_BASE_URL', default='')
+OSRM_BASE_URL = env('OSRM_BASE_URL', default='http://osrm:5000')
+#OSRM_BASE_URL = os.environ.get('OSRM_BASE_URL', 'http://osrm:5000')
 
 # RiftValley/settings.py — add these session settings
 

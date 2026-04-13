@@ -2,189 +2,243 @@
 {% load static %}
 
 {% block head %}
-
-<!--<script async src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAP_API_KEY }}&libraries=places&callback=initMap"></script>-->
-<!--updated scrript-->
-<script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAP_API_KEY }}&callback=initMap&libraries=places&v=weekly" defer></script>
-
-<script>
-
-    var pickupLat = parseFloat("{{ job.pickup_lat }}");
-    var pickupLng = parseFloat("{{ job.pickup_lng }}");
-
-    var deliveryLat = parseFloat("{{ job.delivery_lat }}");
-    var deliveryLng = parseFloat("{{ job.delivery_lng }}");
-
-    function initMap() {
-        const directionsService = new google.maps.DirectionsService();
-        const directionsRenderer = new google.maps.DirectionsRenderer();
-        const map = new google.maps.Map(document.getElementById("map"), {
-          zoom: 7,
-          center: { lat: 41.85, lng: -87.65 },
-        });
-      
-        directionsRenderer.setMap(map);
-
-        calculateAndDisplayRoute(map, directionsService, directionsRenderer);  
-      }
-      
-      function calculateAndDisplayRoute(map, directionsService, directionsRenderer) {
-        directionsService
-          .route({
-            origin: new google.maps.LatLng(pickupLat, pickupLng),
-            destination: new google.maps.LatLng(deliveryLat, deliveryLng),
-            travelMode: google.maps.TravelMode.DRIVING,
-          })
-          .then((response) => {
-            new google.maps.DirectionsRenderer({
-                map: map,
-                directions: response,
-                suppressMarkers: true,
-                polylineOptions:  { 
-                    strokeColor: "black",
-                    strokeWeight: 5,
-                    strokeOpacity : 0.9,
-                }
-            });
-
-            var leg = response.routes[0].legs[0];
-            new google.maps.Marker({
-                position: leg.start_location,
-                map: map,
-                icon: "{% static '/images/start.png' %}"
-            });
-
-            new google.maps.Marker({
-                position: leg.end_location,
-                map: map,
-                icon: "{% static '/images/end.jpg' %}"
-            })
-
-            
-          })
-          .catch((e) => window.alert("Directions request failed due to " + status));
-      }
-      
-      window.initMap = initMap;
-
-      console.log("happy happy")
-
-</script>
-
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  .map-wrapper {
+    position: relative; width: 100%; height: 480px;
+    border-radius: 8px; overflow: hidden; border: 1px solid #dee2e6;
+  }
+  #map { width: 100%; height: 100%; }
+  .route-legend {
+    background: #fff; border: 1px solid #dee2e6; border-radius: 6px;
+    padding: 8px 12px; font-size: 0.82rem;
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+  }
+  .legend-dot {
+    display: inline-block; width: 12px; height: 12px;
+    border-radius: 50%; margin-right: 4px; vertical-align: middle;
+  }
+  #map-loading {
+    position: absolute; inset: 0; background: rgba(255,255,255,0.85);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; border-radius: 8px; font-size: 0.9rem; color: #6c757d; gap: 8px;
+  }
+  #map-loading.hidden { display: none; }
+</style>
 {% endblock %}
 
 {% block main %}
 
-<!--Job Description-->
+<!-- Job Description -->
 <div class="media mb-4">
-    <img src= "{{ job.photo.url }}"  width="150" height="150" class="mr-3 rounded-lg">
+    <img src="{{ job.photo.url }}" width="150" height="150" class="mr-3 rounded-lg" style="object-fit:cover;">
     <div class="media-body">
-
-       {% if job.status == 'processing'%} 
-        <form  method='POST' class="float-right">
+        {% if job.status == 'processing' %}
+        <form method='POST' class="float-right">
             {% csrf_token %}
             <button type="submit" class="btn btn-danger">Cancel Job</button>
         </form>
-
-       {% endif %}
-
+        {% endif %}
         <h4>{{ job.names }}</h4>
-        <p class= "text-secondary">{{ job.description }} </p>
-
+        <p class="text-secondary">{{ job.description }}</p>
         <div class="row">
             <div class="col-lg-3">
-                <small class= "text-secondary">CATEGORY</small><br>
-                <span><b>{{  job.category.name }}</b></span>
+                <small class="text-secondary">CATEGORY</small><br>
+                <span><b>{{ job.category.name }}</b></span>
             </div>
-
             <div class="col-lg-3">
-                <small class= "text-secondary">SIZE</small><br>
-                <span><b>{{  job.get_size_display }}</b></span>
+                <small class="text-secondary">SIZE</small><br>
+                <span><b>{{ job.get_size_display }}</b></span>
             </div>
-
             <div class="col-lg-3">
-                <small class= "text-secondary">PRICE</small><br>
-                <span><b>${{  job.price }}</b></span>
+                <small class="text-secondary">PRICE</small><br>
+                <span><b>${{ job.price }}</b></span>
             </div>
-
             <div class="col-lg-3">
-                <small class= "text-secondary">QUANTITY</small><br>
-                <span><b>{{  job.quantity }}</b></span>
+                <small class="text-secondary">QUANTITY</small><br>
+                <span><b>{{ job.quantity }}</b></span>
             </div>
-            
         </div>
     </div>
 </div>
 
-<!--DELIVERY INFORMATION-->
+<!-- Delivery Information -->
 <b class="text-secondary">DELIVERY INFORMATION</b><br/>
-<div  class="card bg-light mt-2 mb-5">
-    <div  class="card-body p-4">
+<div class="card bg-light mt-2 mb-5">
+    <div class="card-body p-4">
         <h4 class="mb-3">PICKUP</h4>
         <div class="row">
             <div class="col-lg-4">
-                <b>Address</b><br>
-                <span>{{  job.pickup_address }}</span><br>
+                <b>Address</b><br><span>{{ job.pickup_address }}</span>
             </div>
             <div class="col-lg-4">
-                <b>name: {{ job.pickup_name}}</b><br>
-                <span>Contact: {{  job.pickup_phone }}</span><br>
+                <b>Name: {{ job.pickup_name }}</b><br>
+                <span>Contact: {{ job.pickup_phone }}</span>
             </div>
-            <div id="pickup_photo" class="col-lg-4">
-
+            <div class="col-lg-4">
                 {% if job.pickup_photo %}
-                    <img src="{{ job.pickup_photo.url }}" class="rounded-lg photo" width="150" height="150px" style="object-fit: cover;">
+                    <img src="{{ job.pickup_photo.url }}" class="rounded-lg" width="150" height="150" style="object-fit:cover;">
                 {% else %}
-                    <div class="photo-blank" style="border: 2px dashed #DFDFDF; height: 150px; width: 150px; border-radius: 8px; align-items: center; display: flex; justify-content: center; text-align: center; padding: 10px;">
+                    <div style="border:2px dashed #DFDFDF;height:150px;width:150px;border-radius:8px;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px;">
                         Pickup Photo will appear here.
                     </div>
                 {% endif %}
-
             </div>
         </div>
-
-        <hr class="my-4" />
-
+        <hr class="my-4"/>
         <h4 class="mb-3">DELIVERY</h4>
         <div class="row">
             <div class="col-lg-4">
-                <b>Address</b><br>
-                <span>{{  job.delivery_address }}</span><br>
+                <b>Address</b><br><span>{{ job.delivery_address }}</span>
             </div>
             <div class="col-lg-4">
-                <b>name: {{ job.delivery_name}}</b><br>
-                <span>Contact: {{  job.delivery_phone }}</span><br>
+                <b>Name: {{ job.delivery_name }}</b><br>
+                <span>Contact: {{ job.delivery_phone }}</span>
             </div>
-            <div id="pickup_delivery" class="col-lg-4">
-
+            <div class="col-lg-4">
                 {% if job.delivery_photo %}
-                <img src="{{ job.delivery_photo.url }}" class="rounded-lg photo" width="150" height="150px" style="object-fit: cover;">
-            {% else %}
-                <div class="photo-blank" style="border: 2px dashed #DFDFDF; height: 150px; width: 150px; border-radius: 8px; align-items: center; display: flex; justify-content: center; text-align: center; padding: 10px;">
-                    Delivery Photo will appear here.
-                </div>
-            {% endif %}
-            
+                    <img src="{{ job.delivery_photo.url }}" class="rounded-lg" width="150" height="150" style="object-fit:cover;">
+                {% else %}
+                    <div style="border:2px dashed #DFDFDF;height:150px;width:150px;border-radius:8px;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px;">
+                        Delivery Photo will appear here.
+                    </div>
+                {% endif %}
             </div>
         </div>
-
     </div>
 </div>
 
-<!--Map Area-->
-<div class="d-flex justify-content-between">
+<!-- Track Delivery -->
+<div class="d-flex justify-content-between align-items-center mb-2">
     <b class="text-secondary">TRACK DELIVERY</b>
-    <div>
-        <span class="badge badge-warning">{{ job.get_status_display }}</span>
+    <span class="badge badge-warning">{{ job.get_status_display }}</span>
+</div>
+
+<div class="card bg-white mb-3">
+    <div class="card-body p-0">
+        <div class="map-wrapper">
+            <div id="map-loading">
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+                Loading route&hellip;
+            </div>
+            <div id="map"></div>
+        </div>
     </div>
 </div>
 
-<div class="card bg-white mt-2">
-    <div class="card-body p-0">
-        <div id="map" style="height: 500px;">
-           <!-- <iframe src="https://maps.google.com/maps?q=Tangesir%20Dates%20Products&amp;t=&amp;z=13&amp;ie=UTF8&amp;iwloc=&amp;output=embed"width=740  height=500 allowfullscreen></iframe>-->
-        </div>
-        
-    </div>
+<div class="route-legend mb-4">
+    <span><span class="legend-dot" style="background:#2196F3;"></span> Pickup</span>
+    <span><span class="legend-dot" style="background:#F44336;"></span> Delivery</span>
+    <span id="legend-courier" style="display:none;">
+        <span class="legend-dot" style="background:#10B981;"></span> Courier (live)
+    </span>
+    <span style="margin-left:auto;color:#6c757d;">Route via OSRM — real road network</span>
 </div>
+
+<script>
+  var PICKUP_LAT   = {{ job.pickup_lat|default:0 }};
+  var PICKUP_LNG   = {{ job.pickup_lng|default:0 }};
+  var DELIVERY_LAT = {{ job.delivery_lat|default:0 }};
+  var DELIVERY_LNG = {{ job.delivery_lng|default:0 }};
+  var JOB_ID       = "{{ job.id }}";
+  var OSRM_BASE    = "{{ OSRM_BASE_URL|default:'http://router.project-osrm.org' }}";
+  // Only poll while job is actively being picked up or delivered
+  var POLL_ACTIVE  = {% if job.status == 'picking' or job.status == 'delivering' %}true{% else %}false{% endif %};
+</script>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+  var TILE_OPT = { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 };
+
+  function circleIcon(color, label) {
+    return L.divIcon({
+      className: '',
+      html: '<div style="background:' + color + ';width:28px;height:28px;border-radius:50%;'
+          + 'border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);'
+          + 'display:flex;align-items:center;justify-content:center;'
+          + 'font-size:13px;font-weight:700;color:#fff;">' + label + '</div>',
+      iconSize:[28,28], iconAnchor:[14,14], popupAnchor:[0,-16],
+    });
+  }
+
+  var map = L.map('map').setView([(PICKUP_LAT+DELIVERY_LAT)/2, (PICKUP_LNG+DELIVERY_LNG)/2], 10);
+  L.tileLayer(TILE_URL, TILE_OPT).addTo(map);
+
+  var pickupMarker   = L.marker([PICKUP_LAT,   PICKUP_LNG],   {icon:circleIcon('#2196F3','P'), zIndexOffset:10})
+                        .addTo(map).bindPopup('<b>Pickup</b><br>{{ job.pickup_address|escapejs }}');
+  var deliveryMarker = L.marker([DELIVERY_LAT, DELIVERY_LNG], {icon:circleIcon('#F44336','D'), zIndexOffset:10})
+                        .addTo(map).bindPopup('<b>Delivery</b><br>{{ job.delivery_address|escapejs }}');
+  var courierMarker  = null;
+
+  // ── OSRM real road route ─────────────────────────────────────────────────────
+  fetch(OSRM_BASE + '/route/v1/driving/'
+    + PICKUP_LNG + ',' + PICKUP_LAT + ';'
+    + DELIVERY_LNG + ',' + DELIVERY_LAT
+    + '?overview=full&geometries=geojson&steps=false&alternatives=false')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (!data || data.code !== 'Ok' || !data.routes.length) throw new Error('no route');
+      var lls  = data.routes[0].geometry.coordinates.map(function(c){ return [c[1],c[0]]; });
+      var line = L.polyline(lls, { color:'#1565C0', weight:5, opacity:0.85, lineJoin:'round' }).addTo(map);
+      var mi   = (data.routes[0].distance / 1609.344).toFixed(1);
+      var min  = Math.round(data.routes[0].duration / 60);
+      line.bindPopup('<b>Route</b><br>' + mi + ' mi — ~' + min + ' min');
+      map.fitBounds(line.getBounds(), { padding:[40,40] });
+    })
+    .catch(function(){
+      // Dashed straight-line fallback — visually distinct so you know OSRM is down
+      L.polyline([[PICKUP_LAT,PICKUP_LNG],[DELIVERY_LAT,DELIVERY_LNG]],
+        { color:'#888', weight:3, opacity:0.7, dashArray:'8 6' }).addTo(map);
+      map.fitBounds(
+        L.featureGroup([pickupMarker,deliveryMarker]).getBounds(), { padding:[60,60] }
+      );
+    })
+    .finally(function(){
+      var el = document.getElementById('map-loading');
+      if (el) el.classList.add('hidden');
+    });
+
+  // ── Real-time courier tracking ───────────────────────────────────────────────
+  if (!POLL_ACTIVE) return;
+
+  var pollTimer;
+
+  function poll() {
+    fetch('/courier/api/courier-location/' + JOB_ID + '/', { credentials: 'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (!data.success) return;
+
+        if (!data.visible) {
+          if (courierMarker) { map.removeLayer(courierMarker); courierMarker = null; }
+          document.getElementById('legend-courier').style.display = 'none';
+          // Stop polling once job is done
+          if (data.status === 'completed' || data.status === 'canceled') {
+            clearInterval(pollTimer);
+          }
+          return;
+        }
+
+        if (!courierMarker) {
+          courierMarker = L.marker([data.lat, data.lng], {
+            icon: circleIcon('#10B981', 'C'), zIndexOffset: 20
+          }).addTo(map).bindPopup('<b>Courier (live)</b>');
+          document.getElementById('legend-courier').style.display = '';
+        } else {
+          courierMarker.setLatLng([data.lat, data.lng]);
+        }
+      })
+      .catch(function(){ /* silent retry */ });
+  }
+
+  poll();
+  pollTimer = setInterval(poll, 5000);
+
+})();
+</script>
+
 {% endblock %}
