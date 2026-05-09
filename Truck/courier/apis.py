@@ -1,17 +1,18 @@
-# Truck/courier/apis.py — complete replacement
+# Truck/courier/apis.py
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from Truck.models import Job, Courier
+from django.contrib.gis.geos import Point
+from Truck.models import Job, Courier, CourierLocationHistory
 
 
 def _json_auth_check(request):
-    """Returns a JsonResponse error if not authenticated, else None."""
+    """Returns a JsonResponse 401 if not authenticated, else None."""
     if not request.user.is_authenticated:
         return JsonResponse(
             {"success": False, "error": "Not authenticated"},
-            status=401
+            status=401,
         )
     return None
 
@@ -68,7 +69,6 @@ def current_job_update_api(request, id):
     if request.method != 'POST':
         return JsonResponse({"success": False, "error": "POST required"}, status=405)
 
-    # Make sure this user has a courier profile
     try:
         courier = request.user.courier
     except Exception:
@@ -83,8 +83,7 @@ def current_job_update_api(request, id):
     if job is None:
         return JsonResponse({
             "success": False,
-            "error": f"Job not found. Job id={id}, courier={courier}, "
-                     f"looking for status picking or delivering."
+            "error": f"Job not found. id={id}, courier={courier}",
         }, status=404)
 
     if job.status == Job.PICKING_STATUS:
@@ -120,54 +119,90 @@ def fcm_token_update_api(request):
         return JsonResponse({"success": True})
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
-    
-# ── NEW: Courier pushes GPS ───────────────────────────────────────────────────
+
+
+# ── GPS position update ────────────────────────────────────────────────────────
 @csrf_exempt
 def courier_location_update_api(request):
     """
     POST {"lat": ..., "lng": ...}
-    Calls Courier.set_location() — writes to the existing PointField in models.py.
-    Rejects if no active picking/delivering job.
+
+    1. Validates auth and active job
+    2. Calls courier.set_location() — writes to PostGIS PointField
+    3. Logs to CourierLocationHistory
+    4. Dispatches evaluate_geofences_task via Celery (async, non-blocking)
+       → The geofencing pipeline runs in the background worker
+       → This endpoint always returns in <50ms
     """
     auth_error = _json_auth_check(request)
     if auth_error:
         return auth_error
- 
+
     if request.method != 'POST':
         return JsonResponse({"success": False, "error": "POST required"}, status=405)
- 
+
     try:
         courier = request.user.courier
     except Exception:
         return JsonResponse({"success": False, "error": "No courier profile"}, status=403)
- 
-    if not Job.objects.filter(
+
+    # Only accept GPS updates while a job is actively in progress
+    active_job = Job.objects.filter(
         courier=courier,
         status__in=[Job.PICKING_STATUS, Job.DELIVERING_STATUS],
-    ).exists():
+    ).first()
+
+    if not active_job:
         return JsonResponse({"success": False, "error": "No active job"}, status=403)
- 
+
+    # Parse coordinates
     try:
         body = json.loads(request.body)
         lat  = float(body['lat'])
         lng  = float(body['lng'])
     except (KeyError, ValueError, json.JSONDecodeError):
         return JsonResponse({"success": False, "error": "Invalid lat/lng"}, status=400)
- 
-    courier.set_location(lat, lng)   # already defined in Courier model
+
+    # ── Step 1: Save position to PostGIS ────────────────────────────────────
+    courier.set_location(lat, lng)
+
+    # ── Step 2: Log to history ───────────────────────────────────────────────
+    # Creates a permanent audit trail for trajectory analysis and
+    # benchmarking the geofencing engine.
+    CourierLocationHistory.objects.create(
+        courier  = courier,
+        location = Point(lng, lat, srid=4326),
+    )
+
+    # ── Step 3: Dispatch geofencing evaluation (async) ───────────────────────
+    # .delay() queues the task in Redis and returns immediately.
+    # The Celery worker picks it up and runs the full pipeline:
+    #   EMA smoothing → PostGIS bounding box → Winding Number PiP → state machine
+    try:
+        from Truck.tasks import evaluate_geofences_task
+        evaluate_geofences_task.delay(courier.pk, lat, lng)
+    except Exception:
+        # Never let a Celery dispatch failure break the GPS update.
+        # Log it but still return success — the position was saved.
+        import logging
+        logging.getLogger(__name__).exception(
+            "Failed to dispatch evaluate_geofences_task for courier %s", courier.pk
+        )
+
     return JsonResponse({"success": True})
- 
- 
-# ── NEW: Customer polls courier location ─────────────────────────────────────
+
+
+# ── Customer polls courier location ───────────────────────────────────────────
 def courier_location_api(request, job_id):
     """
     GET — returns courier lat/lng only while job is picking/delivering.
-    Returns visible:false for completed/cancelled — no coordinates ever exposed.
+    Returns visible:false for completed/cancelled — coordinates never
+    exposed after a job closes (privacy requirement).
     """
     auth_error = _json_auth_check(request)
     if auth_error:
         return auth_error
- 
+
     try:
         job = Job.objects.select_related('courier').get(
             id=job_id,
@@ -175,17 +210,44 @@ def courier_location_api(request, job_id):
         )
     except Job.DoesNotExist:
         return JsonResponse({"success": False, "error": "Job not found"}, status=404)
- 
+
     if job.status in (Job.COMPLETED_STATUS, Job.CANCELED_STATUS):
         return JsonResponse({"success": True, "visible": False, "status": job.status})
- 
+
     if not job.courier or not job.courier.location:
         return JsonResponse({"success": True, "visible": False, "status": job.status})
- 
+
     return JsonResponse({
         "success": True,
         "visible": True,
-        "lat":     job.courier.lat,   # Courier.lat property → location.y
-        "lng":     job.courier.lng,   # Courier.lng property → location.x
+        "lat":     job.courier.lat,
+        "lng":     job.courier.lng,
         "status":  job.status,
     })
+
+
+# ── OSRM proxy ────────────────────────────────────────────────────────────────
+def osrm_proxy(request):
+    """
+    Proxy OSRM requests from the browser to the Docker-internal OSRM container.
+    The browser cannot resolve http://osrm:5000 — Django resolves it instead.
+    """
+    import requests as http_requests
+    from django.conf import settings
+
+    path  = request.GET.get('path', '')
+    query = request.GET.get('query', '')
+
+    if not path:
+        return JsonResponse({"error": "path parameter required"}, status=400)
+
+    osrm_base = getattr(settings, 'OSRM_BASE_URL', 'http://osrm:5000')
+    url = f"{osrm_base}{path}"
+    if query:
+        url += f"?{query}"
+
+    try:
+        resp = http_requests.get(url, timeout=10)
+        return JsonResponse(resp.json(), safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=502)

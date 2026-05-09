@@ -6,8 +6,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 from paypalrestsdk import configure, Payout
 from .models import (
-    Transaction, Courier, Customer, Category,
-    Truck, Service, Worker, Owner, Job,
+    Transaction, Courier, Customer, Category, Job,
     DeliveryZone, CourierLocationHistory, GeofenceEvent,
 )
 
@@ -262,25 +261,3 @@ class GeofenceEventAdmin(admin.ModelAdmin):
     list_filter = ['event_type', 'zone', 'triggered_at']
     search_fields = ['courier__user__first_name', 'courier__user__last_name']
     readonly_fields = ['triggered_at']
-
-
-# ── Content models ────────────────────────────────────────────────────────────
-@admin.register(Truck)
-class TruckAdmin(admin.ModelAdmin):
-    list_display = ('name', 'description')
-    search_fields = ('name',)
-
-@admin.register(Service)
-class ServiceAdmin(admin.ModelAdmin):
-    list_display = ('title', 'description')
-    search_fields = ('title',)
-
-@admin.register(Worker)
-class WorkerAdmin(admin.ModelAdmin):
-    list_display = ('name', 'job_title')
-    search_fields = ('name', 'job_title')
-
-@admin.register(Owner)
-class OwnerAdmin(admin.ModelAdmin):
-    list_display = ('name', 'job_title')
-    search_fields = ('name', 'job_title')
