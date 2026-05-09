@@ -38,8 +38,10 @@ courier_urlpatterns = [
     
     path('api/jobs/current/<id>/update/', courier_apis.current_job_update_api, name="current_job_update_api"),
     path('api/fcm-token/update/', courier_apis.fcm_token_update_api, name="fcm_token_update_api"),
-    path('api/courier-location/update/',       courier_apis.courier_location_update_api),
-    path('api/courier-location/<str:job_id>/', courier_apis.courier_location_api),
+    # ✅ AFTER — proxy registered, browser calls /courier/api/osrm/ → Django → osrm:5000
+    path('api/courier-location/update/',       courier_apis.courier_location_update_api, name="courier_location_update_api"),
+    path('api/courier-location/<str:job_id>/', courier_apis.courier_location_api,        name="courier_location_api"),
+    path('api/osrm/',                          courier_apis.osrm_proxy,                  name="osrm_proxy"),  # ← THIS
 ]
 
 

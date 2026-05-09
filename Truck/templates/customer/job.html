@@ -1,244 +1,319 @@
 {% extends 'customer/base.html' %}
 {% load static %}
 
-{% block head %}
+{% block head_extra %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-  .map-wrapper {
-    position: relative; width: 100%; height: 480px;
-    border-radius: 8px; overflow: hidden; border: 1px solid #dee2e6;
-  }
-  #map { width: 100%; height: 100%; }
-  .route-legend {
-    background: #fff; border: 1px solid #dee2e6; border-radius: 6px;
-    padding: 8px 12px; font-size: 0.82rem;
-    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
-  }
-  .legend-dot {
-    display: inline-block; width: 12px; height: 12px;
-    border-radius: 50%; margin-right: 4px; vertical-align: middle;
-  }
-  #map-loading {
-    position: absolute; inset: 0; background: rgba(255,255,255,0.85);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 1000; border-radius: 8px; font-size: 0.9rem; color: #6c757d; gap: 8px;
-  }
-  #map-loading.hidden { display: none; }
+.map-shell { position:relative; border-radius:14px; overflow:hidden; height:420px; border:1px solid #E5E7EB; }
+.map-shell #track-map { width:100%; height:100%; }
+#map-loader {
+  position:absolute; inset:0; background:rgba(255,255,255,.9);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  z-index:800; gap:10px; font-size:.875rem; color:#6B7280;
+  font-family:'Sora',sans-serif;
+}
+#map-loader.gone { display:none; }
+
+.info-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media(max-width:640px){ .info-grid { grid-template-columns:1fr; } }
+
+.info-item label { display:block; font-size:.72rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:.07em; color:#9CA3AF; margin-bottom:3px; }
+.info-item span  { font-size:.9rem; font-weight:600; color:#0D1B3E; }
+
+.route-stat { text-align:center; padding:14px 10px; }
+.route-stat .val { font-size:1.3rem; font-weight:800; color:#0D1B3E; font-family:'Sora',sans-serif; }
+.route-stat .lbl { font-size:.72rem; color:#9CA3AF; font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin-top:3px; }
+
+.status-track { display:flex; align-items:center; gap:0; margin-bottom:8px; }
+.st-step { display:flex; flex-direction:column; align-items:center; flex:1; }
+.st-dot  { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.75rem; }
+.st-line { flex:1; height:2px; }
+.st-label{ font-size:.68rem; font-weight:600; text-align:center; margin-top:5px; white-space:nowrap; }
 </style>
 {% endblock %}
 
 {% block main %}
+{% with st=job.status %}
 
-<!-- Job Description -->
-<div class="media mb-4">
-    <img src="{{ job.photo.url }}" width="150" height="150" class="mr-3 rounded-lg" style="object-fit:cover;">
-    <div class="media-body">
-        {% if job.status == 'processing' %}
-        <form method='POST' class="float-right">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-danger">Cancel Job</button>
-        </form>
+<!-- Back + Header -->
+<div class="flex items-center gap-3 mb-5">
+  <a href="{% url 'customer:current_jobs' %}"
+     class="flex items-center justify-center w-9 h-9 rounded-xl no-underline"
+     style="background:#F1F5F9;color:#374151;">
+    <i class="fas fa-arrow-left text-sm"></i>
+  </a>
+  <div>
+    <h1 class="text-xl font-bold" style="color:#0D1B3E;font-family:'Sora',sans-serif;">{{ job.names }}</h1>
+    <div class="flex items-center gap-2 mt-0.5">
+      <span class="sb sb-{{ st }}">
+        {% if st == 'processing' %}<i class="fas fa-hourglass-half"></i>Waiting for courier
+        {% elif st == 'picking' %}<i class="fas fa-truck"></i>Picking up
+        {% elif st == 'delivering' %}<i class="fas fa-shipping-fast"></i>Delivering
+        {% elif st == 'completed' %}<i class="fas fa-check-circle"></i>Delivered
+        {% elif st == 'cancel' %}<i class="fas fa-times-circle"></i>Cancelled
+        {% else %}{{ job.get_status_display }}
         {% endif %}
-        <h4>{{ job.names }}</h4>
-        <p class="text-secondary">{{ job.description }}</p>
-        <div class="row">
-            <div class="col-lg-3">
-                <small class="text-secondary">CATEGORY</small><br>
-                <span><b>{{ job.category.name }}</b></span>
-            </div>
-            <div class="col-lg-3">
-                <small class="text-secondary">SIZE</small><br>
-                <span><b>{{ job.get_size_display }}</b></span>
-            </div>
-            <div class="col-lg-3">
-                <small class="text-secondary">PRICE</small><br>
-                <span><b>${{ job.price }}</b></span>
-            </div>
-            <div class="col-lg-3">
-                <small class="text-secondary">QUANTITY</small><br>
-                <span><b>{{ job.quantity }}</b></span>
-            </div>
-        </div>
+      </span>
+      <span class="text-xs text-gray-400">{{ job.created_at|date:"M j, Y" }}</span>
     </div>
+  </div>
+
+  {% if st == 'processing' %}
+  <form method="POST" class="ml-auto">
+    {% csrf_token %}
+    <button type="submit"
+            class="px-4 py-2 rounded-xl text-sm font-bold text-white"
+            style="background:#DC2626;border:none;"
+            onclick="return confirm('Cancel this job?')">
+      <i class="fas fa-times mr-1"></i>Cancel
+    </button>
+  </form>
+  {% endif %}
 </div>
 
-<!-- Delivery Information -->
-<b class="text-secondary">DELIVERY INFORMATION</b><br/>
-<div class="card bg-light mt-2 mb-5">
-    <div class="card-body p-4">
-        <h4 class="mb-3">PICKUP</h4>
-        <div class="row">
-            <div class="col-lg-4">
-                <b>Address</b><br><span>{{ job.pickup_address }}</span>
-            </div>
-            <div class="col-lg-4">
-                <b>Name: {{ job.pickup_name }}</b><br>
-                <span>Contact: {{ job.pickup_phone }}</span>
-            </div>
-            <div class="col-lg-4">
-                {% if job.pickup_photo %}
-                    <img src="{{ job.pickup_photo.url }}" class="rounded-lg" width="150" height="150" style="object-fit:cover;">
-                {% else %}
-                    <div style="border:2px dashed #DFDFDF;height:150px;width:150px;border-radius:8px;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px;">
-                        Pickup Photo will appear here.
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-        <hr class="my-4"/>
-        <h4 class="mb-3">DELIVERY</h4>
-        <div class="row">
-            <div class="col-lg-4">
-                <b>Address</b><br><span>{{ job.delivery_address }}</span>
-            </div>
-            <div class="col-lg-4">
-                <b>Name: {{ job.delivery_name }}</b><br>
-                <span>Contact: {{ job.delivery_phone }}</span>
-            </div>
-            <div class="col-lg-4">
-                {% if job.delivery_photo %}
-                    <img src="{{ job.delivery_photo.url }}" class="rounded-lg" width="150" height="150" style="object-fit:cover;">
-                {% else %}
-                    <div style="border:2px dashed #DFDFDF;height:150px;width:150px;border-radius:8px;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px;">
-                        Delivery Photo will appear here.
-                    </div>
-                {% endif %}
-            </div>
-        </div>
+<!-- Status timeline -->
+<div class="pc p-5 mb-5">
+  <div class="status-track">
+    <!-- Rendered directly for reliability -->
+    <!-- Step 1 -->
+    <div class="st-step">
+      <div class="st-dot" style="background:{% if st != 'creating' %}#0D1B3E{% else %}#E5E7EB{% endif %};color:{% if st != 'creating' %}#fff{% else %}#9CA3AF{% endif %};">
+        <i class="fas fa-check text-xs"></i>
+      </div>
+      <div class="st-label" style="color:{% if st != 'creating' %}#0D1B3E{% else %}#9CA3AF{% endif %};">Created</div>
     </div>
-</div>
-
-<!-- Track Delivery -->
-<div class="d-flex justify-content-between align-items-center mb-2">
-    <b class="text-secondary">TRACK DELIVERY</b>
-    <span class="badge badge-warning">{{ job.get_status_display }}</span>
-</div>
-
-<div class="card bg-white mb-3">
-    <div class="card-body p-0">
-        <div class="map-wrapper">
-            <div id="map-loading">
-                <span class="spinner-border spinner-border-sm" role="status"></span>
-                Loading route&hellip;
-            </div>
-            <div id="map"></div>
-        </div>
+    <div class="st-line flex-1" style="background:{% if st == 'picking' or st == 'delivering' or st == 'completed' %}#0D1B3E{% else %}#E5E7EB{% endif %};"></div>
+    <!-- Step 2 -->
+    <div class="st-step">
+      <div class="st-dot" style="background:{% if st == 'picking' or st == 'delivering' or st == 'completed' %}#F97316{% elif st == 'processing' %}#FEF3C7{% else %}#E5E7EB{% endif %};color:{% if st == 'picking' or st == 'delivering' or st == 'completed' %}#fff{% elif st == 'processing' %}#B45309{% else %}#9CA3AF{% endif %};">
+        <i class="fas fa-truck text-xs"></i>
+      </div>
+      <div class="st-label" style="color:{% if st == 'picking' or st == 'delivering' or st == 'completed' %}#F97316{% else %}#9CA3AF{% endif %};">Courier</div>
     </div>
+    <div class="st-line flex-1" style="background:{% if st == 'delivering' or st == 'completed' %}#0D1B3E{% else %}#E5E7EB{% endif %};"></div>
+    <!-- Step 3 -->
+    <div class="st-step">
+      <div class="st-dot" style="background:{% if st == 'delivering' or st == 'completed' %}#1D4ED8{% else %}#E5E7EB{% endif %};color:{% if st == 'delivering' or st == 'completed' %}#fff{% else %}#9CA3AF{% endif %};">
+        <i class="fas fa-shipping-fast text-xs"></i>
+      </div>
+      <div class="st-label" style="color:{% if st == 'delivering' or st == 'completed' %}#1D4ED8{% else %}#9CA3AF{% endif %};">En Route</div>
+    </div>
+    <div class="st-line flex-1" style="background:{% if st == 'completed' %}#16A34A{% else %}#E5E7EB{% endif %};"></div>
+    <!-- Step 4 -->
+    <div class="st-step">
+      <div class="st-dot" style="background:{% if st == 'completed' %}#16A34A{% else %}#E5E7EB{% endif %};color:{% if st == 'completed' %}#fff{% else %}#9CA3AF{% endif %};">
+        <i class="fas fa-flag-checkered text-xs"></i>
+      </div>
+      <div class="st-label" style="color:{% if st == 'completed' %}#16A34A{% else %}#9CA3AF{% endif %};">Delivered</div>
+    </div>
+  </div>
 </div>
 
-<div class="route-legend mb-4">
-    <span><span class="legend-dot" style="background:#2196F3;"></span> Pickup</span>
-    <span><span class="legend-dot" style="background:#F44336;"></span> Delivery</span>
-    <span id="legend-courier" style="display:none;">
-        <span class="legend-dot" style="background:#10B981;"></span> Courier (live)
-    </span>
-    <span style="margin-left:auto;color:#6c757d;">Route via OSRM — real road network</span>
+<!-- Two column grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+
+  <!-- Item info -->
+  <div class="pc p-5">
+    <div class="flex items-center gap-3 mb-4">
+      <img src="{{ job.photo.url }}" alt="{{ job.names }}"
+           class="rounded-xl object-cover" style="width:60px;height:60px;">
+      <div>
+        <div class="font-bold text-sm" style="color:#0D1B3E;">{{ job.names }}</div>
+        <div class="text-xs text-gray-400 mt-0.5">{{ job.description }}</div>
+      </div>
+    </div>
+    <div class="info-grid">
+      <div class="info-item"><label>Category</label><span>{{ job.category.name }}</span></div>
+      <div class="info-item"><label>Size</label><span>{{ job.get_size_display }}</span></div>
+      <div class="info-item"><label>Quantity</label><span>{{ job.quantity }}</span></div>
+      <div class="info-item"><label>Price</label><span style="color:#F97316;">${{ job.price }}</span></div>
+    </div>
+  </div>
+
+  <!-- Route stats -->
+  <div class="pc lg:col-span-2">
+    <div class="flex" style="border-bottom:1px solid #F3F4F6;">
+      <div class="route-stat flex-1" style="border-right:1px solid #F3F4F6;">
+        <div class="val">{{ job.distance }} mi</div><div class="lbl">Distance</div>
+      </div>
+      <div class="route-stat flex-1" style="border-right:1px solid #F3F4F6;">
+        <div class="val">~{{ job.duration }} min</div><div class="lbl">Est. Duration</div>
+      </div>
+      <div class="route-stat flex-1">
+        <div class="val" style="color:#F97316;">${{ job.price }}</div><div class="lbl">Price</div>
+      </div>
+    </div>
+    <div class="p-5">
+      <!-- Pickup -->
+      <div class="flex gap-3 mb-4">
+        <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:#2196F3;">P</div>
+        <div>
+          <div class="text-xs text-gray-400 mb-0.5">PICKUP</div>
+          <div class="font-semibold text-sm" style="color:#0D1B3E;">{{ job.pickup_name }}</div>
+          <div class="text-xs text-gray-500">{{ job.pickup_address }}</div>
+          {% if job.pickup_phone %}<div class="text-xs text-gray-400">{{ job.pickup_phone }}</div>{% endif %}
+        </div>
+        {% if job.pickup_photo %}
+        <img src="{{ job.pickup_photo.url }}" class="ml-auto rounded-lg object-cover" style="width:48px;height:48px;">
+        {% endif %}
+      </div>
+      <div style="border-left:2px dashed #E5E7EB;height:20px;margin-left:15px;"></div>
+      <!-- Delivery -->
+      <div class="flex gap-3 mt-1">
+        <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:#F97316;">D</div>
+        <div>
+          <div class="text-xs text-gray-400 mb-0.5">DELIVERY</div>
+          <div class="font-semibold text-sm" style="color:#0D1B3E;">{{ job.delivery_name }}</div>
+          <div class="text-xs text-gray-500">{{ job.delivery_address }}</div>
+          {% if job.delivery_phone %}<div class="text-xs text-gray-400">{{ job.delivery_phone }}</div>{% endif %}
+        </div>
+        {% if job.delivery_photo %}
+        <img src="{{ job.delivery_photo.url }}" class="ml-auto rounded-lg object-cover" style="width:48px;height:48px;">
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
 </div>
 
+<!-- Live tracking map -->
+<div class="pc mb-5">
+  <div class="flex items-center justify-between px-5 py-4" style="border-bottom:1px solid #F3F4F6;">
+    <div>
+      <div class="font-bold" style="color:#0D1B3E;font-family:'Sora',sans-serif;">Live Tracking</div>
+      <div class="text-xs text-gray-400 mt-0.5">Real-time courier location via OSRM road network</div>
+    </div>
+    {% if st == 'picking' or st == 'delivering' %}
+    <div class="flex items-center gap-2 text-xs font-semibold" style="color:#16A34A;">
+      <span class="relative flex h-2 w-2">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style="background:#16A34A;"></span>
+        <span class="relative inline-flex rounded-full h-2 w-2" style="background:#16A34A;"></span>
+      </span>
+      LIVE
+    </div>
+    {% endif %}
+  </div>
+  <div class="p-4">
+    <div class="map-shell">
+      <div id="map-loader">
+        <div class="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style="border-color:#0D1B3E;border-top-color:transparent;"></div>
+        <span>Loading road route&hellip;</span>
+      </div>
+      <div id="track-map"></div>
+    </div>
+    <!-- Legend -->
+    <div class="flex flex-wrap items-center gap-5 mt-3 text-xs text-gray-500">
+      <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-full" style="background:#2196F3;"></span>Pickup</span>
+      <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-full" style="background:#F97316;"></span>Delivery</span>
+      <span id="legend-courier" class="flex items-center gap-1.5" style="display:none!important;">
+        <span class="inline-block w-3 h-3 rounded-full" style="background:#10B981;"></span>Courier (live)
+      </span>
+      <span class="ml-auto text-gray-400">Route via OSRM — real road network</span>
+    </div>
+  </div>
+</div>
+
+{% endwith %}
+
+<!-- Map JavaScript -->
 <script>
-  var PICKUP_LAT   = {{ job.pickup_lat|default:0 }};
-  var PICKUP_LNG   = {{ job.pickup_lng|default:0 }};
-  var DELIVERY_LAT = {{ job.delivery_lat|default:0 }};
-  var DELIVERY_LNG = {{ job.delivery_lng|default:0 }};
-  var JOB_ID       = "{{ job.id }}";
-  var OSRM_BASE    = "{{ OSRM_BASE_URL|default:'http://router.project-osrm.org' }}";
-  // Only poll while job is actively being picked up or delivered
-  var POLL_ACTIVE  = {% if job.status == 'picking' or job.status == 'delivering' %}true{% else %}false{% endif %};
+var PLAT = {{ job.pickup_lat|default:0 }};
+var PLNG = {{ job.pickup_lng|default:0 }};
+var DLAT = {{ job.delivery_lat|default:0 }};
+var DLNG = {{ job.delivery_lng|default:0 }};
+var JOB_ID = "{{ job.id }}";
+var POLL_ACTIVE = {% if job.status == 'picking' or job.status == 'delivering' %}true{% else %}false{% endif %};
 </script>
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-(function () {
+(function(){
   "use strict";
 
-  var TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-  var TILE_OPT = { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 };
-
-  function circleIcon(color, label) {
+  function icon(color, label) {
     return L.divIcon({
-      className: '',
-      html: '<div style="background:' + color + ';width:28px;height:28px;border-radius:50%;'
-          + 'border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);'
-          + 'display:flex;align-items:center;justify-content:center;'
-          + 'font-size:13px;font-weight:700;color:#fff;">' + label + '</div>',
-      iconSize:[28,28], iconAnchor:[14,14], popupAnchor:[0,-16],
+      className:'',
+      html:'<div style="background:'+color+';width:30px;height:30px;border-radius:50%;'
+          +'border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3);'
+          +'display:flex;align-items:center;justify-content:center;'
+          +'font-size:12px;font-weight:800;color:#fff;font-family:Sora,sans-serif;">'
+          +label+'</div>',
+      iconSize:[30,30], iconAnchor:[15,15], popupAnchor:[0,-18]
     });
   }
 
-  var map = L.map('map').setView([(PICKUP_LAT+DELIVERY_LAT)/2, (PICKUP_LNG+DELIVERY_LNG)/2], 10);
-  L.tileLayer(TILE_URL, TILE_OPT).addTo(map);
+  var map = L.map('track-map').setView([(PLAT+DLAT)/2,(PLNG+DLNG)/2], 9);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    { attribution:'© OpenStreetMap contributors', maxZoom:19 }).addTo(map);
 
-  var pickupMarker   = L.marker([PICKUP_LAT,   PICKUP_LNG],   {icon:circleIcon('#2196F3','P'), zIndexOffset:10})
-                        .addTo(map).bindPopup('<b>Pickup</b><br>{{ job.pickup_address|escapejs }}');
-  var deliveryMarker = L.marker([DELIVERY_LAT, DELIVERY_LNG], {icon:circleIcon('#F44336','D'), zIndexOffset:10})
-                        .addTo(map).bindPopup('<b>Delivery</b><br>{{ job.delivery_address|escapejs }}');
-  var courierMarker  = null;
+  L.marker([PLAT,PLNG], {icon:icon('#2196F3','P'), zIndexOffset:10})
+   .addTo(map).bindPopup('<b>Pickup</b><br><small>{{ job.pickup_address|escapejs }}</small>');
+  L.marker([DLAT,DLNG], {icon:icon('#F97316','D'), zIndexOffset:10})
+   .addTo(map).bindPopup('<b>Delivery</b><br><small>{{ job.delivery_address|escapejs }}</small>');
 
-  // ── OSRM real road route ─────────────────────────────────────────────────────
-  fetch(OSRM_BASE + '/route/v1/driving/'
-    + PICKUP_LNG + ',' + PICKUP_LAT + ';'
-    + DELIVERY_LNG + ',' + DELIVERY_LAT
-    + '?overview=full&geometries=geojson&steps=false&alternatives=false')
+  var courierMk = null;
+  var loader    = document.getElementById('map-loader');
+
+  // ── Real OSRM road route via Django proxy ──────────────────────────
+  var osrmPath  = '/route/v1/driving/' + PLNG+','+PLAT+';'+DLNG+','+DLAT;
+  var osrmQuery = 'overview=full&geometries=geojson&steps=false&alternatives=false';
+  var proxyUrl  = '/courier/api/osrm/?path=' + encodeURIComponent(osrmPath)
+                + '&query=' + encodeURIComponent(osrmQuery);
+
+  fetch(proxyUrl, {credentials:'same-origin'})
     .then(function(r){ return r.json(); })
-    .then(function(data){
-      if (!data || data.code !== 'Ok' || !data.routes.length) throw new Error('no route');
-      var lls  = data.routes[0].geometry.coordinates.map(function(c){ return [c[1],c[0]]; });
-      var line = L.polyline(lls, { color:'#1565C0', weight:5, opacity:0.85, lineJoin:'round' }).addTo(map);
-      var mi   = (data.routes[0].distance / 1609.344).toFixed(1);
-      var min  = Math.round(data.routes[0].duration / 60);
-      line.bindPopup('<b>Route</b><br>' + mi + ' mi — ~' + min + ' min');
-      map.fitBounds(line.getBounds(), { padding:[40,40] });
+    .then(function(d){
+      if (!d || d.code !== 'Ok' || !d.routes || !d.routes.length) throw new Error('no route');
+      var lls  = d.routes[0].geometry.coordinates.map(function(c){ return [c[1],c[0]]; });
+      var line = L.polyline(lls, {
+        color:'#1565C0', weight:5, opacity:.88,
+        lineJoin:'round', lineCap:'round'
+      }).addTo(map);
+      var mi  = (d.routes[0].distance/1609.344).toFixed(1);
+      var min = Math.round(d.routes[0].duration/60);
+      line.bindPopup('<b>'+mi+' mi</b> — ~'+min+' min via real roads');
+      map.fitBounds(line.getBounds(), {padding:[40,40]});
     })
     .catch(function(){
-      // Dashed straight-line fallback — visually distinct so you know OSRM is down
-      L.polyline([[PICKUP_LAT,PICKUP_LNG],[DELIVERY_LAT,DELIVERY_LNG]],
-        { color:'#888', weight:3, opacity:0.7, dashArray:'8 6' }).addTo(map);
-      map.fitBounds(
-        L.featureGroup([pickupMarker,deliveryMarker]).getBounds(), { padding:[60,60] }
-      );
+      // Dashed fallback if OSRM unavailable
+      L.polyline([[PLAT,PLNG],[DLAT,DLNG]],
+        {color:'#94A3B8',weight:3,opacity:.7,dashArray:'8 5'}).addTo(map);
+      map.fitBounds([[PLAT,PLNG],[DLAT,DLNG]], {padding:[60,60]});
     })
     .finally(function(){
-      var el = document.getElementById('map-loading');
-      if (el) el.classList.add('hidden');
+      if (loader) loader.classList.add('gone');
     });
 
-  // ── Real-time courier tracking ───────────────────────────────────────────────
+  // ── Real-time courier polling ──────────────────────────────────────
   if (!POLL_ACTIVE) return;
 
+  var legendCourier = document.getElementById('legend-courier');
   var pollTimer;
 
-  function poll() {
-    fetch('/courier/api/courier-location/' + JOB_ID + '/', { credentials: 'same-origin' })
+  function poll(){
+    fetch('/courier/api/courier-location/'+JOB_ID+'/', {credentials:'same-origin'})
       .then(function(r){ return r.json(); })
-      .then(function(data){
-        if (!data.success) return;
-
-        if (!data.visible) {
-          if (courierMarker) { map.removeLayer(courierMarker); courierMarker = null; }
-          document.getElementById('legend-courier').style.display = 'none';
-          // Stop polling once job is done
-          if (data.status === 'completed' || data.status === 'canceled') {
-            clearInterval(pollTimer);
-          }
+      .then(function(d){
+        if (!d.success) return;
+        if (!d.visible){
+          if (courierMk){ map.removeLayer(courierMk); courierMk=null; }
+          legendCourier.style.setProperty('display','none','important');
+          if (d.status==='completed'||d.status==='cancel') clearInterval(pollTimer);
           return;
         }
-
-        if (!courierMarker) {
-          courierMarker = L.marker([data.lat, data.lng], {
-            icon: circleIcon('#10B981', 'C'), zIndexOffset: 20
-          }).addTo(map).bindPopup('<b>Courier (live)</b>');
-          document.getElementById('legend-courier').style.display = '';
+        if (!courierMk){
+          courierMk = L.marker([d.lat,d.lng],{icon:icon('#10B981','C'),zIndexOffset:20})
+                       .addTo(map).bindPopup('<b>Courier (live)</b>');
+          legendCourier.style.removeProperty('display');
         } else {
-          courierMarker.setLatLng([data.lat, data.lng]);
+          courierMk.setLatLng([d.lat,d.lng]);
         }
       })
-      .catch(function(){ /* silent retry */ });
+      .catch(function(){});
   }
-
   poll();
   pollTimer = setInterval(poll, 5000);
 
 })();
 </script>
-
 {% endblock %}

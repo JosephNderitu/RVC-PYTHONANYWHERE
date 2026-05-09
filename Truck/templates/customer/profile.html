@@ -1,115 +1,339 @@
 {% extends 'customer/base.html' %}
 {% load bootstrap4 %}
 
-{% block head %}
+{% block head_extra %}
 {% include "load-firebase.html" %}
+<style>
+/* ── Section card ────────────────────────────────────────── */
+.prof-section { margin-bottom: 20px; }
+.prof-section-hdr {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #F3F4F6;
+}
+.prof-section-hdr .hdr-icon {
+  width: 34px; height: 34px; border-radius: 9px;
+  display: flex; align-items: center; justify-content:center;
+  font-size: .85rem; flex-shrink: 0;
+}
+.prof-section-hdr .hdr-title { font-weight: 700; font-size: .95rem; color: #0D1B3E; font-family: 'Sora', sans-serif; }
+.prof-section-hdr .hdr-sub   { font-size: .75rem; color: #9CA3AF; margin-top: 1px; }
+
+/* ── Form overrides ──────────────────────────────────────── */
+.form-control { border-radius: 10px !important; border-color: #E5E7EB !important; }
+.form-control:focus { border-color: #0D1B3E !important; box-shadow: 0 0 0 3px rgba(13,27,62,.08) !important; }
+.form-group label { font-weight: 600; font-size: .85rem; color: #374151; font-family: 'Sora', sans-serif; }
+
+/* ── Phone verification ──────────────────────────────────── */
+.phone-step { transition: all .2s; }
+.phone-verified {
+  display: flex; align-items: center; gap: 10px;
+  background: #F0FDF4; border: 1px solid #BBF7D0;
+  border-radius: 10px; padding: 12px 16px;
+}
+
+/* ── Avatar upload ───────────────────────────────────────── */
+.avatar-wrap {
+  position: relative; display: inline-block; cursor: pointer;
+}
+.avatar-wrap:hover .avatar-overlay { opacity: 1; }
+.avatar-overlay {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: rgba(13,27,62,.55); opacity: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity .2s; color: #fff; font-size: .8rem; font-weight: 600;
+}
+</style>
 {% endblock %}
 
 {% block main %}
-<!--Basic Information-->
-<b class="text-secondary">Basic Information</b><br>
-<div class="card bg-white mt-2 mb-5">
-    <div class="card-body">
-        <form method="POST" enctype="multipart/form-data">
-            {% csrf_token %}
-            {% bootstrap_form user_form %}
-            {% bootstrap_form customer_form %}
-            <input type="hidden" name="action" value="update_profile">
-            <button type="submit" class="btn btn-warning">Save</button>
 
-        </form>
-    </div>
+<!-- Page header -->
+<div class="mb-6">
+  <h1 class="text-2xl font-bold mb-1" style="color:#0D1B3E;font-family:'Sora',sans-serif;">Profile</h1>
+  <p class="text-sm text-gray-400">Manage your account information</p>
 </div>
 
-<!--password information-->
-<b class="text-secondary">Change Password</b><br>
-<div class="card bg-white mt-2 mb-5">
-    <div class="card-body">
-        <form method="POST" enctype="multipart/form-data">
-            {% csrf_token %}
-            {% bootstrap_form password_form %}
-            <input type="hidden" name="action" value="update_password">
-            <button type="submit" class="btn btn-warning">Save</button>
-
-        </form>
+<!-- Avatar + name hero -->
+<div class="pc p-5 mb-5">
+  <div class="flex items-center gap-5">
+    <label for="avatar-hidden" class="avatar-wrap m-0" style="cursor:pointer;">
+      <img src="{% if request.user.customer.avatar %}{{ request.user.customer.avatar.url }}{% else %}https://ui-avatars.com/api/?name={{ request.user.get_full_name|urlencode }}&background=0D1B3E&color=fff&size=128{% endif %}"
+           class="rounded-full object-cover"
+           style="width:72px;height:72px;border:3px solid #F97316;">
+      <div class="avatar-overlay"><i class="fas fa-camera"></i></div>
+    </label>
+    <div>
+      <div class="font-bold text-lg" style="color:#0D1B3E;font-family:'Sora',sans-serif;">{{ request.user.get_full_name }}</div>
+      <div class="text-sm text-gray-400">{{ request.user.email }}</div>
+      <div class="text-xs mt-1" style="color:#F97316;font-weight:600;">Customer Account</div>
     </div>
+  </div>
 </div>
-<!--phone Information-->
-<b class="text-secondary">Phone Number</b><br>
-<div class="card bg-white mt-2 mb-5">
-    <div class="card-body">
 
-        <div id="recaptcha-container"></div>
-
-        <div id="get_code" class="input-group mb-3" {% if request.user.customer.phone_number %} d-none {% endif %} >
-            <input type="text" class="form-control" placeholder="Enter Your Phone Number" >
-            <div class="input-group-append">
-              <button class="btn btn-warning" type="button">Send Code</button>
-            </div>
-          </div>
-
-          <div id="verify-code" class="input-group mb-3  d-none">
-            <input type="text" class="form-control" placeholder="Enter the verification code" >
-            <div class="input-group-append">
-              <button class="btn btn-warning" type="button">Verify Code</button>
-            </div>
-          </div>
-
-          <div id="change-phone" class="input-group mb-3" {% if not request.user.customer.phone_number %} d-none {% endif%} >
-            <input type="text" class="form-control" disabled value="{{ request.user.customer.phone_number}}" >
-            <div class="input-group-append">
-              <button class="btn btn-warning" type="button">Change</button>
-            </div>
-          </div> 
-
-
+<!-- ═══ Basic Information ═══ -->
+<div class="pc prof-section">
+  <div class="prof-section-hdr">
+    <div class="hdr-icon" style="background:#EEF2FF;">
+      <i class="fas fa-user" style="color:#0D1B3E;"></i>
     </div>
+    <div>
+      <div class="hdr-title">Basic Information</div>
+      <div class="hdr-sub">Update your name, email, and avatar</div>
+    </div>
+  </div>
+  <div class="p-5">
+    <form method="POST" enctype="multipart/form-data" id="profile-form">
+      {% csrf_token %}
+      <!-- Hidden avatar input triggered by avatar-wrap label -->
+      <input type="file" id="avatar-hidden" name="avatar" accept="image/*" style="display:none;"
+             onchange="previewAvatar(this)">
+
+      {% bootstrap_form user_form %}
+      {% bootstrap_form customer_form %}
+      <input type="hidden" name="action" value="update_profile">
+
+      <div class="flex justify-end mt-4">
+        <button type="submit"
+                class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white"
+                style="background:#F97316;border:none;">
+          <i class="fas fa-save"></i> Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
+
+<!-- ═══ Change Password ═══ -->
+<div class="pc prof-section">
+  <div class="prof-section-hdr">
+    <div class="hdr-icon" style="background:#FEF3C7;">
+      <i class="fas fa-lock" style="color:#D97706;"></i>
+    </div>
+    <div>
+      <div class="hdr-title">Change Password</div>
+      <div class="hdr-sub">Use a strong, unique password</div>
+    </div>
+  </div>
+  <div class="p-5">
+    <form method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% bootstrap_form password_form %}
+      <input type="hidden" name="action" value="update_password">
+      <div class="flex justify-end mt-4">
+        <button type="submit"
+                class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white"
+                style="background:#0D1B3E;border:none;">
+          <i class="fas fa-key"></i> Update Password
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ Phone Number ═══ -->
+<div class="pc prof-section">
+  <div class="prof-section-hdr">
+    <div class="hdr-icon" style="background:#F0FDF4;">
+      <i class="fas fa-phone" style="color:#16A34A;"></i>
+    </div>
+    <div>
+      <div class="hdr-title">Phone Number</div>
+      <div class="hdr-sub">Used for delivery notifications and courier contact</div>
+    </div>
+  </div>
+  <div class="p-5">
+
+    <div id="recaptcha-container"></div>
+
+    <!-- Already verified state -->
+    {% if request.user.customer.phone_number %}
+    <div id="change-phone">
+      <div class="phone-verified mb-4">
+        <i class="fas fa-check-circle" style="color:#16A34A;"></i>
+        <div>
+          <div class="font-bold text-sm" style="color:#065F46;">Phone verified</div>
+          <div class="text-sm" style="color:#065F46;">{{ request.user.customer.phone_number }}</div>
+        </div>
+      </div>
+      <button type="button"
+              class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold"
+              style="background:#F1F5F9;color:#374151;border:1px solid #E5E7EB;"
+              onclick="startChangePhone()">
+        <i class="fas fa-pen"></i> Change Number
+      </button>
+    </div>
+    {% endif %}
+
+    <!-- Enter phone number -->
+    <div id="get_code" class="phone-step {% if request.user.customer.phone_number %}" style="display:none;{% endif %}">
+      <label class="block text-sm font-semibold mb-2" style="color:#374151;">Mobile number</label>
+      <div class="flex gap-2">
+        <input type="text" id="phone-input" class="form-control"
+               placeholder="+1 (404) 555-0123"
+               style="flex:1;border-radius:10px;">
+        <button type="button" id="send-code-btn"
+                class="px-4 py-2 rounded-xl text-sm font-bold text-white flex-shrink-0"
+                style="background:#F97316;border:none;"
+                onclick="sendCode()">
+          Send Code
+        </button>
+      </div>
+      <small class="text-gray-400 mt-2 block">Include country code, e.g. +1 for US numbers.</small>
+    </div>
+
+    <!-- Enter verification code -->
+    <div id="verify-code" class="phone-step" style="display:none;">
+      <div class="flex items-center gap-2 mb-3 text-sm" style="color:#0D1B3E;">
+        <i class="fas fa-mobile-alt" style="color:#F97316;"></i>
+        <span>Code sent to <strong id="sent-to-label">your phone</strong></span>
+      </div>
+      <label class="block text-sm font-semibold mb-2" style="color:#374151;">Verification code</label>
+      <div class="flex gap-2">
+        <input type="text" id="code-input" class="form-control"
+               placeholder="Enter 6-digit code"
+               maxlength="6" inputmode="numeric"
+               style="flex:1;border-radius:10px;">
+        <button type="button"
+                class="px-4 py-2 rounded-xl text-sm font-bold text-white flex-shrink-0"
+                style="background:#0D1B3E;border:none;"
+                onclick="verifyCode()">
+          Verify
+        </button>
+      </div>
+      <button type="button" class="text-xs mt-2 text-gray-400" style="background:none;border:none;cursor:pointer;"
+              onclick="document.getElementById('verify-code').style.display='none';document.getElementById('get_code').style.display='block';">
+        ← Change number
+      </button>
+    </div>
+
+    <!-- Verified success -->
+    <div id="phone-success" class="phone-step" style="display:none;">
+      <div class="flex items-center gap-3 p-4 rounded-xl" style="background:#F0FDF4;border:1px solid #BBF7D0;">
+        <i class="fas fa-check-circle text-xl" style="color:#16A34A;"></i>
+        <div>
+          <div class="font-bold text-sm" style="color:#065F46;">Phone verified successfully!</div>
+          <div class="text-xs" style="color:#16A34A;">Refreshing your profile…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error display -->
+    <div id="phone-error" class="flex items-center gap-2 mt-3 text-sm font-semibold" style="color:#DC2626;display:none;">
+      <i class="fas fa-exclamation-circle"></i>
+      <span id="phone-error-msg"></span>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ Danger Zone ═══ -->
+<div class="pc" style="border:1.5px solid #FEE2E2;">
+  <div class="prof-section-hdr" style="border-bottom:1px solid #FEE2E2;">
+    <div class="hdr-icon" style="background:#FEE2E2;">
+      <i class="fas fa-triangle-exclamation" style="color:#DC2626;"></i>
+    </div>
+    <div>
+      <div class="hdr-title" style="color:#DC2626;">Danger Zone</div>
+      <div class="hdr-sub">Irreversible actions</div>
+    </div>
+  </div>
+  <div class="p-5">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+      <div>
+        <div class="font-semibold text-sm" style="color:#0D1B3E;">Delete Account</div>
+        <div class="text-xs text-gray-400 mt-0.5">This will permanently remove your account and all associated data.</div>
+      </div>
+      <button type="button"
+              class="px-4 py-2 rounded-xl text-sm font-bold"
+              style="background:#FEE2E2;color:#DC2626;border:1px solid #FCA5A5;"
+              onclick="alert('Please contact support to delete your account.')">
+        Delete Account
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
+// ── Avatar preview ────────────────────────────────────────
+function previewAvatar(input) {
+  if (!input.files || !input.files[0]) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    document.querySelector('.avatar-wrap img').src = e.target.result;
+  };
+  reader.readAsDataURL(input.files[0]);
+  // Auto-submit profile form to save avatar
+  document.getElementById('profile-form').submit();
+}
 
-    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container');
+// ── Phone: change number ──────────────────────────────────
+function startChangePhone() {
+  document.getElementById('change-phone').style.display = 'none';
+  document.getElementById('get_code').style.display = 'block';
+}
 
-    $(document).ready(function() {
-        $("#get_code button").on("click", function() {
-            const phoneNumber = $("#get_code input").val();
-            console.log(phoneNumber);
+function showPhoneError(msg) {
+  var el = document.getElementById('phone-error');
+  document.getElementById('phone-error-msg').textContent = msg;
+  el.style.display = 'flex';
+}
+function hidePhoneError() {
+  document.getElementById('phone-error').style.display = 'none';
+}
 
-            firebase.auth().signInWithPhoneNumber(phoneNumber, window.recaptchaVerifier)
-            .then((confirmationResult) => {
-            // SMS sent. Prompt user to type the code from the message, then sign the
-            // user in with confirmationResult.confirm(code).
-            console.log(confirmationResult);
-            window.confirmationResult = confirmationResult;
-            $("#get_code").addClass("d-none");
-            $("#verify-code").removeClass("d-none");
-            }).catch((error) => {
-            // Error; SMS not sent
-            // ...
-            alert(result.error.message);
-            });
-    
-        });
-    
-        $("#verify-code button").on("click", function() {
-            const code = $("#verify-code input").val();
-
-            confirmationResult.confirm(code).then((result) => {
-                // User signed in successfully.
-                const user = result.user;
-                console.log(user.phoneNumber);
-
-                user.getIdToken().then(function(idToken) {
-                    console.log(idToken);
-                }),
-                // ...
-              }).catch((error) => {
-                // User couldn't sign in (bad verification code?)
-                // ...
-                toast(error.message,"red","Error!");
-              });
-        });
+// ── Firebase phone auth ───────────────────────────────────
+$(document).ready(function(){
+  // Initialise reCAPTCHA
+  try {
+    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+      size: 'invisible',
     });
-    
-</script>
+    window.recaptchaVerifier.render();
+  } catch(e) { console.warn('reCAPTCHA init:', e); }
+});
 
+function sendCode() {
+  hidePhoneError();
+  var phone = document.getElementById('phone-input').value.trim();
+  if (!phone) { showPhoneError('Please enter your phone number.'); return; }
+
+  var btn = document.getElementById('send-code-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  firebase.auth().signInWithPhoneNumber(phone, window.recaptchaVerifier)
+    .then(function(confirmationResult) {
+      window.confirmationResult = confirmationResult;
+      document.getElementById('sent-to-label').textContent = phone;
+      document.getElementById('get_code').style.display = 'none';
+      document.getElementById('verify-code').style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Send Code';
+    })
+    .catch(function(error) {
+      showPhoneError(error.message || 'Failed to send code. Check the number and try again.');
+      btn.disabled = false;
+      btn.textContent = 'Send Code';
+    });
+}
+
+function verifyCode() {
+  hidePhoneError();
+  var code = document.getElementById('code-input').value.trim();
+  if (!code || code.length < 6) { showPhoneError('Please enter the 6-digit code.'); return; }
+
+  if (!window.confirmationResult) { showPhoneError('Session expired. Please request a new code.'); return; }
+
+  confirmationResult.confirm(code)
+    .then(function(result) {
+      document.getElementById('verify-code').style.display = 'none';
+      document.getElementById('phone-success').style.display = 'block';
+      setTimeout(function(){ window.location.reload(true); }, 1800);
+    })
+    .catch(function(error) {
+      showPhoneError(error.message || 'Invalid code. Please try again.');
+    });
+}
+</script>
 {% endblock %}

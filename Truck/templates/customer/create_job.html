@@ -1,679 +1,558 @@
-{% extends 'base.html' %}
+{% extends 'customer/base.html' %}
 {% load static %}
 {% load bootstrap4 %}
 
-{% block head %}
+{% block head_extra %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="{% static 'css/styles.css' %}">
 <style>
-  .map-wrapper {
-    position: relative;
-    width: 100%;
-    height: 320px;
-    margin-bottom: 8px;
-  }
-  .map-wrapper > div {
-    width: 100% !important;
-    height: 100% !important;
-    border-radius: 8px;
-    border: 1px solid #dee2e6;
-  }
-  .autocomplete-wrapper { position: relative; }
-  .autocomplete-results {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    z-index: 9999;
-    background: #fff;
-    border: 1px solid #ced4da;
-    border-top: none;
-    border-radius: 0 0 6px 6px;
-    max-height: 220px;
-    overflow-y: auto;
-    box-shadow: 0 4px 12px rgba(0,0,0,.12);
-    display: none;
-  }
-  .autocomplete-results.open { display: block; }
-  .autocomplete-item {
-    padding: 9px 12px;
-    font-size: 0.875rem;
-    cursor: pointer;
-    border-bottom: 1px solid #f0f0f0;
-    line-height: 1.3;
-  }
-  .autocomplete-item:last-child { border-bottom: none; }
-  .autocomplete-item:hover,
-  .autocomplete-item.active { background: #fff3cd; }
-  .autocomplete-item .main-text { font-weight: 500; }
-  .autocomplete-item .sub-text  { font-size: 0.78rem; color: #6c757d; }
-  .autocomplete-loading {
-    padding: 10px 12px;
-    font-size: 0.85rem;
-    color: #6c757d;
-    font-style: italic;
-  }
-  .coord-badge { font-size: 0.78rem; color: #6c757d; margin-bottom: 8px; min-height: 1.2em; }
-  .search-box  { margin-bottom: 10px; }
+/* ── Step indicator ─────────────────────────────────────── */
+.step-bar { display:flex; align-items:center; margin-bottom:24px; }
+.step-node {
+  width:36px; height:36px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:.8rem; font-weight:700; flex-shrink:0;
+  font-family:'Sora',sans-serif; transition:all .2s;
+}
+.step-node.done    { background:#0D1B3E; color:#fff; }
+.step-node.active  { background:#F97316; color:#fff; box-shadow:0 0 0 4px rgba(249,115,22,.2); }
+.step-node.pending { background:#F1F5F9; color:#9CA3AF; }
+.step-connector { flex:1; height:2px; margin:0 6px; }
+.step-connector.done   { background:#0D1B3E; }
+.step-connector.pending{ background:#E5E7EB; }
+.step-label { font-size:.72rem; font-weight:600; text-align:center; margin-top:5px; white-space:nowrap; }
 
-  /* Address field locked state */
-  .address-locked {
-    background-color: #f8f9fa !important;
-    cursor: not-allowed !important;
-    color: #495057 !important;
-  }
-  .address-locked:focus { box-shadow: none !important; border-color: #ced4da !important; }
+/* ── Map wrapper ────────────────────────────────────────── */
+.map-box { height:300px; border-radius:12px; overflow:hidden; border:1px solid #E5E7EB; position:relative; }
+.map-box > div:not(.map-ovl) { width:100%; height:100%; }
+.map-ovl {
+  position:absolute; inset:0; background:rgba(255,255,255,.88);
+  display:flex; align-items:center; justify-content:center;
+  z-index:800; border-radius:12px; font-size:.875rem; color:#6B7280;
+  gap:8px; font-family:'Sora',sans-serif;
+}
+.map-ovl.gone { display:none; }
 
-  /* Pin confirmation badge */
-  .pin-confirmed {
-    display: inline-block;
-    background: #d4edda;
-    color: #155724;
-    border-radius: 4px;
-    padding: 2px 8px;
-    font-size: 0.78rem;
-    margin-left: 6px;
-  }
-  .pin-unset {
-    display: inline-block;
-    background: #fff3cd;
-    color: #856404;
-    border-radius: 4px;
-    padding: 2px 8px;
-    font-size: 0.78rem;
-  }
+/* ── Autocomplete ───────────────────────────────────────── */
+.ac-wrap { position:relative; }
+.ac-list {
+  position:absolute; top:100%; left:0; right:0; z-index:9999;
+  background:#fff; border:1px solid #E5E7EB; border-top:none;
+  border-radius:0 0 10px 10px; max-height:220px; overflow-y:auto;
+  box-shadow:0 8px 24px rgba(0,0,0,.1); display:none;
+}
+.ac-list.open { display:block; }
+.ac-item { padding:10px 14px; font-size:.85rem; cursor:pointer; border-bottom:1px solid #F9FAFB; }
+.ac-item:last-child { border-bottom:none; }
+.ac-item:hover { background:#FFF7ED; }
+.ac-main { font-weight:600; color:#0D1B3E; }
+.ac-sub  { font-size:.75rem; color:#9CA3AF; margin-top:2px; }
+
+/* ── Form fields override ───────────────────────────────── */
+.form-control { border-radius:10px !important; border-color:#E5E7EB !important; font-family:'Sora',sans-serif !important; }
+.form-control:focus { border-color:#0D1B3E !important; box-shadow:0 0 0 3px rgba(13,27,62,.08) !important; }
+.form-group label { font-weight:600; font-size:.85rem; color:#374151; font-family:'Sora',sans-serif; }
+
+/* ── Address locked field ───────────────────────────────── */
+.addr-lock { background:#F8FAFC !important; cursor:not-allowed !important; color:#6B7280 !important; }
+
+/* ── Coord badge ────────────────────────────────────────── */
+.coord-ok  { background:#D1FAE5; color:#065F46; padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:700; }
+.coord-nil { background:#FEF3C7; color:#B45309; padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:700; }
+
+/* ── Route summary strip ────────────────────────────────── */
+.route-strip { display:flex; gap:0; border:1px solid #E5E7EB; border-radius:12px; overflow:hidden; margin-top:16px; }
+.rs-item { flex:1; text-align:center; padding:12px 8px; }
+.rs-item:not(:last-child) { border-right:1px solid #E5E7EB; }
+.rs-val { font-size:1.1rem; font-weight:800; color:#0D1B3E; font-family:'Sora',sans-serif; }
+.rs-lbl { font-size:.68rem; color:#9CA3AF; font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin-top:2px; }
+
+/* ── Buttons ────────────────────────────────────────────── */
+.btn-rvc-primary { background:#F97316; color:#fff; border:none; border-radius:10px; padding:10px 22px; font-weight:700; font-size:.875rem; font-family:'Sora',sans-serif; cursor:pointer; transition:all .2s; }
+.btn-rvc-primary:hover { background:#EA6C0A; color:#fff; }
+.btn-rvc-back    { background:#F1F5F9; color:#374151; border:1px solid #E5E7EB; border-radius:10px; padding:10px 18px; font-weight:600; font-size:.875rem; font-family:'Sora',sans-serif; cursor:pointer; }
+.btn-rvc-success { background:#16A34A; color:#fff; border:none; border-radius:10px; padding:10px 22px; font-weight:700; font-size:.875rem; font-family:'Sora',sans-serif; cursor:pointer; }
 </style>
 {% endblock %}
 
-{% block content %}
-<div class="container mt-4">
-  <div class="row">
+{% block main %}
 
-    <!-- Left: Job summary -->
-    <div class="col-lg-4">
-      <div class="card">
-        <div class="card-header bg-primary text-white">JOB SUMMARY</div>
-        <div class="card-body">
-          {% if not job %}
-            <p class="text-muted">A summary of your job will appear once you submit it.</p>
-          {% else %}
-            {% if step > 1 %}
-              <h5>{{ job.names }}</h5>
-              <p><b>Size:</b> {{ job.get_size_display }}</p>
-              <p><b>Qty:</b>  {{ job.quantity }}</p>
-              <p><b>Category:</b> {{ job.category }}</p>
-              <p><b>Description:</b> {{ job.description }}</p>
-            {% else %}
-              <p class="text-muted">Fill in item details to see a summary.</p>
-            {% endif %}
-            {% if step > 2 %}
-              <hr>
-              <p class="text-secondary mb-1"><b>PICKUP</b></p>
-              <p class="mb-0">{{ job.pickup_name }}</p>
-              <small class="text-muted">{{ job.pickup_address }}</small>
-            {% endif %}
-            {% if step > 3 %}
-              <hr>
-              <p class="text-secondary mb-1"><b>DELIVERY</b></p>
-              <p class="mb-0">{{ job.delivery_name }}</p>
-              <small class="text-muted">{{ job.delivery_address }}</small>
-              <hr>
-              <p><b>Distance:</b> {{ job.distance }} mi</p>
-              <p><b>Duration:</b> ~{{ job.duration }} min</p>
-              <p><b>Price:</b> $ {{ job.price }}</p>
-            {% endif %}
-          {% endif %}
-        </div>
+<!-- Page header -->
+<div class="mb-5">
+  <h1 class="text-2xl font-bold mb-1" style="color:#0D1B3E;font-family:'Sora',sans-serif;">
+    {% if step == 4 %}Confirm & Pay{% else %}Create a Job{% endif %}
+  </h1>
+  <p class="text-sm text-gray-400">Ship anything across Georgia with verified couriers</p>
+</div>
+
+<!-- Step indicator -->
+<div class="pc p-5 mb-5">
+  <div class="step-bar">
+    {% with s=step %}
+    <!-- Step 1 -->
+    <div class="flex flex-col items-center">
+      <div class="step-node {% if s > 1 %}done{% elif s == 1 %}active{% else %}pending{% endif %}">
+        {% if s > 1 %}<i class="fas fa-check"></i>{% else %}1{% endif %}
       </div>
+      <div class="step-label" style="color:{% if s >= 1 %}#0D1B3E{% else %}#9CA3AF{% endif %};">Item</div>
     </div>
+    <div class="step-connector {% if s > 1 %}done{% else %}pending{% endif %}"></div>
+    <!-- Step 2 -->
+    <div class="flex flex-col items-center">
+      <div class="step-node {% if s > 2 %}done{% elif s == 2 %}active{% else %}pending{% endif %}">
+        {% if s > 2 %}<i class="fas fa-check"></i>{% else %}2{% endif %}
+      </div>
+      <div class="step-label" style="color:{% if s >= 2 %}#0D1B3E{% else %}#9CA3AF{% endif %};">Pickup</div>
+    </div>
+    <div class="step-connector {% if s > 2 %}done{% else %}pending{% endif %}"></div>
+    <!-- Step 3 -->
+    <div class="flex flex-col items-center">
+      <div class="step-node {% if s > 3 %}done{% elif s == 3 %}active{% else %}pending{% endif %}">
+        {% if s > 3 %}<i class="fas fa-check"></i>{% else %}3{% endif %}
+      </div>
+      <div class="step-label" style="color:{% if s >= 3 %}#0D1B3E{% else %}#9CA3AF{% endif %};">Delivery</div>
+    </div>
+    <div class="step-connector {% if s > 3 %}done{% else %}pending{% endif %}"></div>
+    <!-- Step 4 -->
+    <div class="flex flex-col items-center">
+      <div class="step-node {% if s == 4 %}active{% else %}pending{% endif %}">4</div>
+      <div class="step-label" style="color:{% if s == 4 %}#0D1B3E{% else %}#9CA3AF{% endif %};">Payment</div>
+    </div>
+    {% endwith %}
+  </div>
+</div>
 
-    <!-- Right: Step forms -->
-    <div class="col-lg-8">
+<!-- Two column layout -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-      <!-- Tab nav -->
-      <ul class="nav nav-pills nav-justified mb-3" id="pills-tab" role="tablist">
-        <li class="nav-item">
-          <a class="nav-link {% if step == 1 %}active{% endif %}"
-             id="pills-info-tab" data-toggle="pill" href="#pills-info" role="tab">Item Info</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% if step == 2 %}active{% endif %}"
-             id="pills-pickup-tab" data-toggle="pill" href="#pills-pickup" role="tab">Pickup</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% if step == 3 %}active{% endif %}"
-             id="pills-delivery-tab" data-toggle="pill" href="#pills-delivery" role="tab">Delivery</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% if step == 4 %}active{% endif %}"
-             id="pills-payment-tab" data-toggle="pill" href="#pills-payment" role="tab">Payment</a>
-        </li>
-      </ul>
+  <!-- Summary sidebar -->
+  <div class="lg:col-span-1">
+    <div class="pc p-5 sticky" style="top:88px;">
+      <div class="font-bold text-sm mb-4" style="color:#0D1B3E;font-family:'Sora',sans-serif;">
+        <i class="fas fa-receipt mr-2" style="color:#F97316;"></i>Job Summary
+      </div>
+      {% if not job %}
+        <div class="text-xs text-gray-400 text-center py-6">Fill in the details to see your summary.</div>
+      {% else %}
+        {% if step > 1 %}
+        <div class="flex items-center gap-3 mb-4 pb-4" style="border-bottom:1px solid #F3F4F6;">
+          <img src="{{ job.photo.url }}" class="rounded-lg object-cover" style="width:48px;height:48px;">
+          <div>
+            <div class="font-semibold text-sm" style="color:#0D1B3E;">{{ job.names }}</div>
+            <div class="text-xs text-gray-400">{{ job.get_size_display }} · Qty {{ job.quantity }}</div>
+          </div>
+        </div>
+        {% endif %}
+        {% if step > 2 %}
+        <div class="mb-3">
+          <div class="flex items-start gap-2 text-xs mb-2">
+            <span class="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-white" style="background:#2196F3;font-size:.65rem;font-weight:800;">P</span>
+            <div><div class="font-semibold" style="color:#0D1B3E;">{{ job.pickup_name }}</div><div class="text-gray-400">{{ job.pickup_address|truncatechars:50 }}</div></div>
+          </div>
+        </div>
+        {% endif %}
+        {% if step > 3 %}
+        <div class="mb-3">
+          <div class="flex items-start gap-2 text-xs mb-2">
+            <span class="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-white" style="background:#F97316;font-size:.65rem;font-weight:800;">D</span>
+            <div><div class="font-semibold" style="color:#0D1B3E;">{{ job.delivery_name }}</div><div class="text-gray-400">{{ job.delivery_address|truncatechars:50 }}</div></div>
+          </div>
+          <div style="border-top:1px solid #F3F4F6;margin-top:12px;padding-top:12px;">
+            <div class="flex justify-between text-xs mb-1.5"><span class="text-gray-400">Distance</span><span class="font-semibold" style="color:#0D1B3E;">{{ job.distance }} mi</span></div>
+            <div class="flex justify-between text-xs mb-1.5"><span class="text-gray-400">Duration</span><span class="font-semibold" style="color:#0D1B3E;">~{{ job.duration }} min</span></div>
+            <div class="flex justify-between text-sm mt-3 pt-3" style="border-top:2px solid #F3F4F6;">
+              <span class="font-bold" style="color:#0D1B3E;">Total</span>
+              <span class="font-extrabold text-lg" style="color:#F97316;">${{ job.price }}</span>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
 
-      <div class="tab-content" id="pills-tabContent">
+  <!-- Step forms -->
+  <div class="lg:col-span-2">
+    <div class="pc p-6">
 
-        <!-- ── Step 1: Item info ── -->
-        <div class="tab-pane fade {% if step == 1 %}show active{% endif %}"
-             id="pills-info" role="tabpanel">
-          <h4>Item Information</h4>
-          <form method="POST" enctype="multipart/form-data">
-            {% csrf_token %}
-            {% bootstrap_form step1_form %}
-            <input type="hidden" name="step" value="1">
-            <button type="submit" class="btn btn-warning">Save and Continue</button>
-          </form>
+      <!-- ═══ STEP 1: Item Info ═══ -->
+      {% if step == 1 %}
+      <h3 class="font-bold mb-4" style="color:#0D1B3E;font-family:'Sora',sans-serif;"><i class="fas fa-box mr-2" style="color:#F97316;"></i>Item Information</h3>
+      <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% bootstrap_form step1_form %}
+        <input type="hidden" name="step" value="1">
+        <div class="flex justify-end mt-4">
+          <button type="submit" class="btn-rvc-primary">Save & Continue <i class="fas fa-arrow-right ml-1"></i></button>
+        </div>
+      </form>
+      {% endif %}
+
+      <!-- ═══ STEP 2: Pickup ═══ -->
+      {% if step == 2 %}
+      <h3 class="font-bold mb-4" style="color:#0D1B3E;font-family:'Sora',sans-serif;"><i class="fas fa-map-marker-alt mr-2" style="color:#2196F3;"></i>Pickup Location</h3>
+      <form method="POST" enctype="multipart/form-data" id="pickup-form">
+        {% csrf_token %}
+
+        <!-- Search -->
+        <div class="mb-3">
+          <label class="form-group" style="font-weight:600;font-size:.85rem;color:#374151;display:block;margin-bottom:6px;">Search pickup address</label>
+          <div class="ac-wrap">
+            <div class="input-group">
+              <input type="text" id="pickup-q" class="form-control" placeholder="e.g. 123 Peachtree St, Atlanta, GA"
+                     autocomplete="off" autocorrect="off" spellcheck="false">
+              <button type="button" class="btn btn-outline-secondary" onclick="searchAddr('pickup')">Search</button>
+            </div>
+            <div id="pickup-ac" class="ac-list"></div>
+          </div>
+          <small class="text-gray-400">US addresses only. Type 3+ chars or click the map.</small>
         </div>
 
-        <!-- ── Step 2: Pickup ── -->
-        <div class="tab-pane fade {% if step == 2 %}show active{% endif %}"
-             id="pills-pickup" role="tabpanel">
-          <h4>Pickup Location</h4>
-          <form method="POST" enctype="multipart/form-data" id="pickup-form">
-            {% csrf_token %}
-
-            <div class="search-box">
-              <label class="form-label"><b>Search pickup address</b></label>
-              <div class="autocomplete-wrapper">
-                <div class="input-group">
-                  <input type="text" id="pickup-search-input" class="form-control"
-                         placeholder="e.g. 123 Peachtree St, Atlanta, GA"
-                         autocomplete="off"
-                         autocorrect="off"
-                         autocapitalize="off"
-                         spellcheck="false">
-                  <button type="button" class="btn btn-outline-secondary"
-                          onclick="searchAddress('pickup')">Search</button>
-                </div>
-                <div id="pickup-autocomplete" class="autocomplete-results"></div>
-              </div>
-              <small class="text-muted">
-                Type at least 3 characters to see suggestions. Results are limited to the US.
-                You can also click the map to drop a pin.
-              </small>
-            </div>
-
-            <div class="map-wrapper">
-              <div id="pickup-map"></div>
-            </div>
-            <div id="pickup-coord-display" class="coord-badge">
-              {% if job.pickup_lat %}
-                <span class="pin-confirmed">Pin confirmed: {{ job.pickup_lat }}, {{ job.pickup_lng }}</span>
-              {% else %}
-                <span class="pin-unset">No pin placed yet — search or click map</span>
-              {% endif %}
-            </div>
-
-            {# Render all step2 fields except pickup_address, pickup_lat, pickup_lng #}
-            {# We render pickup_address manually below so we can control its attributes #}
-            {% bootstrap_form step2_form exclude='pickup_lat,pickup_lng,pickup_address' %}
-
-            {# pickup_address: read-only, only populated by map/search — never browser autofill #}
-            <div class="form-group">
-              <label for="id_pickup_address">Pickup address <small class="text-muted">(auto-filled from map)</small></label>
-              <input
-                type="text"
-                id="id_pickup_address"
-                name="pickup_address"
-                class="form-control address-locked"
-                value="{{ job.pickup_address|default:'' }}"
-                placeholder="Will fill automatically when you select a location above"
-                readonly
-                autocomplete="off"
-                autocorrect="off"
-                autocapitalize="off"
-                spellcheck="false"
-                tabindex="-1"
-              >
-            </div>
-
-            <input type="hidden" id="pickup_lat" name="pickup_lat"
-                   value="{{ job.pickup_lat|default:'' }}">
-            <input type="hidden" id="pickup_lng" name="pickup_lng"
-                   value="{{ job.pickup_lng|default:'' }}">
-            <input type="hidden" name="step" value="2">
-
-            <div class="d-flex gap-2 mt-3">
-              <button type="button" class="btn btn-outline-warning"
-                      onclick="$('#pills-info-tab').tab('show')">Back</button>
-              <button type="submit" class="btn btn-warning" id="pickup-submit-btn">
-                Save and Continue
-              </button>
-            </div>
-          </form>
+        <!-- Map -->
+        <div class="map-box mb-2">
+          <div class="map-ovl" id="pickup-ovl"><i class="fas fa-map-marker-alt" style="color:#2196F3;"></i> Search or click to place pin</div>
+          <div id="pickup-map"></div>
+        </div>
+        <div id="pickup-coord" class="mb-3" style="min-height:22px;">
+          {% if job.pickup_lat %}<span class="coord-ok"><i class="fas fa-check-circle mr-1"></i>Pin confirmed: {{ job.pickup_lat }}, {{ job.pickup_lng }}</span>
+          {% else %}<span class="coord-nil"><i class="fas fa-exclamation-circle mr-1"></i>No pin placed yet</span>{% endif %}
         </div>
 
-        <!-- ── Step 3: Delivery ── -->
-        <div class="tab-pane fade {% if step == 3 %}show active{% endif %}"
-             id="pills-delivery" role="tabpanel">
-          <h4>Delivery Location</h4>
-          <form method="POST" enctype="multipart/form-data" id="delivery-form">
-            {% csrf_token %}
+        {% bootstrap_form step2_form exclude='pickup_lat,pickup_lng,pickup_address' %}
+        <div class="form-group">
+          <label style="font-weight:600;font-size:.85rem;color:#374151;">Pickup address <small class="text-gray-400">(auto-filled)</small></label>
+          <input type="text" id="id_pickup_address" name="pickup_address" class="form-control addr-lock"
+                 value="{{ job.pickup_address|default:'' }}" readonly autocomplete="off" tabindex="-1">
+        </div>
+        <input type="hidden" id="pickup_lat" name="pickup_lat" value="{{ job.pickup_lat|default:'' }}">
+        <input type="hidden" id="pickup_lng" name="pickup_lng" value="{{ job.pickup_lng|default:'' }}">
+        <input type="hidden" name="step" value="2">
 
-            <div class="search-box">
-              <label class="form-label"><b>Search delivery address</b></label>
-              <div class="autocomplete-wrapper">
-                <div class="input-group">
-                  <input type="text" id="delivery-search-input" class="form-control"
-                         placeholder="e.g. 456 River Rd, Savannah, GA"
-                         autocomplete="off"
-                         autocorrect="off"
-                         autocapitalize="off"
-                         spellcheck="false">
-                  <button type="button" class="btn btn-outline-secondary"
-                          onclick="searchAddress('delivery')">Search</button>
-                </div>
-                <div id="delivery-autocomplete" class="autocomplete-results"></div>
-              </div>
-              <small class="text-muted">
-                Type at least 3 characters to see suggestions. Results are limited to the US.
-                You can also click the map to drop a pin.
-              </small>
+        <div class="flex justify-between mt-5">
+          <a href="{% url 'customer:create_job' %}" class="btn-rvc-back"><i class="fas fa-arrow-left mr-1"></i>Back</a>
+          <button type="submit" class="btn-rvc-primary">Save & Continue <i class="fas fa-arrow-right ml-1"></i></button>
+        </div>
+      </form>
+      {% endif %}
+
+      <!-- ═══ STEP 3: Delivery ═══ -->
+      {% if step == 3 %}
+      <h3 class="font-bold mb-4" style="color:#0D1B3E;font-family:'Sora',sans-serif;"><i class="fas fa-flag-checkered mr-2" style="color:#F97316;"></i>Delivery Location</h3>
+      <form method="POST" enctype="multipart/form-data" id="delivery-form">
+        {% csrf_token %}
+
+        <div class="mb-3">
+          <label style="font-weight:600;font-size:.85rem;color:#374151;display:block;margin-bottom:6px;">Search delivery address</label>
+          <div class="ac-wrap">
+            <div class="input-group">
+              <input type="text" id="delivery-q" class="form-control" placeholder="e.g. 456 River Rd, Savannah, GA"
+                     autocomplete="off" autocorrect="off" spellcheck="false">
+              <button type="button" class="btn btn-outline-secondary" onclick="searchAddr('delivery')">Search</button>
             </div>
-
-            <div class="map-wrapper">
-              <div id="delivery-map"></div>
-            </div>
-            <div id="delivery-coord-display" class="coord-badge">
-              {% if job.delivery_lat %}
-                <span class="pin-confirmed">Pin confirmed: {{ job.delivery_lat }}, {{ job.delivery_lng }}</span>
-              {% else %}
-                <span class="pin-unset">No pin placed yet — search or click map</span>
-              {% endif %}
-            </div>
-
-            {% bootstrap_form step3_form exclude='delivery_lat,delivery_lng,delivery_address,manual_distance,distance_unit' %}
-
-            <div class="form-group">
-              <label for="id_delivery_address">Delivery address <small class="text-muted">(auto-filled from map)</small></label>
-              <input
-                type="text"
-                id="id_delivery_address"
-                name="delivery_address"
-                class="form-control address-locked"
-                value="{{ job.delivery_address|default:'' }}"
-                placeholder="Will fill automatically when you select a location above"
-                readonly
-                autocomplete="off"
-                autocorrect="off"
-                autocapitalize="off"
-                spellcheck="false"
-                tabindex="-1"
-              >
-            </div>
-
-            <input type="hidden" id="delivery_lat" name="delivery_lat"
-                   value="{{ job.delivery_lat|default:'' }}">
-            <input type="hidden" id="delivery_lng" name="delivery_lng"
-                   value="{{ job.delivery_lng|default:'' }}">
-
-            {% if show_manual_distance %}
-              <div class="alert alert-warning mt-3">
-                <b>Auto-distance failed.</b> Please enter the distance manually.
-              </div>
-              <div class="form-group mt-2">
-                <label>Distance</label>{{ step3_form.manual_distance }}
-              </div>
-              <div class="form-group mt-2">
-                <label>Unit</label>{{ step3_form.distance_unit }}
-              </div>
-            {% endif %}
-
-            <input type="hidden" name="step" value="3">
-            <div class="d-flex gap-2 mt-3">
-              <button type="button" class="btn btn-outline-warning"
-                      onclick="$('#pills-pickup-tab').tab('show')">Back</button>
-              <button type="submit" class="btn btn-warning" id="delivery-submit-btn">
-                Calculate Distance &amp; Continue
-              </button>
-            </div>
-          </form>
+            <div id="delivery-ac" class="ac-list"></div>
+          </div>
+          <small class="text-gray-400">US addresses only. Type 3+ chars or click the map.</small>
         </div>
 
-        <!-- ── Step 4: Payment ── -->
-        <div class="tab-pane fade {% if step == 4 %}show active{% endif %}"
-             id="pills-payment" role="tabpanel">
-          <h4>Payment</h4>
-          <form method="POST">
-            {% csrf_token %}
-            <div class="card mb-3">
-              <div class="card-body">
-                <div class="form-group">
-                  <label>Card</label>
-                  <input class="form-control"
-                         value="**** **** **** {{ request.user.customer.stripe_card_last4 }}" disabled>
-                </div>
-                <div class="form-group">
-                  <label>Price</label>
-                  <input class="form-control" value="$ {{ job.price }}" disabled>
-                </div>
-                <div class="form-group">
-                  <label>Distance</label>
-                  <input class="form-control" value="{{ job.distance }} mi" disabled>
-                </div>
-                <div class="form-group">
-                  <label>Est. Duration</label>
-                  <input class="form-control" value="~{{ job.duration }} min" disabled>
-                </div>
-              </div>
-            </div>
-            <input type="hidden" name="step" value="4">
-            <div class="d-flex gap-2">
-              <button type="button" class="btn btn-outline-warning"
-                      onclick="$('#pills-delivery-tab').tab('show')">Back</button>
-              <button type="submit" class="btn btn-success">Confirm &amp; Pay</button>
-            </div>
-          </form>
+        <!-- Route preview map (shows real OSRM route when both pins set) -->
+        <div class="map-box mb-2">
+          <div class="map-ovl" id="delivery-ovl"><i class="fas fa-map-marker-alt" style="color:#F97316;"></i> Search or click to place delivery pin</div>
+          <div id="delivery-map"></div>
+        </div>
+        <div id="delivery-coord" class="mb-2" style="min-height:22px;">
+          {% if job.delivery_lat %}<span class="coord-ok"><i class="fas fa-check-circle mr-1"></i>Pin confirmed: {{ job.delivery_lat }}, {{ job.delivery_lng }}</span>
+          {% else %}<span class="coord-nil"><i class="fas fa-exclamation-circle mr-1"></i>No pin placed yet</span>{% endif %}
         </div>
 
-      </div><!-- /tab-content -->
-    </div><!-- /col -->
-  </div><!-- /row -->
-</div><!-- /container -->
+        <!-- Route summary (shown after both pins set) -->
+        <div id="route-summary" style="display:none;">
+          <div class="route-strip">
+            <div class="rs-item"><div class="rs-val" id="rs-dist">—</div><div class="rs-lbl">Miles</div></div>
+            <div class="rs-item"><div class="rs-val" id="rs-dur">—</div><div class="rs-lbl">Est. Time</div></div>
+            <div class="rs-item"><div class="rs-val" id="rs-price" style="color:#F97316;">—</div><div class="rs-lbl">Price</div></div>
+          </div>
+          <p class="text-xs text-gray-400 mt-2 text-center">
+            <i class="fas fa-route mr-1"></i>Route calculated via OSRM real road network
+          </p>
+        </div>
 
+        {% bootstrap_form step3_form exclude='delivery_lat,delivery_lng,delivery_address,manual_distance,distance_unit' %}
+        <div class="form-group">
+          <label style="font-weight:600;font-size:.85rem;color:#374151;">Delivery address <small class="text-gray-400">(auto-filled)</small></label>
+          <input type="text" id="id_delivery_address" name="delivery_address" class="form-control addr-lock"
+                 value="{{ job.delivery_address|default:'' }}" readonly autocomplete="off" tabindex="-1">
+        </div>
+
+        {% if show_manual_distance %}
+        <div class="alert alert-warning mt-3"><b>Auto-distance failed.</b> Enter distance manually.</div>
+        <div class="form-group">{{ step3_form.manual_distance }}</div>
+        <div class="form-group">{{ step3_form.distance_unit }}</div>
+        {% endif %}
+
+        <input type="hidden" id="delivery_lat" name="delivery_lat" value="{{ job.delivery_lat|default:'' }}">
+        <input type="hidden" id="delivery_lng" name="delivery_lng" value="{{ job.delivery_lng|default:'' }}">
+        <input type="hidden" name="step" value="3">
+
+        <div class="flex justify-between mt-5">
+          <button type="button" class="btn-rvc-back" onclick="history.back()"><i class="fas fa-arrow-left mr-1"></i>Back</button>
+          <button type="submit" class="btn-rvc-primary" id="delivery-submit">
+            Calculate Route & Continue <i class="fas fa-arrow-right ml-1"></i>
+          </button>
+        </div>
+      </form>
+      {% endif %}
+
+      <!-- ═══ STEP 4: Payment ═══ -->
+      {% if step == 4 %}
+      <h3 class="font-bold mb-4" style="color:#0D1B3E;font-family:'Sora',sans-serif;"><i class="fas fa-credit-card mr-2" style="color:#16A34A;"></i>Confirm & Pay</h3>
+      <form method="POST">
+        {% csrf_token %}
+        <div style="background:#F8FAFC;border:1px solid #E5E7EB;border-radius:12px;overflow:hidden;margin-bottom:20px;">
+          <div class="flex justify-between px-5 py-3" style="border-bottom:1px solid #E5E7EB;">
+            <span class="text-sm text-gray-500">Card</span>
+            <span class="font-semibold text-sm" style="color:#0D1B3E;">**** **** **** {{ request.user.customer.stripe_card_last4 }}</span>
+          </div>
+          <div class="flex justify-between px-5 py-3" style="border-bottom:1px solid #E5E7EB;">
+            <span class="text-sm text-gray-500">Distance</span>
+            <span class="font-semibold text-sm" style="color:#0D1B3E;">{{ job.distance }} mi</span>
+          </div>
+          <div class="flex justify-between px-5 py-3" style="border-bottom:1px solid #E5E7EB;">
+            <span class="text-sm text-gray-500">Est. Duration</span>
+            <span class="font-semibold text-sm" style="color:#0D1B3E;">~{{ job.duration }} min</span>
+          </div>
+          <div class="flex justify-between px-5 py-4">
+            <span class="font-bold" style="color:#0D1B3E;">Total Amount</span>
+            <span class="font-extrabold text-2xl" style="color:#F97316;">${{ job.price }}</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 p-4 rounded-xl mb-5" style="background:#F0FDF4;border:1px solid #BBF7D0;">
+          <i class="fas fa-shield-halved text-lg" style="color:#16A34A;"></i>
+          <div class="text-xs" style="color:#065F46;">
+            <div class="font-bold mb-0.5">Secure Payment</div>
+            Your payment is protected. Funds are only released to the courier after successful delivery.
+          </div>
+        </div>
+        <input type="hidden" name="step" value="4">
+        <div class="flex justify-between">
+          <button type="button" class="btn-rvc-back" onclick="history.back()"><i class="fas fa-arrow-left mr-1"></i>Back</button>
+          <button type="submit" class="btn-rvc-success">
+            <i class="fas fa-lock mr-1"></i>Confirm & Pay ${{ job.price }}
+          </button>
+        </div>
+      </form>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+
+<!-- Map + Autocomplete JavaScript -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// ── Constants ────────────────────────────────────────────────────────────────
-var USA_CENTER = [33.7490, -84.3880]; // Atlanta, GA as rough center of US
+var STEP     = parseInt('{{ step|default:1 }}', 10);
+var USA_CTR  = [33.749, -84.388];
 var TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-var TILE_OPT = { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 };
+var TILE_OPT = { attribution:'© OpenStreetMap', maxZoom:19 };
 
-// ── Saved coords from Django (0 = not set) ───────────────────────────────────
-var INIT_P_LAT = parseFloat('{{ job.pickup_lat|default:"0" }}')   || null;
-var INIT_P_LNG = parseFloat('{{ job.pickup_lng|default:"0" }}')   || null;
-var INIT_D_LAT = parseFloat('{{ job.delivery_lat|default:"0" }}') || null;
-var INIT_D_LNG = parseFloat('{{ job.delivery_lng|default:"0" }}') || null;
+var INIT_PLAT = parseFloat('{{ job.pickup_lat|default:"0" }}')   || null;
+var INIT_PLNG = parseFloat('{{ job.pickup_lng|default:"0" }}')   || null;
+var INIT_DLAT = parseFloat('{{ job.delivery_lat|default:"0" }}') || null;
+var INIT_DLNG = parseFloat('{{ job.delivery_lng|default:"0" }}') || null;
 
-// ── Per-map state ────────────────────────────────────────────────────────────
-var maps = {
-  pickup:   { instance: null, marker: null, ready: false },
-  delivery: { instance: null, marker: null, ready: false }
-};
+var maps   = { pickup:{instance:null,marker:null,ready:false}, delivery:{instance:null,marker:null,ready:false} };
+var acTmrs = {};
 
-// ── buildMap ─────────────────────────────────────────────────────────────────
+function mkIcon(color) {
+  return L.divIcon({
+    className:'',
+    html:'<div style="background:'+color+';width:22px;height:22px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25);"></div>',
+    iconSize:[22,22], iconAnchor:[11,11]
+  });
+}
+
 function buildMap(type) {
-  var state = maps[type];
-  if (state.ready) {
-    state.instance.invalidateSize(true);
-    return;
-  }
-  state.ready = true;
-
-  var iLat   = (type === 'pickup') ? INIT_P_LAT : INIT_D_LAT;
-  var iLng   = (type === 'pickup') ? INIT_P_LNG : INIT_D_LNG;
-  var centre = (iLat && iLng) ? [iLat, iLng] : USA_CENTER;
-  var zoom   = (iLat && iLng) ? 15 : 12;
-
-  var map = L.map(type + '-map', { zoomControl: true }).setView(centre, zoom);
+  var st = maps[type];
+  if (st.ready) { st.instance.invalidateSize(true); return; }
+  st.ready = true;
+  var iLat = type==='pickup' ? INIT_PLAT : INIT_DLAT;
+  var iLng = type==='pickup' ? INIT_PLNG : INIT_DLNG;
+  var ctr  = (iLat&&iLng) ? [iLat,iLng] : USA_CTR;
+  var zoom = (iLat&&iLng) ? 14 : 11;
+  var map  = L.map(type+'-map').setView(ctr, zoom);
   L.tileLayer(TILE_URL, TILE_OPT).addTo(map);
-  state.instance = map;
-
-  if (iLat && iLng) {
-    state.marker = L.marker([iLat, iLng]).addTo(map);
-    showCoords(type, iLat, iLng);
-  }
-
-  map.on('click', function(e) {
-    dropPin(type, e.latlng.lat, e.latlng.lng);
-    reverseGeocode(type, e.latlng.lat, e.latlng.lng);
-  });
-
-  setTimeout(function() { map.invalidateSize(true); }, 100);
-  setTimeout(function() { map.invalidateSize(true); }, 500);
+  st.instance = map;
+  var ovl = document.getElementById(type+'-ovl');
+  if (iLat&&iLng) { st.marker=L.marker([iLat,iLng],{icon:mkIcon(type==='pickup'?'#2196F3':'#F97316')}).addTo(map); if(ovl)ovl.classList.add('gone'); }
+  map.on('click', function(e){ dropPin(type,e.latlng.lat,e.latlng.lng); revGeo(type,e.latlng.lat,e.latlng.lng); });
+  setTimeout(function(){ map.invalidateSize(true); }, 120);
+  setTimeout(function(){ map.invalidateSize(true); }, 500);
 }
 
-// ── Pin helpers ───────────────────────────────────────────────────────────────
 function dropPin(type, lat, lng) {
-  var state = maps[type];
-  if (!state.instance) return;
-  if (state.marker) state.marker.remove();
-  state.marker = L.marker([lat, lng]).addTo(state.instance);
-  saveCoords(type, lat, lng);
+  var st=maps[type];
+  if (!st.instance) return;
+  if (st.marker) st.marker.remove();
+  st.marker = L.marker([lat,lng],{icon:mkIcon(type==='pickup'?'#2196F3':'#F97316')}).addTo(st.instance);
+  document.getElementById(type+'_lat').value = lat.toFixed(6);
+  document.getElementById(type+'_lng').value = lng.toFixed(6);
+  document.getElementById(type+'-coord').innerHTML =
+    '<span class="coord-ok"><i class="fas fa-check-circle mr-1"></i>Pin confirmed: '+lat.toFixed(5)+', '+lng.toFixed(5)+'</span>';
+  var ovl=document.getElementById(type+'-ovl'); if(ovl) ovl.classList.add('gone');
+  if (type==='delivery') drawRoutePreview();
 }
 
-function saveCoords(type, lat, lng) {
-  document.getElementById(type + '_lat').value = lat.toFixed(6);
-  document.getElementById(type + '_lng').value = lng.toFixed(6);
-  showCoords(type, lat, lng);
+function setAddr(type, val) {
+  var f=document.getElementById('id_'+type+'_address'); if(f) f.value=val;
 }
 
-function showCoords(type, lat, lng) {
-  var el = document.getElementById(type + '-coord-display');
-  el.innerHTML = '<span class="pin-confirmed">Pin confirmed: '
-    + parseFloat(lat).toFixed(5) + ', '
-    + parseFloat(lng).toFixed(5) + '</span>';
+// ── Route preview for step 3 ──────────────────────────────
+var routeLine = null;
+function drawRoutePreview() {
+  var dlat=parseFloat(document.getElementById('delivery_lat').value||'0');
+  var dlng=parseFloat(document.getElementById('delivery_lng').value||'0');
+  if (!INIT_PLAT||!INIT_PLNG||!dlat||!dlng) return;
+  var osrmPath  = '/route/v1/driving/'+INIT_PLNG+','+INIT_PLAT+';'+dlng+','+dlat;
+  var osrmQuery = 'overview=full&geometries=geojson&steps=false';
+  var url = '/courier/api/osrm/?path='+encodeURIComponent(osrmPath)+'&query='+encodeURIComponent(osrmQuery);
+  fetch(url, {credentials:'same-origin'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d||d.code!=='Ok'||!d.routes||!d.routes.length) return;
+      var mp = maps.delivery.instance;
+      if (!mp) return;
+      if (routeLine) mp.removeLayer(routeLine);
+      // Draw pickup marker on delivery map too
+      L.marker([INIT_PLAT,INIT_PLNG],{icon:mkIcon('#2196F3'),zIndexOffset:5}).addTo(mp);
+      var lls = d.routes[0].geometry.coordinates.map(function(c){ return [c[1],c[0]]; });
+      routeLine = L.polyline(lls,{color:'#1565C0',weight:5,opacity:.85,lineJoin:'round'}).addTo(mp);
+      mp.fitBounds(routeLine.getBounds(),{padding:[30,30]});
+      // Stats
+      var mi   = (d.routes[0].distance/1609.344).toFixed(1);
+      var min  = Math.round(d.routes[0].duration/60);
+      var hrs  = Math.floor(min/60); var rem=min%60;
+      var dur  = hrs>0 ? hrs+'h '+rem+'m' : rem+' min';
+      // Pricing: $50 base + $2.50/mi + 8% fuel
+      var price = (50 + parseFloat(mi)*2.5) * 1.08;
+      if (price < 75) price = 75;
+      document.getElementById('rs-dist').textContent  = mi+' mi';
+      document.getElementById('rs-dur').textContent   = dur;
+      document.getElementById('rs-price').textContent = '$'+price.toFixed(2);
+      document.getElementById('route-summary').style.display='block';
+    })
+    .catch(function(){});
 }
 
-// ── Set address field (read-only — only called programmatically) ──────────────
-function setAddressField(type, value) {
-  var field = document.getElementById('id_' + type + '_address');
-  if (field) field.value = value;
-}
-
-// ── Validate coordinates before form submission ───────────────────────────────
-function validateAndSubmit(type) {
-  var lat = document.getElementById(type + '_lat').value;
-  var lng = document.getElementById(type + '_lng').value;
-
-  if (!lat || !lng || parseFloat(lat) === 0 || parseFloat(lng) === 0) {
-    alert(
-      'Please select a ' + type + ' location first.\n\n' +
-      'Search for an address using the search box or click directly on the map.'
-    );
-    return false;
-  }
-  return true;
-}
-
-// ── Autocomplete ──────────────────────────────────────────────────────────────
-var acTimers = {};
-
-function onSearchInput(type) {
-  clearTimeout(acTimers[type]);
-  var val = document.getElementById(type + '-search-input').value.trim();
-  var box = document.getElementById(type + '-autocomplete');
-  if (val.length < 3) { box.innerHTML = ''; box.classList.remove('open'); return; }
-  box.innerHTML = '<div class="autocomplete-loading">Searching&hellip;</div>';
+// ── Autocomplete ──────────────────────────────────────────
+function onInput(type) {
+  clearTimeout(acTmrs[type]);
+  var val=document.getElementById(type+'-q').value.trim();
+  var box=document.getElementById(type+'-ac');
+  if (val.length<3){ box.innerHTML=''; box.classList.remove('open'); return; }
+  box.innerHTML='<div class="ac-item" style="color:#9CA3AF;font-style:italic;">Searching…</div>';
   box.classList.add('open');
-  acTimers[type] = setTimeout(function() { fetchSuggestions(type, val); }, 350);
+  acTmrs[type]=setTimeout(function(){ fetchAC(type,val); }, 350);
 }
 
-function fetchSuggestions(type, query) {
-  // countrycodes=us restricts results to US
-  var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=6'
-            + '&countrycodes=us&addressdetails=1&q=' + encodeURIComponent(query);
-  fetch(url, { headers: { 'Accept-Language': 'en' } })
-    .then(function(r) { return r.json(); })
-    .then(function(data) { renderSuggestions(type, data); })
-    .catch(function() {
-      document.getElementById(type + '-autocomplete').innerHTML =
-        '<div class="autocomplete-loading">Search failed. Check connection.</div>';
-    });
+function fetchAC(type, q) {
+  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=us&addressdetails=1&q='+encodeURIComponent(q),
+    {headers:{'Accept-Language':'en'}})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ renderAC(type,d); })
+    .catch(function(){ document.getElementById(type+'-ac').innerHTML='<div class="ac-item" style="color:#DC2626;">Search failed.</div>'; });
 }
 
-function renderSuggestions(type, data) {
-  var box = document.getElementById(type + '-autocomplete');
-
-  // Filter: only show results that have a meaningful place type
-  // This blocks vague or non-geographic results
-  var filtered = (data || []).filter(function(item) {
-    var t = (item.type || '').toLowerCase();
-    var c = (item.class || '').toLowerCase();
-    // Accept: amenity, building, road, neighbourhood, suburb, city, town, village, etc.
-    // Reject: postcode-only, very generic administrative areas without a name
-    var blocked = ['postcode', 'country', 'continent'];
-    return blocked.indexOf(t) === -1 && item.display_name.length > 5;
+function renderAC(type, data) {
+  var box=document.getElementById(type+'-ac');
+  var rows=(data||[]).filter(function(i){ return ['postcode','country','continent'].indexOf(i.type)<0 && i.display_name.length>5; });
+  if (!rows.length){ box.innerHTML='<div class="ac-item" style="color:#9CA3AF;font-style:italic;">No US results found.</div>'; return; }
+  var html='';
+  rows.forEach(function(item){
+    var pts=item.display_name.split(',');
+    html+='<div class="ac-item" data-lat="'+item.lat+'" data-lng="'+item.lon+'" data-name="'+esc(item.display_name)+'" onclick="selectAC(\''+type+'\',this)">'
+         +'<div class="ac-main">'+esc(pts[0].trim())+'</div>'
+         +'<div class="ac-sub">'+esc(pts.slice(1,4).join(', ').trim())+'</div></div>';
   });
-
-  if (!filtered.length) {
-    box.innerHTML = '<div class="autocomplete-loading">No results found in the US. Try a different search.</div>';
-    return;
-  }
-
-  var html = '';
-  filtered.forEach(function(item) {
-    var parts = item.display_name.split(',');
-    var main  = esc(parts[0].trim());
-    var sub   = esc(parts.slice(1, 4).join(', ').trim());
-    html += '<div class="autocomplete-item"'
-          + ' data-lat="' + item.lat + '"'
-          + ' data-lng="' + item.lon + '"'
-          + ' data-name="' + esc(item.display_name) + '"'
-          + ' onclick="selectSuggestion(\'' + type + '\', this)">'
-          + '<div class="main-text">' + main + '</div>'
-          + '<div class="sub-text">'  + sub  + '</div>'
-          + '</div>';
-  });
-  box.innerHTML = html;
-  box.classList.add('open');
+  box.innerHTML=html; box.classList.add('open');
 }
 
-function selectSuggestion(type, el) {
-  var lat  = parseFloat(el.getAttribute('data-lat'));
-  var lng  = parseFloat(el.getAttribute('data-lng'));
-  var name = el.getAttribute('data-name');
-
-  // Close dropdown
-  var box = document.getElementById(type + '-autocomplete');
-  box.innerHTML = '';
-  box.classList.remove('open');
-
-  // Update search input display (short label only — NOT the full address)
-  var parts = name.split(',');
-  document.getElementById(type + '-search-input').value =
-    parts.slice(0, 2).join(',').trim();
-
-  // Build map if needed, then pan and drop pin
+function selectAC(type, el) {
+  var lat=parseFloat(el.getAttribute('data-lat'));
+  var lng=parseFloat(el.getAttribute('data-lng'));
+  var name=el.getAttribute('data-name');
+  var box=document.getElementById(type+'-ac');
+  box.innerHTML=''; box.classList.remove('open');
+  var pts=name.split(',');
+  document.getElementById(type+'-q').value=pts.slice(0,2).join(',').trim();
   buildMap(type);
-  maps[type].instance.setView([lat, lng], 15);
-  dropPin(type, lat, lng);
-
-  // Set the locked address field with the clean Nominatim display_name
-  // This is the ONLY place address fields get written — never from user keyboard input
-  setAddressField(type, parts.slice(0, 4).join(', ').trim());
+  maps[type].instance.setView([lat,lng],15);
+  dropPin(type,lat,lng);
+  setAddr(type, pts.slice(0,4).join(', ').trim());
 }
 
-// "Search" button — forces top result
-function searchAddress(type) {
-  var query = document.getElementById(type + '-search-input').value.trim();
-  if (!query) return;
-  fetch(
-    'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q='
-    + encodeURIComponent(query),
-    { headers: { 'Accept-Language': 'en' } }
-  )
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (!data || !data.length) {
-        alert('No results found in the US for "' + query + '". Try a more specific search.');
-        return;
-      }
-      // Reuse selectSuggestion
-      selectSuggestion(type, {
-        getAttribute: function(k) {
-          var m = {
-            'data-lat':  data[0].lat,
-            'data-lng':  data[0].lon,
-            'data-name': data[0].display_name
-          };
-          return m[k];
-        }
-      });
+function searchAddr(type) {
+  var q=document.getElementById(type+'-q').value.trim(); if(!q) return;
+  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q='+encodeURIComponent(q),{headers:{'Accept-Language':'en'}})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d||!d.length){ alert('No US results for "'+q+'". Try a more specific search.'); return; }
+      selectAC(type,{ getAttribute:function(k){ return {'data-lat':d[0].lat,'data-lng':d[0].lon,'data-name':d[0].display_name}[k]; }});
     })
-    .catch(function() { alert('Search failed. Check your internet connection.'); });
+    .catch(function(){ alert('Search failed. Check connection.'); });
 }
 
-// ── Reverse geocode on map click ──────────────────────────────────────────────
-function reverseGeocode(type, lat, lng) {
-  fetch(
-    'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng
-  )
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data && data.display_name) {
-        // Always overwrite address field with fresh reverse-geocoded result
-        setAddressField(type, data.display_name.split(',').slice(0, 4).join(', ').trim());
-      }
-    })
-    .catch(function() {});
+function revGeo(type, lat, lng) {
+  fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng)
+    .then(function(r){ return r.json(); })
+    .then(function(d){ if(d&&d.display_name) setAddr(type, d.display_name.split(',').slice(0,4).join(', ').trim()); })
+    .catch(function(){});
 }
 
-// ── Utility ───────────────────────────────────────────────────────────────────
-function esc(s) {
-  return String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// Close dropdown when clicking outside
-document.addEventListener('click', function(e) {
-  ['pickup','delivery'].forEach(function(type) {
-    var inp = document.getElementById(type + '-search-input');
-    if (!inp) return;
-    var wrapper = inp.closest('.autocomplete-wrapper');
-    if (wrapper && !wrapper.contains(e.target)) {
-      var box = document.getElementById(type + '-autocomplete');
-      if (box) { box.innerHTML = ''; box.classList.remove('open'); }
-    }
+// Close dropdowns on outside click
+document.addEventListener('click',function(e){
+  ['pickup','delivery'].forEach(function(t){
+    var w=document.getElementById(t+'-q'); if(!w) return;
+    var wr=w.closest('.ac-wrap');
+    if (wr&&!wr.contains(e.target)){ var b=document.getElementById(t+'-ac'); if(b){b.innerHTML='';b.classList.remove('open');} }
   });
 });
 
-// Block any paste or keyboard input on the address fields — they are read-only
-// but we add this as an extra safety net against browser extension tampering
-document.addEventListener('DOMContentLoaded', function() {
-  ['pickup', 'delivery'].forEach(function(type) {
-    var addrField = document.getElementById('id_' + type + '_address');
-    if (addrField) {
-      addrField.addEventListener('keydown',  function(e) { e.preventDefault(); });
-      addrField.addEventListener('paste',    function(e) { e.preventDefault(); });
-      addrField.addEventListener('drop',     function(e) { e.preventDefault(); });
-      addrField.addEventListener('cut',      function(e) { e.preventDefault(); });
-      // Block autofill from browser password managers / saved form data
-      addrField.setAttribute('autocomplete', 'new-password');
-      addrField.setAttribute('readonly',     'readonly');
-    }
+// Block keyboard input on locked address fields
+document.addEventListener('DOMContentLoaded',function(){
+  ['pickup','delivery'].forEach(function(t){
+    var f=document.getElementById('id_'+t+'_address'); if(!f) return;
+    ['keydown','paste','drop','cut'].forEach(function(ev){ f.addEventListener(ev,function(e){ e.preventDefault(); }); });
   });
-});
 
-// ── Tab listeners ─────────────────────────────────────────────────────────────
-$('#pills-pickup-tab').on('shown.bs.tab',   function() { buildMap('pickup');   });
-$('#pills-delivery-tab').on('shown.bs.tab', function() { buildMap('delivery'); });
-
-// ── Form submission guards ────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', function() {
-  var step = parseInt('{{ step|default:1 }}', 10);
-
-  if (step === 2) { buildMap('pickup');   }
-  if (step === 3) { buildMap('delivery'); }
-
-  // Wire up search inputs
-  ['pickup', 'delivery'].forEach(function(type) {
-    var inp = document.getElementById(type + '-search-input');
-    if (!inp) return;
-    inp.addEventListener('input', function() { onSearchInput(type); });
-    inp.addEventListener('keydown', function(e) {
-      if (e.key !== 'Enter') return;
-      e.preventDefault();
-      var first = document.querySelector('#' + type + '-autocomplete .autocomplete-item');
-      if (first) { selectSuggestion(type, first); }
-      else        { searchAddress(type); }
+  // Bind search inputs
+  ['pickup','delivery'].forEach(function(t){
+    var inp=document.getElementById(t+'-q'); if(!inp) return;
+    inp.addEventListener('input',function(){ onInput(t); });
+    inp.addEventListener('keydown',function(e){
+      if(e.key!=='Enter') return; e.preventDefault();
+      var first=document.querySelector('#'+t+'-ac .ac-item');
+      if(first) selectAC(t,first); else searchAddr(t);
     });
   });
 
-  // Guard Step 2 form submission
-  var pickupForm = document.getElementById('pickup-form');
-  if (pickupForm) {
-    pickupForm.addEventListener('submit', function(e) {
-      if (!validateAndSubmit('pickup')) e.preventDefault();
+  // Validate on submit
+  function guard(formId, type) {
+    var f=document.getElementById(formId); if(!f) return;
+    f.addEventListener('submit',function(e){
+      var lat=document.getElementById(type+'_lat').value;
+      var lng=document.getElementById(type+'_lng').value;
+      if (!lat||!lng||parseFloat(lat)===0||parseFloat(lng)===0){
+        e.preventDefault();
+        alert('Please place a '+type+' pin first.\nSearch for an address or click the map.');
+      }
     });
   }
+  guard('pickup-form','pickup');
+  guard('delivery-form','delivery');
 
-  // Guard Step 3 form submission
-  var deliveryForm = document.getElementById('delivery-form');
-  if (deliveryForm) {
-    deliveryForm.addEventListener('submit', function(e) {
-      if (!validateAndSubmit('delivery')) e.preventDefault();
-    });
-  }
+  // Build map for current step
+  if (STEP===2) buildMap('pickup');
+  if (STEP===3) { buildMap('delivery'); if(INIT_DLAT&&INIT_DLNG) drawRoutePreview(); }
 });
 </script>
 {% endblock %}
