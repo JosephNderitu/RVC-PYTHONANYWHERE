@@ -35,7 +35,6 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgis://rvc_user:rvc_pass_2026@db:5432/rvc_spatial
       - REDIS_URL=redis://redis:6379/0
       - DEBUG=True
     depends_on:
@@ -47,7 +46,7 @@ services:
   celery:
     build: .
     container_name: rvc_celery
-    command: celery -A RiftValley worker --loglevel=info
+    command: python -m celery -A RiftValley worker --loglevel=info
     volumes:
       - .:/app
     working_dir: /app

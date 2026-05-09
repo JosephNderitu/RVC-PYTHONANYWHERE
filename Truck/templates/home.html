@@ -1,1447 +1,711 @@
 {% extends 'base.html' %}
-{% block content %}
 {% load static %}
-<link rel="stylesheet" href="{% static "css/styles.css" %}">
-<meta name="google-site-verification" content="CVYE_GiiMoFZFSV9FcutWwlx3pamGv-vyTRblFMc-LI" />
+
+{% block body_class %}hero-page{% endblock %}
+
+{% block head %}
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Crimson+Pro:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    corePlugins: { preflight: false },
+    theme: { extend: {
+      fontFamily: { sora: ['Sora','sans-serif'], display: ['Crimson Pro','serif'] }
+    }}
+  }
+</script>
+<style>
+/* ─── Home page only ─────────────────────────────────────── */
+body { background:#fff; color:#111827; }
+
+/* ─── Hero ───────────────────────────────────────────────── */
+.hero-bg {
+  background:
+    linear-gradient(105deg,rgba(13,27,62,.93) 0%,rgba(13,27,62,.78) 55%,rgba(13,27,62,.4) 100%),
+    url('https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=1900&q=80') center/cover no-repeat;
+  min-height:100vh;
+}
+
+/* ─── Cards ──────────────────────────────────────────────── */
+.rvc-card {
+  background:#fff; border:1px solid #E5E7EB; border-radius:16px;
+  transition:box-shadow .25s,transform .25s,border-color .25s;
+}
+.rvc-card:hover { box-shadow:0 16px 40px rgba(13,27,62,.11);transform:translateY(-4px);border-color:#F97316; }
+
+/* ─── Section label bar ───────────────────────────────────── */
+.s-bar { display:block;width:48px;height:3px;background:#F97316;border-radius:2px;margin:0 auto 18px; }
+
+/* ─── Icon boxes ─────────────────────────────────────────── */
+.ib  { width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:21px;flex-shrink:0; }
+.ib-o { background:#F97316; }
+.ib-n { background:#0D1B3E; }
+.ib-sm { width:42px;height:42px;border-radius:10px;background:rgba(13,27,62,.07);color:#0D1B3E;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:17px; }
+
+/* ─── Bullet ─────────────────────────────────────────────── */
+.dot::before { content:'';display:inline-block;width:7px;height:7px;background:#F97316;border-radius:50%;margin-right:10px;vertical-align:middle;flex-shrink:0; }
+
+/* ─── Fleet card ─────────────────────────────────────────── */
+.fleet-card { border-top:4px solid #F97316; }
+
+/* ─── Team photo overlay ─────────────────────────────────── */
+.team-img { width:100%;height:210px;object-fit:cover;object-position:top;border-radius:12px 12px 0 0;display:block; }
+.team-overlay {
+  position:absolute;bottom:0;left:0;right:0;padding:14px 18px;
+  background:linear-gradient(0deg,rgba(13,27,62,.88) 0%,transparent 100%);
+  border-radius:0;
+}
+
+/* ─── Founder quote marks ────────────────────────────────── */
+.quote-mark { font-family:'Crimson Pro',serif;font-size:5rem;line-height:1;color:#F97316;opacity:.35;margin-bottom:-24px;display:block; }
+
+/* ─── CTA ─────────────────────────────────────────────────── */
+.cta-bg { background:linear-gradient(135deg,#0D1B3E 0%,#1a3a6e 50%,#0D1B3E 100%); }
 
 
 
-<div class="container">
-    <div class="row">
-        <div class = "col-lg-12">
-            <h1 class ="custom-heading  fw-bold text-center mt-3 mb-0 text-success">WELCOME TO RIFTVALLEY CARRIERS</h1><br/><hr/>
-            <div class="container mt-2">
-                <div class="alert alert-info">
-                  <p class="lead">
-                    Welcome to RiftValley Courier, where seamless logistics solutions await both our valued customers and dedicated couriers. Whether you're looking to send parcels or join our network, explore our platform to sign in as a courier or customer. Your journey with us starts here.
-                  </p>
-                  <p>
-                    <strong>Read our <a href="{% url "terms_and_conditions" %}">terms and conditions</a> before using our services. Learn about our <a href="{% url "billing" %}">billing policy</a> for more information. Dont forget to check our cookie policy if you are using cookies <a href="{% url 'cookie_policy' %}">Cookie Policy.</a></strong>
-                  </p>
-                </div>
-              </div>
+/* ─── Animations ─────────────────────────────────────────── */
+@keyframes fadeUp { from{opacity:0;transform:translateY(26px)} to{opacity:1;transform:translateY(0)} }
+.fu  { animation:fadeUp .7s ease both; }
+.d1  { animation-delay:.15s; }
+.d2  { animation-delay:.30s; }
+.d3  { animation-delay:.45s; }
+.d4  { animation-delay:.60s; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══════════════ HERO ══════════════ -->
+<section class="hero-bg flex items-center" style="padding-top:80px;">
+  <div class="max-w-7xl mx-auto px-4 sm:px-8 lg:px-16 w-full py-28 lg:py-36">
+    <div class="max-w-2xl">
+
+      <div class="fu inline-flex items-center gap-2 mb-6 px-4 py-2 rounded-full text-sm font-semibold"
+           style="background:rgba(249,115,22,.18);color:#FB923C;border:1px solid rgba(249,115,22,.3);">
+        <i class="fas fa-circle-dot text-xs"></i>
+        Now serving Georgia &amp; surrounding states — USA
+      </div>
+
+      <h1 class="fu d1 text-white leading-tight mb-5"
+          style="font-size:clamp(2.4rem,5.5vw,4rem);font-weight:800;letter-spacing:-.03em;">
+        Fast, Reliable<br>
+        <span style="color:#F97316;">Courier Solutions</span>
+      </h1>
+
+      <p class="fu d2 text-white/70 text-lg leading-relaxed mb-10 max-w-xl">
+        Connecting businesses with trusted couriers across Georgia. Seamless logistics for freight of any size, powered by real-time geospatial technology and transparent USD pricing.
+      </p>
+
+      <div class="fu d3 flex flex-wrap gap-4 mb-16">
+        <a href="/sign_in/?next=/customer/"
+           class="inline-flex items-center gap-2 px-7 py-4 rounded-xl text-white font-bold text-base no-underline"
+           style="background:#F97316;box-shadow:0 8px 28px rgba(249,115,22,.4);">
+          <i class="fas fa-user"></i> I Need a Courier &nbsp;→
+        </a>
+        <a href="/sign_in/?next=/courier/"
+           class="inline-flex items-center gap-2 px-7 py-4 rounded-xl text-white font-bold text-base no-underline"
+           style="background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.25);backdrop-filter:blur(8px);">
+          <i class="fas fa-truck-fast"></i> I'm a Courier &nbsp;→
+        </a>
+      </div>
+
+      <!-- Hero stat strip -->
+      <div class="fu d4 flex flex-wrap gap-x-10 gap-y-6">
+        <div>
+          <div class="text-white font-extrabold" style="font-size:2.6rem;" id="h-couriers" data-target="500">0</div>
+          <div class="text-white/55 text-sm mt-1">Active Couriers</div>
         </div>
-
-
-        <div class="col-lg-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <div>
-                        <img src="{% static '/images/customerlogo.png' %}" alt="customer logo" style="width: 67px; display: inline-block; vertical-align: middle;">
-                        <u><h3 class="card-title text-danger" style="font-style: italic; font-family: 'Times New Roman', Times, serif; font-weight: bold; display: inline-block; vertical-align: middle;">CUSTOMER PAGE</h3></u>
-                    </div>
-                    <br>
-
-                    <h5 class="card-title">Customer</h5>
-                    <p class="card-text">Explore our services tailored for efficient parcel handling and logistics management.</p>
-                    <p class="card-text">As a customer, ensure accurate parcel information and adhere to scheduled pickup and delivery times. Failure to provide accurate details or repeated cancellations may affect service availability.</p>
-                    {% if not request.user.is_authenticated %}
-                    <div class="container mt-5">
-                        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                          <strong>Attention!</strong> Make sure you are logged in as a customer to view the Details. <a href="/sign_in/?next=/customer/" class="alert-link">Log-In</a>
-                          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                          </button>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <a href="{% url 'customer:home' %}" class="btn btn-warning">Details</a>
-                </div>
-            </div>
+        <div style="border-left:1px solid rgba(255,255,255,.15);padding-left:2.5rem;">
+          <div style="font-size:2.6rem;font-weight:800;color:#F97316;" id="h-jobs" data-target="5000">0</div>
+          <div class="text-white/55 text-sm mt-1">Deliveries / Month</div>
         </div>
-
-        <div class="col-lg-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <div>
-                        <img src="{% static '/images/courierlogo.png' %}" alt="Logo" style="width: 90px; display: inline-block; vertical-align: middle;">
-                        <u><h3 class="card-title text-danger" style="font-style: italic; font-family: 'Times New Roman', Times, serif; font-weight: bold; display: inline-block; vertical-align: middle;">COURIER PAGE</h3></u>
-                    </div>
-                    <br>
-
-                    <h5 class="card-title">Courier</h5>
-                    <p class="card-text">
-                        Join our courier network for reliable delivery services. Couriers must assess their availability and capability responsibly. <br><br>
-                        Upholding high service standards is crucial; failure to do so may cause disruptions, affect customer satisfaction, and result in legal action or contract termination.
-                    </p>
-
-
-                    {% if not request.user.is_authenticated %}
-                    <div class="container mt-5">
-                        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                          <strong>Attention!</strong> Make sure you are logged in as a courier to view the Details. <a href="/sign_in/?next=/courier/" class="alert-link">Log-In</a>
-                          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                          </button>
-                        </div>
-                    </div>
-                    {% endif %}
-                    {% if not request.user.is_authenticated %}
-                    <a href="/sign_in/?next=/courier/" class="btn btn-warning">Details</a>
-                    {% else %}
-                    <a href="{% url 'courier:home' %}" class="btn btn-warning">Details</a>
-                    {% endif %}
-                </div>
-            </div>
+        <div style="border-left:1px solid rgba(255,255,255,.15);padding-left:2.5rem;">
+          <div class="text-white font-extrabold" style="font-size:2.6rem;">98%</div>
+          <div class="text-white/55 text-sm mt-1">On-Time Rate</div>
         </div>
+      </div>
+
     </div>
+  </div>
+</section>
+
+
+<!-- ══════════════ TRUST STRIP ══════════════ -->
+<div style="background:#0D1B3E;">
+  <div class="max-w-7xl mx-auto px-4 sm:px-8 lg:px-16 py-4">
+    <div class="flex flex-wrap justify-center md:justify-between items-center gap-5 text-white/55 text-sm">
+      <span class="flex items-center gap-2"><i class="fas fa-shield-halved text-orange-400"></i>Fully insured deliveries</span>
+      <span class="flex items-center gap-2"><i class="fas fa-clock text-orange-400"></i>24/7 customer support</span>
+      <span class="flex items-center gap-2"><i class="fas fa-map-pin text-orange-400"></i>Real-time GPS tracking</span>
+      <span class="flex items-center gap-2"><i class="fas fa-star text-orange-400"></i>4.9/5 average rating</span>
+      <span class="flex items-center gap-2"><i class="fas fa-certificate text-orange-400"></i>Licensed &amp; certified</span>
+    </div>
+  </div>
 </div>
 
-        <!-- Trucks Section -->
-        <section id="trucks" class="py-5 bg-light">
-            <div class="container">
-                <h2 class="text-center mb-5">Our Fleet</h2>
-                <div class="row">
-                    {% for truck in trucks %}
-                    <div class="col-md-4 mb-4">
-                        <div class="card border-0 shadow-sm" style="height: 100%;">
-                            <img src="{{ truck.image.url }}" class="card-img-top" alt="{{ truck.name }}" style="width: 100%; height: 300px; object-fit: cover;">
-                            <div class="card-body">
-                                <h5 class="card-title text-center">{{ truck.name }}</h5>
-                                <p class="card-text text-muted">{{ truck.description }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </section>
-
-        <!-- Services Section -->
-        <!-- Similar structure for Services and Workers -->
-        <!-- Services Section -->
-        <section id="services" class="py-5 bg-secondary">
-            <div class="container">
-                <h2 class="text-center mb-5">Our Services</h2>
-                <div class="row">
-                    {% for service in services %}
-                    <div class="col-lg-4 mb-4">
-                        <div class="card border-0 shadow-sm" style="height: 100%;">
-                            <img src="{{ service.image.url }}" class="card-img-top rounded" alt="{{ service.title }}" style="height: 200px; object-fit: cover;">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">{{ service.title }}</h5>
-                                <p class="card-text">{{ service.description }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </section>
-
-        <!-- Workers Section -->
-        <section id="team" class="team-section">
-            <div class="team-background-overlay"></div>
-            <div class="container">
-                <div class="section-header" data-aos="fade-up">
-                    <span class="section-subtitle">The People Behind Our Success</span>
-                    <h2 class="section-title">Meet Our Talented Team</h2>
-                    <div class="title-underline"></div>
-                </div>
-
-                <div class="team-grid">
-                    {% for worker in workers %}
-                    <div class="team-member-card" data-aos="fade-up" data-aos-delay="{{ forloop.counter0 }}00">
-                        <div class="member-image-wrapper">
-                            <div class="member-shape"></div>
-                            <img src="{{ worker.image.url }}" alt="{{ worker.name }}" class="member-image">
-                            <div class="member-social">
-                                <a href="#" class="member-social-icon" aria-label="LinkedIn">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
-                                    </svg>
-                                </a>
-                                <a href="#" class="member-social-icon" aria-label="Twitter">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
-                                    </svg>
-                                </a>
-                            </div>
-                        </div>
-                        <div class="member-details">
-                            <h3 class="member-name">{{ worker.name }}</h3>
-                            <span class="member-title">{{ worker.job_title }}</span>
-                            <div class="member-divider"></div>
-                            <p class="member-bio">{{ worker.description }}</p>
-                        </div>
-                        <div class="member-hover-content">
-                            <div class="member-expertise">
-                                <span class="expertise-label">Core Skills</span>
-                                <div class="expertise-tags">
-                                    <span class="expertise-tag">Leadership</span>
-                                    <span class="expertise-tag">Innovation</span>
-                                    <span class="expertise-tag">Teamwork</span>
-                                </div>
-                            </div>
-                            <a href="#contact" class="connect-link">Contact {{ worker.name.split.0 }}</a>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </section>
-
-        <style>
-        /* Team Section Styles */
-        .team-section {
-            position: relative;
-            padding: 110px 0;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            overflow: hidden;
-        }
-
-        .team-background-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image:
-                radial-gradient(circle at 20% 10%, rgba(67, 97, 238, 0.03) 0%, transparent 20%),
-                radial-gradient(circle at 80% 80%, rgba(114, 9, 183, 0.03) 0%, transparent 20%),
-                radial-gradient(circle at 50% 50%, rgba(67, 97, 238, 0.05) 0%, transparent 40%);
-        }
-
-        .section-header {
-            text-align: center;
-            margin-bottom: 60px;
-        }
-
-        .section-subtitle {
-            display: inline-block;
-            font-size: 14px;
-            font-weight: 600;
-            color: #4361ee;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin-bottom: 10px;
-            position: relative;
-            padding: 0 10px;
-        }
-
-        .section-subtitle:before,
-        .section-subtitle:after {
-            content: "";
-            position: absolute;
-            top: 50%;
-            width: 30px;
-            height: 1px;
-            background: #4361ee;
-        }
-
-        .section-subtitle:before {
-            left: -30px;
-        }
-
-        .section-subtitle:after {
-            right: -30px;
-        }
-
-        .section-title {
-            font-size: 40px;
-            font-weight: 700;
-            color: #212529;
-            margin-bottom: 20px;
-        }
-
-        .title-underline {
-            width: 80px;
-            height: 4px;
-            background: linear-gradient(90deg, #4361ee, #7209b7);
-            margin: 0 auto;
-            border-radius: 4px;
-        }
-
-        .team-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 30px;
-            margin-top: 40px;
-        }
-
-        .team-member-card {
-            background-color: white;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
-            transition: all 0.4s ease;
-            position: relative;
-            height: 420px;
-        }
-
-        .team-member-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(67, 97, 238, 0.15);
-        }
-
-        .member-image-wrapper {
-            position: relative;
-            height: 220px;
-            background: linear-gradient(135deg, #4361ee, #7209b7);
-            overflow: hidden;
-        }
-
-        .member-shape {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 40%;
-            background-color: white;
-            clip-path: polygon(0 100%, 100% 100%, 100% 0);
-        }
-
-        .member-image {
-            width: 160px;
-            height: 160px;
-            object-fit: cover;
-            border-radius: 50%;
-            position: absolute;
-            top: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            border: 5px solid white;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-            transition: all 0.4s ease;
-        }
-
-        .team-member-card:hover .member-image {
-            transform: translateX(-50%) scale(1.05);
-        }
-
-        .member-social {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            display: flex;
-            gap: 10px;
-            opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.4s ease;
-        }
-
-        .team-member-card:hover .member-social {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .member-social-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 36px;
-            background: white;
-            color: #4361ee;
-            border-radius: 50%;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .member-social-icon:hover {
-            background: #4361ee;
-            color: white;
-            transform: translateY(-3px);
-            box-shadow: 0 6px 12px rgba(67, 97, 238, 0.2);
-        }
-
-        .member-details {
-            padding: 25px 20px;
-            text-align: center;
-        }
-
-        .member-name {
-            font-size: 22px;
-            font-weight: 700;
-            color: #212529;
-            margin-bottom: 5px;
-        }
-
-        .member-title {
-            font-size: 14px;
-            color: #4361ee;
-            font-weight: 600;
-            display: block;
-            margin-bottom: 12px;
-        }
-
-        .member-divider {
-            width: 40px;
-            height: 3px;
-            background: linear-gradient(90deg, #4361ee, #7209b7);
-            margin: 0 auto 15px;
-            border-radius: 4px;
-        }
-
-        .member-bio {
-            font-size: 14px;
-            line-height: 1.7;
-            color: #6c757d;
-            margin: 0;
-            /* Remove these to show full text */
-            /* display: -webkit-box; */
-            /* -webkit-line-clamp: 3; */
-            /* -webkit-box-orient: vertical; */
-            /* overflow: hidden; */
-        }
-
-
-        .member-hover-content {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            padding: 25px 20px;
-            background: linear-gradient(0deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.95) 80%, rgba(255, 255, 255, 0) 100%);
-            opacity: 0;
-            transform: translateY(100%);
-            transition: all 0.4s ease;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .team-member-card:hover .member-hover-content {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .member-expertise {
-            text-align: center;
-        }
-
-        .expertise-label {
-            font-size: 13px;
-            font-weight: 600;
-            color: #212529;
-            margin-bottom: 8px;
-            display: block;
-        }
-
-        .expertise-tags {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 6px;
-            margin-bottom: 12px;
-        }
-
-        .expertise-tag {
-            font-size: 11px;
-            font-weight: 500;
-            padding: 4px 10px;
-            background: rgba(67, 97, 238, 0.1);
-            color: #4361ee;
-            border-radius: 30px;
-        }
-
-        .connect-link {
-            display: inline-block;
-            padding: 10px 20px;
-            background: linear-gradient(135deg, #4361ee, #7209b7);
-            color: white;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            border-radius: 50px;
-            text-align: center;
-            margin: 0 auto;
-            transition: all 0.3s ease;
-            box-shadow: 0 6px 15px rgba(67, 97, 238, 0.2);
-        }
-
-        .connect-link:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 20px rgba(67, 97, 238, 0.3);
-        }
-
-        /* Responsive Styles */
-        @media (max-width: 991px) {
-            .team-section {
-                padding: 90px 0;
-            }
-
-            .section-title {
-                font-size: 36px;
-            }
-
-            .team-grid {
-                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-                gap: 25px;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .team-section {
-                padding: 70px 0;
-            }
-
-            .section-title {
-                font-size: 32px;
-            }
-
-            .member-name {
-                font-size: 20px;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .team-section {
-                padding: 60px 0;
-            }
-
-            .section-subtitle {
-                font-size: 12px;
-            }
-
-            .section-title {
-                font-size: 28px;
-            }
-
-            .team-grid {
-                grid-template-columns: 1fr;
-                max-width: 320px;
-                margin-left: auto;
-                margin-right: auto;
-            }
-        }
-
-        /* Animation Classes for AOS library */
-        [data-aos] {
-            opacity: 0;
-            transition-property: opacity, transform;
-        }
-
-        [data-aos].aos-animate {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        [data-aos="fade-up"] {
-            transform: translateY(50px);
-        }
-        </style>
-
-        <!-- AOS Animation Library (Include if not already added to your page) -->
-        <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-        <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                // Initialize AOS animation
-                AOS.init({
-                    duration: 800,
-                    once: true,
-                    offset: 100
-                });
-            });
-        </script>
-
-       <!-- Founder Section -->
-        <section id="founder" class="founder-section">
-            <div class="founder-background-overlay"></div>
-            <div class="founder-content container">
-                <div class="section-header" data-aos="fade-up">
-                    <span class="section-subtitle">Visionary Leadership</span>
-                    <h2 class="section-title">Meet Our Founder</h2>
-                    <div class="title-underline"></div>
-                </div>
-
-                <div class="founder-wrapper">
-                    <div class="founder-card" data-aos="fade-up" data-aos-delay="200">
-                        <div class="founder-image-container">
-                            <div class="founder-shape"></div>
-                            <div class="founder-image">
-                                <img src="{{ owner.image.url }}" alt="{{ owner.name }}" class="founder-portrait">
-                                <div class="founder-social">
-                                    <a href="#" class="social-icon" aria-label="LinkedIn">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                            <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
-                                        </svg>
-                                    </a>
-                                    <a href="#" class="social-icon" aria-label="Twitter">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                            <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
-                                        </svg>
-                                    </a>
-                                    <a href="#" class="social-icon" aria-label="Instagram">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-                                        </svg>
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="founder-details" data-aos="fade-up" data-aos-delay="400">
-                            <div class="founder-bio">
-                                <div class="founder-name-title">
-                                    <h3 class="founder-name">{{ owner.name }}</h3>
-                                    <span class="founder-title">{{ owner.job_title }}</span>
-                                </div>
-
-                                <div class="founder-quote">
-                                    <svg class="quote-icon" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M13 14.725c0-5.141 3.892-10.519 10-11.725l.984 2.126c-2.215.835-4.163 3.742-4.38 5.746 2.491.392 4.396 2.547 4.396 5.149 0 3.182-2.584 4.979-5.199 4.979-3.015 0-5.801-2.305-5.801-6.275zm-13 0c0-5.141 3.892-10.519 10-11.725l.984 2.126c-2.215.835-4.163 3.742-4.38 5.746 2.491.392 4.396 2.547 4.396 5.149 0 3.182-2.584 4.979-5.199 4.979-3.015 0-5.801-2.305-5.801-6.275z"/>
-                                    </svg>
-                                    <p class="founder-description">{{ owner.description }}</p>
-                                </div>
-
-                                <div class="founder-achievements">
-                                    <div class="achievement">
-                                        <span class="achievement-number">10+</span>
-                                        <span class="achievement-label">Years Experience</span>
-                                    </div>
-                                    <div class="achievement">
-                                        <span class="achievement-number">50+</span>
-                                        <span class="achievement-label">Major Projects</span>
-                                    </div>
-                                    <div class="achievement">
-                                        <span class="achievement-number">3</span>
-                                        <span class="achievement-label">Industry Awards</span>
-                                    </div>
-                                </div>
-
-                                <a href="#contact" class="connect-button">Connect With Me</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <style>
-            /* Founder Section Styles */
-            .founder-section {
-                position: relative;
-                padding: 120px 0;
-                overflow: hidden;
-                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            }
-
-            .founder-background-overlay {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-image:
-                    radial-gradient(circle at 10% 20%, rgba(0, 123, 255, 0.03) 0%, transparent 20%),
-                    radial-gradient(circle at 90% 80%, rgba(0, 123, 255, 0.03) 0%, transparent 20%),
-                    radial-gradient(circle at 50% 50%, rgba(0, 123, 255, 0.05) 0%, transparent 40%);
-            }
-
-            .founder-content {
-                position: relative;
-                z-index: 10;
-            }
-
-            .section-header {
-                text-align: center;
-                margin-bottom: 60px;
-            }
-
-            .section-subtitle {
-                display: inline-block;
-                font-size: 14px;
-                font-weight: 600;
-                color: #4361ee;
-                text-transform: uppercase;
-                letter-spacing: 2px;
-                margin-bottom: 10px;
-                position: relative;
-                padding: 0 10px;
-            }
-
-            .section-subtitle:before,
-            .section-subtitle:after {
-                content: "";
-                position: absolute;
-                top: 50%;
-                width: 30px;
-                height: 1px;
-                background: #4361ee;
-            }
-
-            .section-subtitle:before {
-                left: -30px;
-            }
-
-            .section-subtitle:after {
-                right: -30px;
-            }
-
-            .section-title {
-                font-size: 42px;
-                font-weight: 700;
-                color: #212529;
-                margin-bottom: 20px;
-            }
-
-            .title-underline {
-                width: 80px;
-                height: 4px;
-                background: linear-gradient(90deg, #4361ee, #7209b7);
-                margin: 0 auto;
-                border-radius: 4px;
-            }
-
-            .founder-wrapper {
-                max-width: 1100px;
-                margin: 0 auto;
-            }
-
-            .founder-card {
-                display: flex;
-                background-color: white;
-                border-radius: 20px;
-                box-shadow: 0 30px 60px rgba(0, 0, 0, 0.08);
-                overflow: hidden;
-                transition: all 0.4s ease;
-            }
-
-            .founder-card:hover {
-                transform: translateY(-10px);
-                box-shadow: 0 40px 70px rgba(0, 0, 0, 0.12);
-            }
-
-            .founder-image-container {
-                position: relative;
-                width: 40%;
-                min-height: 550px;
-                background: linear-gradient(135deg, #4361ee, #7209b7);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                overflow: hidden;
-            }
-
-            .founder-shape {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
-                clip-path: polygon(0 0, 100% 0, 70% 100%, 0% 100%);
-            }
-
-            .founder-image {
-                position: relative;
-                z-index: 10;
-                width: 100%;
-                height: 100%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .founder-portrait {
-                width: 85%;
-                height: auto;
-                object-fit: cover;
-                border-radius: 10px;
-                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-                transition: all 0.4s ease;
-            }
-
-            .founder-card:hover .founder-portrait {
-                transform: scale(1.03);
-            }
-
-            .founder-social {
-                position: absolute;
-                bottom: 30px;
-                left: 50%;
-                transform: translateX(-50%);
-                display: flex;
-                gap: 15px;
-                z-index: 20;
-            }
-
-            .social-icon {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 40px;
-                height: 40px;
-                background: white;
-                color: #4361ee;
-                border-radius: 50%;
-                transition: all 0.3s ease;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            }
-
-            .social-icon:hover {
-                transform: translateY(-5px);
-                background: #4361ee;
-                color: white;
-                box-shadow: 0 8px 16px rgba(67, 97, 238, 0.2);
-            }
-
-            .founder-details {
-                width: 60%;
-                padding: 50px;
-            }
-
-            .founder-bio {
-                display: flex;
-                flex-direction: column;
-                height: 100%;
-            }
-
-            .founder-name-title {
-                margin-bottom: 30px;
-            }
-
-            .founder-name {
-                font-size: 32px;
-                font-weight: 700;
-                color: #212529;
-                margin-bottom: 10px;
-            }
-
-            .founder-title {
-                font-size: 18px;
-                color: #4361ee;
-                font-weight: 500;
-                display: block;
-            }
-
-            .founder-quote {
-                position: relative;
-                margin-bottom: 40px;
-            }
-
-            .quote-icon {
-                position: absolute;
-                top: -20px;
-                left: -10px;
-                opacity: 0.1;
-                color: #212529;
-                transform: scaleX(-1);
-            }
-
-            .founder-description {
-                font-size: 16px;
-                line-height: 1.8;
-                color: #495057;
-                position: relative;
-                z-index: 5;
-            }
-
-            .founder-achievements {
-                display: flex;
-                justify-content: space-between;
-                margin: 30px 0;
-            }
-
-            .achievement {
-                text-align: center;
-                padding: 0 15px;
-            }
-
-            .achievement-number {
-                display: block;
-                font-size: 42px;
-                font-weight: 700;
-                color: #4361ee;
-                margin-bottom: 5px;
-            }
-
-            .achievement-label {
-                font-size: 14px;
-                color: #6c757d;
-            }
-
-            .connect-button {
-                display: inline-block;
-                padding: 14px 32px;
-                background: linear-gradient(135deg, #4361ee, #7209b7);
-                color: white;
-                text-decoration: none;
-                font-weight: 600;
-                border-radius: 50px;
-                box-shadow: 0 10px 20px rgba(67, 97, 238, 0.3);
-                transition: all 0.3s ease;
-                text-align: center;
-                margin-top: auto;
-                align-self: flex-start;
-            }
-
-            .connect-button:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 15px 30px rgba(67, 97, 238, 0.4);
-            }
-
-            /* Responsive Styles */
-            @media (max-width: 991px) {
-                .founder-card {
-                    flex-direction: column;
-                }
-
-                .founder-image-container {
-                    width: 100%;
-                    min-height: 400px;
-                }
-
-                .founder-details {
-                    width: 100%;
-                    padding: 40px 30px;
-                }
-
-                .founder-social {
-                    left: auto;
-                    right: 30px;
-                    bottom: auto;
-                    top: 30px;
-                    transform: none;
-                }
-
-                .founder-achievements {
-                    flex-wrap: wrap;
-                    gap: 20px;
-                }
-
-                .achievement {
-                    flex: 1 0 30%;
-                }
-            }
-
-            @media (max-width: 768px) {
-                .founder-section {
-                    padding: 80px 0;
-                }
-
-                .section-title {
-                    font-size: 32px;
-                }
-
-                .founder-name {
-                    font-size: 28px;
-                }
-
-                .achievement-number {
-                    font-size: 32px;
-                }
-            }
-
-            @media (max-width: 576px) {
-                .founder-image-container {
-                    min-height: 350px;
-                }
-
-                .founder-achievements {
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 20px;
-                }
-
-                .achievement {
-                    width: 100%;
-                }
-
-                .connect-button {
-                    width: 100%;
-                }
-            }
-
-            /* Animation Classes for AOS library */
-            [data-aos] {
-                opacity: 0;
-                transition-property: opacity, transform;
-            }
-
-            [data-aos].aos-animate {
-                opacity: 1;
-                transform: translateY(0);
-            }
-
-            [data-aos="fade-up"] {
-                transform: translateY(50px);
-            }
-        </style>
-
-        <!-- AOS Animation Library (add to your page if not already included) -->
-        <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-        <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                // Initialize AOS animation
-                AOS.init({
-                    duration: 800,
-                    once: true,
-                    offset: 100
-                });
-            });
-        </script>
-
-
-        <!-- Job Statistics Section -->
-        <section id="job-stats" class="py-5">
-            <div class="container">
-                <div class="stats-header text-center mb-5">
-                    <h2 class="display-4 fw-bold">Performance Dashboard</h2>
-                    <div class="header-underline"></div>
-                    <p class="lead text-muted mt-3">Our real-time metrics showcase our commitment to excellence</p>
-                </div>
-
-                <div class="stats-container">
-                    <div class="row g-4">
-                        <div class="col-md-4">
-                            <div class="stat-card success-card">
-                                <div class="stat-icon">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
-                                        <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
-                                    </svg>
-                                </div>
-                                <div class="stat-content">
-                                    <h3 class="stat-title">Successful Jobs</h3>
-                                    <div class="stat-number" id="successful-jobs">0</div>
-                                    <div class="stat-progress">
-                                        <div class="progress-bar success-progress" id="success-progress"></div>
-                                    </div>
-                                    <p class="stat-description">Completed jobs meeting all quality standards</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <div class="stat-card primary-card">
-                                <div class="stat-icon">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
-                                        <path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2zm15 0a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2z"/>
-                                        <path d="M5.5 4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm8 8a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm-4-4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
-                                    </svg>
-                                </div>
-                                <div class="stat-content">
-                                    <h3 class="stat-title">Total Jobs</h3>
-                                    <div class="stat-number" id="total-jobs">0</div>
-                                    <div class="stat-progress">
-                                        <div class="progress-bar primary-progress" id="total-progress"></div>
-                                    </div>
-                                    <p class="stat-description">All jobs posted on our platform to date</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <div class="stat-card info-card">
-                                <div class="stat-icon">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
-                                        <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
-                                        <path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/>
-                                        <path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
-                                    </svg>
-                                </div>
-                                <div class="stat-content">
-                                    <h3 class="stat-title">Couriers in Team</h3>
-                                    <div class="stat-number" id="total-couriers">0</div>
-                                    <div class="stat-progress">
-                                        <div class="progress-bar info-progress" id="courier-progress"></div>
-                                    </div>
-                                    <p class="stat-description">Professional couriers delivering excellence</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="update-notification">
-                    <div class="update-badge">
-                        <span class="update-pulse"></span>
-                        <span class="update-text">Live Stats</span>
-                    </div>
-                    <p class="text-muted">Data refreshes automatically every 30 seconds</p>
-                </div>
-            </div>
-        </section>
-
-        <style>
-            /* Modern Color Palette */
-            :root {
-                --primary: #4361ee;
-                --primary-light: #4895ef;
-                --primary-dark: #3a0ca3;
-                --success: #4cc9f0;
-                --success-light: #80ffdb;
-                --success-dark: #0096c7;
-                --info: #f72585;
-                --info-light: #ff758f;
-                --info-dark: #b5179e;
-                --dark: #2b2d42;
-                --light: #f8f9fa;
-                --gradient-primary: linear-gradient(135deg, var(--primary), var(--primary-light));
-                --gradient-success: linear-gradient(135deg, var(--success), var(--success-light));
-                --gradient-info: linear-gradient(135deg, var(--info), var(--info-light));
-                --shadow-sm: 0 .125rem .25rem rgba(0,0,0,.075);
-                --shadow: 0 .5rem 1rem rgba(0,0,0,.15);
-                --shadow-lg: 0 1rem 3rem rgba(0,0,0,.175);
-            }
-
-            /* Base Styles */
-            #job-stats {
-                background: linear-gradient(135deg, #f6f9fc, #edf2f7);
-                position: relative;
-                overflow: hidden;
-            }
-
-            #job-stats::before {
-                content: "";
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%232b2d42' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E");
-                z-index: 0;
-            }
-
-            .stats-header {
-                position: relative;
-                z-index: 1;
-            }
-
-            .header-underline {
-                height: 4px;
-                width: 80px;
-                background: var(--gradient-primary);
-                margin: 0 auto;
-                border-radius: 2px;
-            }
-
-            .stats-container {
-                position: relative;
-                z-index: 1;
-            }
-
-            /* Stat Cards */
-            .stat-card {
-                background: white;
-                border-radius: 16px;
-                overflow: hidden;
-                box-shadow: var(--shadow);
-                transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
-                position: relative;
-                z-index: 1;
-                padding: 2rem;
-                height: 100%;
-                display: flex;
-                flex-direction: column;
-                transform: translateY(0);
-                opacity: 0;
-                animation: fadeIn 0.8s forwards;
-            }
-
-            .stat-card::before {
-                content: "";
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 6px;
-                z-index: 1;
-            }
-
-            .stat-card.success-card::before {
-                background: var(--gradient-success);
-            }
-
-            .stat-card.primary-card::before {
-                background: var(--gradient-primary);
-            }
-
-            .stat-card.info-card::before {
-                background: var(--gradient-info);
-            }
-
-            .stat-card:hover {
-                transform: translateY(-10px);
-                box-shadow: var(--shadow-lg);
-            }
-
-            .stat-card:nth-child(1) {
-                animation-delay: 0.1s;
-            }
-
-            .stat-card:nth-child(2) {
-                animation-delay: 0.3s;
-            }
-
-            .stat-card:nth-child(3) {
-                animation-delay: 0.5s;
-            }
-
-            .stat-icon {
-                position: relative;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                width: 80px;
-                height: 80px;
-                border-radius: 50%;
-                margin-bottom: 1.5rem;
-                color: white;
-                transition: all 0.3s ease;
-            }
-
-            .success-card .stat-icon {
-                background: var(--gradient-success);
-                box-shadow: 0 10px 20px rgba(76, 201, 240, 0.3);
-            }
-
-            .primary-card .stat-icon {
-                background: var(--gradient-primary);
-                box-shadow: 0 10px 20px rgba(67, 97, 238, 0.3);
-            }
-
-            .info-card .stat-icon {
-                background: var(--gradient-info);
-                box-shadow: 0 10px 20px rgba(247, 37, 133, 0.3);
-            }
-
-            .stat-card:hover .stat-icon {
-                transform: scale(1.1) rotate(10deg);
-            }
-
-            .stat-content {
-                flex: 1;
-                display: flex;
-                flex-direction: column;
-            }
-
-            .stat-title {
-                font-size: 1.25rem;
-                font-weight: 600;
-                margin-bottom: 0.5rem;
-                color: var(--dark);
-            }
-
-            .stat-number {
-                font-size: 3rem;
-                font-weight: 700;
-                margin-bottom: 1rem;
-                transition: all 0.3s ease;
-                position: relative;
-            }
-
-            .success-card .stat-number {
-                color: var(--success-dark);
-            }
-
-            .primary-card .stat-number {
-                color: var(--primary-dark);
-            }
-
-            .info-card .stat-number {
-                color: var(--info-dark);
-            }
-
-            .stat-card:hover .stat-number {
-                transform: scale(1.05);
-            }
-
-            .stat-progress {
-                width: 100%;
-                height: 6px;
-                background-color: #e9ecef;
-                border-radius: 3px;
-                margin-bottom: 1rem;
-                overflow: hidden;
-            }
-
-            .progress-bar {
-                height: 100%;
-                width: 0;
-                border-radius: 3px;
-                transition: width 1.5s ease-in-out;
-            }
-
-            .success-progress {
-                background: var(--gradient-success);
-            }
-
-            .primary-progress {
-                background: var(--gradient-primary);
-            }
-
-            .info-progress {
-                background: var(--gradient-info);
-            }
-
-            .stat-description {
-                color: #6c757d;
-                font-size: 0.9rem;
-                margin-top: auto;
-            }
-
-            /* Update Notification */
-            .update-notification {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                flex-direction: column;
-                margin-top: 3rem;
-            }
-
-            .update-badge {
-                display: inline-flex;
-                align-items: center;
-                background: rgba(43, 45, 66, 0.05);
-                padding: 0.5rem 1rem;
-                border-radius: 50px;
-                margin-bottom: 0.5rem;
-            }
-
-            .update-pulse {
-                display: inline-block;
-                width: 12px;
-                height: 12px;
-                border-radius: 50%;
-                background: #10b981;
-                margin-right: 8px;
-                position: relative;
-            }
-
-            .update-pulse::after {
-                content: "";
-                position: absolute;
-                width: 100%;
-                height: 100%;
-                border-radius: 50%;
-                background: rgba(16, 185, 129, 0.6);
-                animation: pulse 2s infinite;
-            }
-
-            .update-text {
-                font-weight: 600;
-                color: var(--dark);
-                font-size: 0.9rem;
-            }
-
-            /* Animations */
-            @keyframes fadeIn {
-                from {
-                    opacity: 0;
-                    transform: translateY(20px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-
-            @keyframes pulse {
-                0% {
-                    transform: scale(1);
-                    opacity: 1;
-                }
-                100% {
-                    transform: scale(2.5);
-                    opacity: 0;
-                }
-            }
-
-            /* Responsive Design */
-            @media (max-width: 768px) {
-                .stat-card {
-                    padding: 1.5rem;
-                    margin-bottom: 1.5rem;
-                }
-
-                .stat-icon {
-                    width: 60px;
-                    height: 60px;
-                }
-
-                .stat-icon svg {
-                    width: 30px;
-                    height: 30px;
-                }
-
-                .stat-number {
-                    font-size: 2.5rem;
-                }
-            }
-        </style>
-
-        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-        <script>
-            function fetchStats() {
-                $.ajax({
-                    url: "{% url 'fetch_stats' %}",
-                    method: "GET",
-                    success: function(data) {
-                        // Update numbers with animation
-                        animateNumber('total-jobs', data.total_jobs);
-                        animateNumber('successful-jobs', data.successful_jobs);
-                        animateNumber('total-couriers', data.total_couriers);
-
-                        // Update progress bars
-                        const maxValue = Math.max(data.total_jobs, data.successful_jobs, data.total_couriers);
-
-                        // Set progress bar widths with animation
-                        $("#success-progress").css('width', (data.successful_jobs / maxValue * 100) + '%');
-                        $("#total-progress").css('width', (data.total_jobs / maxValue * 100) + '%');
-                        $("#courier-progress").css('width', (data.total_couriers / maxValue * 100) + '%');
-                    },
-                    error: function(error) {
-                        console.error("Error fetching stats:", error);
-                    }
-                });
-            }
-
-            function animateNumber(elementId, targetValue) {
-                const $element = $(`#${elementId}`);
-                const startValue = parseInt($element.text()) || 0;
-                const duration = 1500;
-                const frameRate = 60;
-                const increment = (targetValue - startValue) / (duration / (1000 / frameRate));
-
-                let currentValue = startValue;
-                const timer = setInterval(() => {
-                    currentValue += increment;
-                    if ((increment > 0 && currentValue >= targetValue) ||
-                        (increment < 0 && currentValue <= targetValue)) {
-                        clearInterval(timer);
-                        $element.text(targetValue);
-                    } else {
-                        $element.text(Math.round(currentValue));
-                    }
-                }, 1000 / frameRate);
-            }
-
-            // Check if element is in viewport
-            function isInViewport(element) {
-                const rect = element.getBoundingClientRect();
-                return (
-                    rect.top <= (window.innerHeight || document.documentElement.clientHeight) &&
-                    rect.bottom >= 0
-                );
-            }
-
-            // Handle animations on scroll
-            function handleScrollAnimations() {
-                const cards = document.querySelectorAll('.stat-card');
-                cards.forEach(card => {
-                    if (isInViewport(card) && !card.classList.contains('animated')) {
-                        card.style.opacity = "1";
-                        card.classList.add('animated');
-                    }
-                });
-            }
-
-            $(document).ready(function() {
-                // Initial fetch
-                fetchStats();
-
-                // Update every 30 seconds
-                setInterval(fetchStats, 30000);
-
-                // Handle animations on scroll
-                window.addEventListener('scroll', handleScrollAnimations);
-                handleScrollAnimations(); // Initial check
-            });
-        </script>
+
+<!-- ══════════════ SERVICES ══════════════ -->
+<section id="services" class="py-24 px-4 sm:px-8 lg:px-16" style="background:#F8FAFC;">
+  <div class="max-w-7xl mx-auto">
+
+    <div class="text-center mb-14">
+      <span class="s-bar"></span>
+      <h2 class="text-4xl font-bold mb-3" style="color:#0D1B3E;">Our Services</h2>
+      <p class="text-gray-400 text-lg">Comprehensive logistics solutions for customers and couriers</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+
+      <div class="rvc-card p-7">
+        <div class="ib ib-n mb-5"><i class="fas fa-box"></i></div>
+        <h3 class="text-xl font-bold mb-2" style="color:#0D1B3E;">For Customers</h3>
+        <p class="text-gray-500 text-sm leading-relaxed mb-5">Ship parcels with ease. Find verified couriers, track deliveries in real-time, and enjoy peace of mind with transparent USD pricing on every job.</p>
+        <ul class="space-y-2 text-sm text-gray-500 mb-7">
+          <li class="flex items-center dot">Real-time GPS tracking</li>
+          <li class="flex items-center dot">Verified professional couriers</li>
+          <li class="flex items-center dot">Flexible pickup scheduling</li>
+        </ul>
+        <a href="/sign_in/?next=/customer/" class="inline-flex items-center gap-2 text-sm font-bold no-underline" style="color:#F97316;">Get started <i class="fas fa-arrow-right text-xs"></i></a>
+      </div>
+
+      <div class="rvc-card p-7">
+        <div class="ib ib-n mb-5"><i class="fas fa-users"></i></div>
+        <h3 class="text-xl font-bold mb-2" style="color:#0D1B3E;">For Couriers</h3>
+        <p class="text-gray-500 text-sm leading-relaxed mb-5">Join our growing Georgia-based network. Access consistent job opportunities, see live job locations on a map, and earn competitive pay on your schedule.</p>
+        <ul class="space-y-2 text-sm text-gray-500 mb-7">
+          <li class="flex items-center dot">Flexible working hours</li>
+          <li class="flex items-center dot">Fair, transparent pay</li>
+          <li class="flex items-center dot">Live job map &amp; navigation</li>
+        </ul>
+        <a href="/sign_in/?next=/courier/" class="inline-flex items-center gap-2 text-sm font-bold no-underline" style="color:#F97316;">Join network <i class="fas fa-arrow-right text-xs"></i></a>
+      </div>
+
+      <div class="rvc-card p-7" style="border:2px solid #0D1B3E;">
+        <div class="ib ib-o mb-5"><i class="fas fa-truck"></i></div>
+        <h3 class="text-xl font-bold mb-2" style="color:#0D1B3E;">Fleet Options</h3>
+        <p class="text-gray-500 text-sm leading-relaxed mb-5">From light-duty vans to heavy-duty tractor-trailers. OSRM road-network routing ensures accurate mileage pricing for every vehicle class, every route.</p>
+        <ul class="space-y-2 text-sm text-gray-500 mb-7">
+          <li class="flex items-center dot">Multiple vehicle types</li>
+          <li class="flex items-center dot">All cargo sizes covered</li>
+          <li class="flex items-center dot">Professional licensed drivers</li>
+        </ul>
+        <a href="#fleet" class="inline-flex items-center gap-2 text-sm font-bold no-underline" style="color:#F97316;">View fleet <i class="fas fa-arrow-right text-xs"></i></a>
+      </div>
+
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="rvc-card p-5 flex items-center gap-4">
+        <div class="ib-sm"><i class="fas fa-shield-halved"></i></div>
+        <div><div class="font-semibold text-sm" style="color:#0D1B3E;">Fully Insured</div><div class="text-xs text-gray-400 mt-0.5">Every delivery is protected</div></div>
+      </div>
+      <div class="rvc-card p-5 flex items-center gap-4">
+        <div class="ib-sm"><i class="fas fa-clock"></i></div>
+        <div><div class="font-semibold text-sm" style="color:#0D1B3E;">24/7 Support</div><div class="text-xs text-gray-400 mt-0.5">Always here to help</div></div>
+      </div>
+      <div class="rvc-card p-5 flex items-center gap-4">
+        <div class="ib-sm"><i class="fas fa-map-location-dot"></i></div>
+        <div><div class="font-semibold text-sm" style="color:#0D1B3E;">Regional Coverage</div><div class="text-xs text-gray-400 mt-0.5">Georgia &amp; surrounding states</div></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ══════════════ FLEET (STATIC) ══════════════ -->
+<section id="fleet" class="py-24 px-4 sm:px-8 lg:px-16 bg-white">
+  <div class="max-w-7xl mx-auto">
+
+    <div class="text-center mb-14">
+      <span class="s-bar"></span>
+      <h2 class="text-4xl font-bold mb-3" style="color:#0D1B3E;">Our Fleet</h2>
+      <p class="text-gray-400 text-lg max-w-xl mx-auto">From compact vans to heavy-duty trucks, we have the right vehicle for every job</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+
+      <!-- Light Duty -->
+      <div class="rvc-card fleet-card p-7">
+        <div class="ib ib-o mb-5"><i class="fas fa-box-open"></i></div>
+        <h3 class="text-lg font-bold mb-1" style="color:#0D1B3E;">Light-Duty Delivery Van</h3>
+        <p class="text-gray-400 text-sm mb-4">Perfect for small parcels, documents, and same-day express deliveries across metro areas.</p>
+        <p class="text-sm text-gray-500 mb-1">Capacity: <strong style="color:#0D1B3E;">Up to 500 kg</strong></p>
+        <p class="text-sm text-gray-400 mb-4">Ideal for: Express parcels, documents, e-commerce, small packages</p>
+        <ul class="space-y-1.5 text-sm text-gray-500 mb-6">
+          <li class="flex items-center dot">Fast urban delivery — same day</li>
+          <li class="flex items-center dot">Highly fuel-efficient</li>
+          <li class="flex items-center dot">Easy parking in city centres</li>
+        </ul>
+        <a href="/sign_in/?next=/customer/" class="block text-center text-sm font-semibold py-2.5 rounded-xl no-underline border transition-all hover:bg-navy hover:text-white" style="border-color:#0D1B3E;color:#0D1B3E;">Request Quote</a>
+      </div>
+
+      <!-- Medium Duty -->
+      <div class="rvc-card fleet-card p-7">
+        <div class="ib ib-o mb-5"><i class="fas fa-truck"></i></div>
+        <h3 class="text-lg font-bold mb-1" style="color:#0D1B3E;">Medium-Duty Box Truck</h3>
+        <p class="text-gray-400 text-sm mb-4">Versatile workhorse for standard commercial deliveries, appliances, and regional freight.</p>
+        <p class="text-sm text-gray-500 mb-1">Capacity: <strong style="color:#0D1B3E;">500 kg – 3 tons</strong></p>
+        <p class="text-sm text-gray-400 mb-4">Ideal for: Furniture, appliances, medium cargo, office relocations</p>
+        <ul class="space-y-1.5 text-sm text-gray-500 mb-6">
+          <li class="flex items-center dot">Fully weather-protected cargo area</li>
+          <li class="flex items-center dot">Lift gate available on request</li>
+          <li class="flex items-center dot">Standard commercial shipping</li>
+        </ul>
+        <a href="/sign_in/?next=/customer/" class="block text-center text-sm font-semibold py-2.5 rounded-xl no-underline border transition-all" style="border-color:#0D1B3E;color:#0D1B3E;">Request Quote</a>
+      </div>
+
+      <!-- Heavy Duty -->
+      <div class="rvc-card fleet-card p-7">
+        <div class="ib ib-o mb-5"><i class="fas fa-trailer"></i></div>
+        <h3 class="text-lg font-bold mb-1" style="color:#0D1B3E;">Heavy-Duty Tractor-Trailer</h3>
+        <p class="text-gray-400 text-sm mb-4">Industrial-grade long-haul capability for bulk freight, construction materials, and large commercial shipments.</p>
+        <p class="text-sm text-gray-500 mb-1">Capacity: <strong style="color:#0D1B3E;">3+ tons</strong></p>
+        <p class="text-sm text-gray-400 mb-4">Ideal for: Bulk freight, construction materials, large shipments</p>
+        <ul class="space-y-1.5 text-sm text-gray-500 mb-6">
+          <li class="flex items-center dot">Long-distance interstate routes</li>
+          <li class="flex items-center dot">Maximum load capacity</li>
+          <li class="flex items-center dot">CDL-licensed professional drivers</li>
+        </ul>
+        <a href="/sign_in/?next=/customer/" class="block text-center text-sm font-semibold py-2.5 rounded-xl no-underline border transition-all" style="border-color:#0D1B3E;color:#0D1B3E;">Request Quote</a>
+      </div>
+
+    </div>
+
+    <div class="flex justify-center">
+      <div class="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm" style="background:#EFF6FF;color:#1E40AF;border:1px solid #BFDBFE;">
+        <i class="fas fa-shield-halved"></i>
+        All vehicles regularly inspected, fully insured, and GPS-tracked
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ══════════════ PERFORMANCE (DYNAMIC) ══════════════ -->
+<section class="py-20 px-4 sm:px-8 lg:px-16" style="background:#F8FAFC;">
+  <div class="max-w-7xl mx-auto">
+
+    <div class="text-center mb-14">
+      <span class="s-bar"></span>
+      <h2 class="text-4xl font-bold mb-3" style="color:#0D1B3E;">Performance Dashboard</h2>
+      <p class="text-gray-400">Real-time metrics from our live platform</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
+
+      <div class="rvc-card p-8 text-center">
+        <div class="ib mx-auto mb-5" style="background:linear-gradient(135deg,#06b6d4,#80ffdb);"><i class="fas fa-check-circle"></i></div>
+        <div class="font-extrabold mb-2" style="font-size:3rem;color:#0E7490;" id="stat-success">—</div>
+        <div class="font-semibold text-gray-700 mb-1">Successful Jobs</div>
+        <div class="text-xs text-gray-400 mb-4">Completed meeting all quality standards</div>
+        <div class="h-1.5 rounded-full overflow-hidden" style="background:#E5E7EB;">
+          <div id="bar-success" class="h-full rounded-full" style="background:linear-gradient(90deg,#06b6d4,#80ffdb);width:0%;transition:width 1.2s ease;"></div>
+        </div>
+      </div>
+
+      <div class="rvc-card p-8 text-center">
+        <div class="ib mx-auto mb-5" style="background:linear-gradient(135deg,#4361ee,#4895ef);"><i class="fas fa-boxes-stacked"></i></div>
+        <div class="font-extrabold mb-2" style="font-size:3rem;color:#1D4ED8;" id="stat-total">—</div>
+        <div class="font-semibold text-gray-700 mb-1">Total Jobs Posted</div>
+        <div class="text-xs text-gray-400 mb-4">All jobs on our platform to date</div>
+        <div class="h-1.5 rounded-full overflow-hidden" style="background:#E5E7EB;">
+          <div id="bar-total" class="h-full rounded-full" style="background:linear-gradient(90deg,#4361ee,#4895ef);width:0%;transition:width 1.2s ease;"></div>
+        </div>
+      </div>
+
+      <div class="rvc-card p-8 text-center">
+        <div class="ib mx-auto mb-5" style="background:linear-gradient(135deg,#f72585,#ff758f);"><i class="fas fa-users"></i></div>
+        <div class="font-extrabold mb-2" style="font-size:3rem;color:#9D174D;" id="stat-couriers">—</div>
+        <div class="font-semibold text-gray-700 mb-1">Couriers in Network</div>
+        <div class="text-xs text-gray-400 mb-4">Active professional couriers</div>
+        <div class="h-1.5 rounded-full overflow-hidden" style="background:#E5E7EB;">
+          <div id="bar-couriers" class="h-full rounded-full" style="background:linear-gradient(90deg,#f72585,#ff758f);width:0%;transition:width 1.2s ease;"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="flex justify-center items-center gap-2 text-sm text-gray-400">
+      <span class="relative flex h-3 w-3 mr-1">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style="background:#22c55e;"></span>
+        <span class="relative inline-flex rounded-full h-3 w-3" style="background:#16a34a;"></span>
+      </span>
+      Live data · refreshes every 30 seconds
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ══════════════ TEAM (STATIC) ══════════════ -->
+<section id="team" class="py-24 px-4 sm:px-8 lg:px-16 bg-white">
+  <div class="max-w-7xl mx-auto">
+
+    <div class="text-center mb-16">
+      <span class="s-bar"></span>
+      <h2 class="text-4xl font-bold mb-3" style="color:#0D1B3E;">Meet Our Team</h2>
+      <p class="text-gray-400">Dedicated professionals committed to your success</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+      <!-- Member 1 -->
+      <div class="rvc-card overflow-hidden">
+        <div class="relative">
+          <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&q=80"
+               alt="Sarah Kimani" class="team-img">
+          <div class="team-overlay">
+            <div class="text-white font-bold text-base">Sarah Kimani</div>
+            <div class="font-semibold text-sm" style="color:#F97316;">Operations Director</div>
+          </div>
+        </div>
+        <div class="p-5">
+          <p class="text-gray-500 text-sm leading-relaxed">Oversees daily operations, ensuring seamless coordination between customers and couriers. Sarah brings 8 years of logistics leadership to keep every delivery on track.</p>
+        </div>
+      </div>
+
+      <!-- Member 2 -->
+      <div class="rvc-card overflow-hidden">
+        <div class="relative">
+          <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&q=80"
+               alt="David Ochieng" class="team-img">
+          <div class="team-overlay">
+            <div class="text-white font-bold text-base">David Ochieng</div>
+            <div class="font-semibold text-sm" style="color:#F97316;">Technology Lead</div>
+          </div>
+        </div>
+        <div class="p-5">
+          <p class="text-gray-500 text-sm leading-relaxed">Leads platform development and innovation. David architects our geospatial routing engine, real-time tracking infrastructure, and PostGIS database — the technology backbone of RVC.</p>
+        </div>
+      </div>
+
+      <!-- Member 3 -->
+      <div class="rvc-card overflow-hidden">
+        <div class="relative">
+          <img src="https://images.unsplash.com/photo-1580489944761-15a19d654956?w=600&q=80"
+               alt="Grace Wanjiku" class="team-img">
+          <div class="team-overlay">
+            <div class="text-white font-bold text-base">Grace Wanjiku</div>
+            <div class="font-semibold text-sm" style="color:#F97316;">Customer Success Manager</div>
+          </div>
+        </div>
+        <div class="p-5">
+          <p class="text-gray-500 text-sm leading-relaxed">Ensures exceptional customer experiences by managing support operations, gathering feedback, and driving continuous platform improvements that put our clients first.</p>
+        </div>
+      </div>
+
+      <!-- Member 4 -->
+      <div class="rvc-card overflow-hidden">
+        <div class="relative">
+          <img src="https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=600&q=80"
+               alt="Michael Otieno" class="team-img">
+          <div class="team-overlay">
+            <div class="text-white font-bold text-base">Michael Otieno</div>
+            <div class="font-semibold text-sm" style="color:#F97316;">Fleet Manager</div>
+          </div>
+        </div>
+        <div class="p-5">
+          <p class="text-gray-500 text-sm leading-relaxed">Manages our diverse fleet of vehicles, maintaining rigorous standards of safety, reliability, and compliance. Michael ensures every truck on the road is roadworthy and fully insured.</p>
+        </div>
+      </div>
+
+      <!-- Member 5 — Joseph (You!) -->
+      <div class="rvc-card overflow-hidden">
+        <div class="relative">
+          <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=600&q=80"
+               alt="Gikuru Joseph Nderitu" class="team-img">
+          <div class="team-overlay">
+            <div class="text-white font-bold text-base">Gikuru Joseph Nderitu</div>
+            <div class="font-semibold text-sm" style="color:#F97316;">Lead Developer &amp; Geospatial Engineer</div>
+          </div>
+        </div>
+        <div class="p-5">
+          <p class="text-gray-500 text-sm leading-relaxed">Architects and builds the platform's geospatial computing layer — OSRM road routing, Winding Number geofencing, PostGIS spatial analytics, and the full-stack Django platform powering RVC.</p>
+        </div>
+      </div>
+
+      <!-- Member 6 -->
+      <div class="rvc-card overflow-hidden">
+        <div class="relative">
+          <img src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=600&q=80"
+               alt="Amina Hassan" class="team-img">
+          <div class="team-overlay">
+            <div class="text-white font-bold text-base">Amina Hassan</div>
+            <div class="font-semibold text-sm" style="color:#F97316;">Finance &amp; Compliance Officer</div>
+          </div>
+        </div>
+        <div class="p-5">
+          <p class="text-gray-500 text-sm leading-relaxed">Oversees financial operations, courier payouts via PayPal, Stripe payment processing, and regulatory compliance — ensuring RVC operates to the highest legal and financial standards.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════ FOUNDER (STATIC) ══════════════ -->
+<section class="py-24 px-4 sm:px-8 lg:px-16" style="background:#F8FAFC;">
+  <div class="max-w-5xl mx-auto">
+
+    <div class="text-center mb-14">
+      <span class="s-bar"></span>
+      <h2 class="text-4xl font-bold mb-3" style="color:#0D1B3E;">Message from Our Founder</h2>
+    </div>
+
+    <div class="rvc-card overflow-hidden flex flex-col lg:flex-row">
+
+      <!-- Photo -->
+      <div class="lg:w-5/12 flex-shrink-0">
+        <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?w=800&q=80"
+             alt="John Mwangi — CEO & Founder"
+             style="width:100%;height:100%;min-height:360px;object-fit:cover;object-position:top center;display:block;">
+      </div>
+
+      <!-- Quote & bio -->
+      <div class="lg:w-7/12 p-8 lg:p-12 flex flex-col justify-center">
+        <span class="quote-mark">&ldquo;</span>
+        <blockquote class="text-gray-600 text-base leading-loose mb-8 italic">
+          At RiftValley Carriers, we believe in creating opportunities and building bridges between communities. Our platform was born from a simple vision: to make logistics accessible, reliable, and efficient for everyone. Whether you're a business owner shipping products or a courier building your career, we're committed to providing the tools and support you need to succeed.
+        </blockquote>
+
+        <!-- Founder chip -->
+        <div class="flex items-center gap-4 p-4 rounded-xl mb-8" style="background:#F8FAFC;border:1px solid #E5E7EB;">
+          <div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0" style="background:#0D1B3E;">JM</div>
+          <div>
+            <div class="font-bold text-sm" style="color:#0D1B3E;">John Mwangi</div>
+            <div class="text-gray-500 text-xs">CEO &amp; Founder, RiftValley Carriers</div>
+            <div class="text-gray-400 text-xs mt-0.5">Visionary leader with 10+ years in logistics</div>
+          </div>
+        </div>
+
+        <!-- Achievements -->
+        <div class="flex gap-8">
+          <div class="text-center">
+            <div class="text-2xl font-extrabold" style="color:#0D1B3E;">10+</div>
+            <div class="text-xs text-gray-400 mt-0.5">Years Experience</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-extrabold" style="color:#F97316;">50+</div>
+            <div class="text-xs text-gray-400 mt-0.5">Projects Delivered</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-extrabold" style="color:#0D1B3E;">3</div>
+            <div class="text-xs text-gray-400 mt-0.5">Industry Awards</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════ CORE VALUES (STATIC) ══════════════ -->
+<section class="py-24 px-4 sm:px-8 lg:px-16 bg-white">
+  <div class="max-w-7xl mx-auto">
+
+    <!-- Milestones -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-20">
+      <div class="rvc-card p-8 text-center">
+        <div class="font-extrabold mb-2" style="font-size:3rem;color:#0D1B3E;">2018</div>
+        <div class="font-semibold text-gray-700 mb-1">Founded</div>
+        <div class="text-xs text-gray-400">Beginning of our journey in Georgia</div>
+      </div>
+      <div class="rvc-card p-8 text-center">
+        <div class="font-extrabold mb-2" style="font-size:3rem;color:#F97316;">50+</div>
+        <div class="font-semibold text-gray-700 mb-1">Cities Covered</div>
+        <div class="text-xs text-gray-400">Expanding across the southeast US</div>
+      </div>
+      <div class="rvc-card p-8 text-center">
+        <div class="font-extrabold mb-2" style="font-size:3rem;color:#0D1B3E;">100K+</div>
+        <div class="font-semibold text-gray-700 mb-1">Deliveries Completed</div>
+        <div class="text-xs text-gray-400">Trusted by thousands of businesses</div>
+      </div>
+    </div>
+
+    <!-- Core values header -->
+    <div class="text-center mb-14">
+      <span class="s-bar"></span>
+      <h2 class="text-4xl font-bold mb-3" style="color:#0D1B3E;">Our Core Values</h2>
+      <p class="text-gray-400">The principles that guide every delivery, every day</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+
+      <div class="rvc-card p-7 text-center">
+        <div class="ib-sm mx-auto mb-5"><i class="fas fa-bullseye"></i></div>
+        <h4 class="font-bold mb-2" style="color:#0D1B3E;">Excellence</h4>
+        <p class="text-gray-400 text-sm leading-relaxed">We hold ourselves to the highest standards in every delivery — from pickup to proof-of-delivery.</p>
+      </div>
+
+      <div class="rvc-card p-7 text-center">
+        <div class="ib-sm mx-auto mb-5"><i class="fas fa-heart"></i></div>
+        <h4 class="font-bold mb-2" style="color:#0D1B3E;">Customer First</h4>
+        <p class="text-gray-400 text-sm leading-relaxed">Your satisfaction drives every decision we make. We build tools that serve you, not the other way around.</p>
+      </div>
+
+      <div class="rvc-card p-7 text-center">
+        <div class="ib-sm mx-auto mb-5"><i class="fas fa-medal"></i></div>
+        <h4 class="font-bold mb-2" style="color:#0D1B3E;">Reliability</h4>
+        <p class="text-gray-400 text-sm leading-relaxed">Consistent, dependable service you can trust — backed by real-time tracking and transparent communication.</p>
+      </div>
+
+      <div class="rvc-card p-7 text-center">
+        <div class="ib-sm mx-auto mb-5"><i class="fas fa-people-group"></i></div>
+        <h4 class="font-bold mb-2" style="color:#0D1B3E;">Community</h4>
+        <p class="text-gray-400 text-sm leading-relaxed">Building strong, lasting relationships with every courier, customer, and partner in our network.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════ PORTAL CARDS ══════════════ -->
+<section class="py-24 px-4 sm:px-8 lg:px-16" style="background:#F8FAFC;">
+  <div class="max-w-5xl mx-auto">
+
+    <div class="text-center mb-14">
+      <span class="s-bar"></span>
+      <h2 class="text-4xl font-bold mb-3" style="color:#0D1B3E;">Get Started Today</h2>
+      <p class="text-gray-400">Join thousands of customers and couriers on our platform</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <div class="rvc-card p-8" style="border-top:4px solid #F97316;">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="ib ib-o"><i class="fas fa-user"></i></div>
+          <div>
+            <div class="font-bold text-lg" style="color:#0D1B3E;">Customer Portal</div>
+            <div class="text-gray-400 text-sm">Ship parcels with ease</div>
+          </div>
+        </div>
+        <p class="text-gray-500 text-sm leading-relaxed mb-6">Create a job in four simple steps, track your courier on a live map, and receive proof-of-delivery photos when your shipment arrives safely.</p>
+        {% if not request.user.is_authenticated %}
+        <div class="flex items-center gap-2 text-xs px-4 py-3 rounded-lg mb-5 border" style="background:#FFFBEB;color:#B45309;border-color:#FDE68A;">
+          <i class="fas fa-triangle-exclamation"></i>
+          Please <a href="/sign_in/?next=/customer/" class="font-bold underline" style="color:#F97316;">sign in</a> to access the customer portal
+        </div>
+        {% endif %}
+        <a href="{% url 'customer:home' %}" class="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold no-underline text-white" style="background:#F97316;">
+          <i class="fas fa-arrow-right"></i> Enter Customer Portal
+        </a>
+      </div>
+
+      <div class="rvc-card p-8" style="border-top:4px solid #0D1B3E;">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="ib ib-n"><i class="fas fa-truck-fast"></i></div>
+          <div>
+            <div class="font-bold text-lg" style="color:#0D1B3E;">Courier Portal</div>
+            <div class="text-gray-400 text-sm">Start earning today</div>
+          </div>
+        </div>
+        <p class="text-gray-500 text-sm leading-relaxed mb-6">Browse available jobs on a live map, accept deliveries, capture proof-of-delivery photos, and get paid directly to your PayPal account.</p>
+        {% if not request.user.is_authenticated %}
+        <div class="flex items-center gap-2 text-xs px-4 py-3 rounded-lg mb-5 border" style="background:#FFFBEB;color:#B45309;border-color:#FDE68A;">
+          <i class="fas fa-triangle-exclamation"></i>
+          Please <a href="/sign_in/?next=/courier/" class="font-bold underline" style="color:#F97316;">sign in</a> to access the courier portal
+        </div>
+        {% endif %}
+        <a href="{% if request.user.is_authenticated %}{% url 'courier:home' %}{% else %}/sign_in/?next=/courier/{% endif %}"
+           class="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold no-underline border transition-all" style="border-color:#0D1B3E;color:#0D1B3E;">
+          <i class="fas fa-arrow-right"></i> Enter Courier Portal
+        </a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════ CTA ══════════════ -->
+<section class="cta-bg py-20 px-4 sm:px-8 lg:px-16">
+  <div class="max-w-4xl mx-auto text-center">
+    <h2 class="text-4xl font-bold text-white mb-5 leading-tight">
+      Ready to Move Smarter?<br>
+      <span style="color:#F97316;">Start Your First Delivery Today.</span>
+    </h2>
+    <p class="text-white/65 text-lg mb-10 max-w-xl mx-auto">
+      Join thousands of customers and couriers who trust RiftValley Carriers for reliable, technology-powered logistics across Georgia.
+    </p>
+    <div class="flex flex-wrap justify-center gap-4">
+      <a href="/sign_in/?next=/customer/" class="px-8 py-4 rounded-xl text-white font-bold text-base no-underline" style="background:#F97316;box-shadow:0 8px 28px rgba(249,115,22,.35);">
+        Get Started Free &nbsp;→
+      </a>
+      <a href="#services" class="px-8 py-4 rounded-xl font-bold text-base no-underline text-white" style="background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.25);">
+        Learn More
+      </a>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════ SCRIPTS ══════════════ -->
+<script>
+// ── Navbar scroll ─────────────────────────────────────────────
+window.addEventListener('scroll', () => {
+  document.getElementById('rvc-nav').classList.toggle('scrolled', window.scrollY > 40);
+});
+
+// ── Smooth scroll ─────────────────────────────────────────────
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const t = document.querySelector(a.getAttribute('href'));
+    if (t) { e.preventDefault(); t.scrollIntoView({ behavior:'smooth', block:'start' }); }
+  });
+});
+
+// ── Counter animation (hero) ──────────────────────────────────
+function animCount(el, target, dur=1800) {
+  let cur = 0, step = target / (dur / 16);
+  const t = setInterval(() => {
+    cur = Math.min(cur + step, target);
+    el.textContent = Math.round(cur).toLocaleString();
+    if (cur >= target) clearInterval(t);
+  }, 16);
+}
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      animCount(e.target, parseInt(e.target.dataset.target));
+      obs.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.5 });
+document.querySelectorAll('[data-target]').forEach(el => obs.observe(el));
+
+// ── Live stats (ONLY dynamic section) ────────────────────────
+function fetchStats() {
+  $.ajax({
+    url: "{% url 'fetch_stats' %}",
+    method: 'GET',
+    success: function(d) {
+      const total    = d.total_jobs    || 0;
+      const success  = d.successful_jobs || 0;
+      const couriers = d.total_couriers  || 0;
+      const maxVal   = Math.max(total, success, couriers, 1);
+
+      document.getElementById('stat-total').textContent    = total.toLocaleString();
+      document.getElementById('stat-success').textContent  = success.toLocaleString();
+      document.getElementById('stat-couriers').textContent = couriers.toLocaleString();
+
+      document.getElementById('bar-total').style.width    = Math.round(total    / maxVal * 100) + '%';
+      document.getElementById('bar-success').style.width  = Math.round(success  / maxVal * 100) + '%';
+      document.getElementById('bar-couriers').style.width = Math.round(couriers / maxVal * 100) + '%';
+    }
+  });
+}
+fetchStats();
+setInterval(fetchStats, 30000);
+
+// ── Footer year ───────────────────────────────────────────────
+document.getElementById('footer-copy').textContent =
+  '© ' + new Date().getFullYear() + ' RiftValley Carriers. All rights reserved.';
+</script>
 
 {% endblock %}

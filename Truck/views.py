@@ -2,7 +2,6 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login
 from django.contrib.sessions.backends.db import SessionStore
 from . import forms
-from .models import Truck, Service, Worker, Owner
 from django.http import JsonResponse
 from .models import Job, Courier
 import datetime
@@ -20,12 +19,6 @@ def home(request):
     else:
         form = forms.SignUpForm()
 
-    # Query all objects from each model
-    trucks = Truck.objects.all()
-    services = Service.objects.all()
-    workers = Worker.objects.all()
-    owner = Owner.objects.first()
-
     # Check if the user has accepted cookies
     cookies_accepted = request.session.get('cookies_accepted', False)
     if cookies_accepted:
@@ -33,10 +26,6 @@ def home(request):
         request.session.set_expiry(7200)  # 2 hours in seconds
 
     return render(request, 'home.html', {
-        'trucks': trucks,
-        'services': services,
-        'workers': workers,
-        'owner': owner,
         'form': form,
         'cookies_accepted': cookies_accepted,
     })
