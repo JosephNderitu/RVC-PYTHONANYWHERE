@@ -1,122 +1,262 @@
 {% extends "customer/base.html" %}
 {% load bootstrap4 %}
 
-{% block head %}
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/css/toastr.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js"></script>
-
-
-
-
+{% block head_extra %}
 <style>
-    .StripeElement {
-        height: 40px;
-        width: 100%;
-        color:dark;
-        background-color: white;
-        border: 1px solid transparent;
-        border-radius: 4px;
-        -webkit-transition: box-shadow 150ms ease;
-        transition: box-shadow 150ms ease;
-    }
-    .StripeElement--focus {
-        border-color: #80bdff;
-        box-shadow: 0 1px 3px 0 #cfd7df;
-    }
-    .StripeElement--invalid {
-        border-color: #fa755a;
-    }
-    .StripeElement--webkit-autofill{
-        background-color: #fefde5 !important;
-    }
+/* ── Stripe element styling ─────────────────────────────── */
+.stripe-wrap {
+  border: 1.5px solid #E5E7EB;
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: #FAFAFA;
+  transition: border-color .2s, box-shadow .2s;
+}
+.stripe-wrap.focused {
+  border-color: #0D1B3E;
+  box-shadow: 0 0 0 3px rgba(13,27,62,.08);
+  background: #fff;
+}
+.StripeElement { height: 24px; }
+.StripeElement--invalid { /* handled by Stripe UI */ }
+
+/* ── Card display ───────────────────────────────────────── */
+.card-chip {
+  display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(135deg, #0D1B3E 0%, #1a3a6e 100%);
+  border-radius: 14px; padding: 22px 24px;
+  position: relative; overflow: hidden;
+}
+.card-chip::before {
+  content:''; position:absolute; top:-30px; right:-30px;
+  width:160px; height:160px; border-radius:50%;
+  background:rgba(255,255,255,.05);
+}
+.card-chip::after {
+  content:''; position:absolute; bottom:-40px; right:40px;
+  width:120px; height:120px; border-radius:50%;
+  background:rgba(255,255,255,.04);
+}
+.card-number { font-size:1.2rem; font-weight:700; color:#fff; letter-spacing:.18em; font-family:'Sora',sans-serif; }
+.card-brand  { font-size:.7rem; font-weight:600; color:rgba(255,255,255,.6); text-transform:uppercase; letter-spacing:.1em; }
 </style>
 {% endblock %}
+
 {% block main %}
 <script src="https://js.stripe.com/v3/"></script>
-{% if not request.user.customer.stripe_payment_method_id %}
-<div class="alert alert-danger alert-dismissible  fade show " role= "alert">
-lets add your Credit or Debit card to <strong>Create a job</strong>!
-<button type="button" class="close" data-dismiss="alert" aria-label="Close">
-    <span aria-hidden="true">&times;</span>
 
-</button>
+<!-- Page header -->
+<div class="mb-6">
+  <h1 class="text-2xl font-bold mb-1" style="color:#0D1B3E;font-family:'Sora',sans-serif;">Payment Method</h1>
+  <p class="text-sm text-gray-400">Manage your card for job payments</p>
+</div>
+
+<!-- Alert: no card added yet -->
+{% if not request.user.customer.stripe_payment_method_id %}
+<div class="flex items-start gap-3 p-4 rounded-xl mb-5" style="background:#FEF3C7;border:1px solid #FDE68A;">
+  <i class="fas fa-exclamation-triangle mt-0.5" style="color:#D97706;"></i>
+  <div class="text-sm" style="color:#92400E;">
+    <span class="font-bold">No payment method added.</span>
+    Add a card below to start creating jobs.
+  </div>
 </div>
 {% endif %}
-<h3>STRIPE PAYEMENT</h3>
-<b class="text-secondary">Add Your Credit/Debit Card</b>
-<div class="card bg-white mt-2 mb-5">
-    <div class = "card-body">
 
-        {% if request.user.customer.stripe_payment_method_id %}
-        <div id="change-card" class="input-group">
-            <input type="text" class="form-control" disabled value="**** **** **** {{ request.user.customer.stripe_card_last4 }}">
-            <div class="input-group-append">
-                <form method="POST">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-danger">Remove</button>
-                </form>
-            </div>
-        </div>
+<!-- Current card display -->
+{% if request.user.customer.stripe_payment_method_id %}
+<div class="pc p-6 mb-5">
+  <div class="font-bold text-sm mb-4" style="color:#0D1B3E;font-family:'Sora',sans-serif;">
+    <i class="fas fa-credit-card mr-2" style="color:#F97316;"></i>Saved Card
+  </div>
 
-        {% else %}
-        {% csrf_token %}
-        <form id="setup-form" data-secret="{{ client_secret }}">
-            <div id="card-element"></div>
-            <button id="card-button" class="btn btn-warning mt-3" type="button">Save Card</button>
-        </form>
-        
-
-        {% endif %}
-
+  <!-- Card visual -->
+  <div class="card-chip mb-5" style="max-width:340px;">
+    <div>
+      <div class="card-brand mb-3">Rift Valley Carriers</div>
+      <div class="card-number">**** **** **** {{ request.user.customer.stripe_card_last4 }}</div>
+      <div class="mt-3 text-xs" style="color:rgba(255,255,255,.5);">Verified & Secured</div>
     </div>
+    <div>
+      <i class="fas fa-credit-card text-3xl" style="color:rgba(255,255,255,.3);"></i>
+    </div>
+  </div>
+
+  <!-- Security badge -->
+  <div class="flex items-center gap-3 p-3 rounded-xl mb-5" style="background:#F0FDF4;border:1px solid #BBF7D0;">
+    <i class="fas fa-shield-halved" style="color:#16A34A;"></i>
+    <div class="text-xs" style="color:#065F46;">
+      <span class="font-bold">Secured by Stripe.</span>
+      Your card details are encrypted and never stored on our servers.
+    </div>
+  </div>
+
+  <!-- Remove card -->
+  <div style="border-top:1px solid #F3F4F6;padding-top:16px;">
+    <div class="text-sm font-semibold mb-3" style="color:#0D1B3E;">Remove card</div>
+    <p class="text-xs text-gray-400 mb-4">Removing your card will prevent you from creating new jobs until a new card is added.</p>
+    <form method="POST" onsubmit="return confirm('Remove this card? You will not be able to create jobs without a payment method.')">
+      {% csrf_token %}
+      <button type="submit"
+              class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white"
+              style="background:#DC2626;border:none;">
+        <i class="fas fa-trash-alt"></i> Remove Card
+      </button>
+    </form>
+  </div>
 </div>
 
-<br>
+{% else %}
 
-{% if not request.user.customer.stripe_payment_method_id %}
+<!-- Add card form -->
+<div class="pc p-6 mb-5">
+  <div class="font-bold text-sm mb-5" style="color:#0D1B3E;font-family:'Sora',sans-serif;">
+    <i class="fas fa-plus-circle mr-2" style="color:#F97316;"></i>Add a Credit or Debit Card
+  </div>
+
+  {% csrf_token %}
+  <form id="setup-form" data-secret="{{ client_secret }}">
+
+    <div class="mb-5">
+      <label class="block text-sm font-semibold mb-2" style="color:#374151;">Card details</label>
+      <div class="stripe-wrap" id="card-wrap">
+        <div id="card-element"></div>
+      </div>
+      <div id="card-error" class="text-xs mt-2 font-semibold" style="color:#DC2626;display:none;">
+        <i class="fas fa-exclamation-circle mr-1"></i><span id="card-error-msg"></span>
+      </div>
+    </div>
+
+    <!-- Security note -->
+    <div class="flex items-center gap-3 p-3 rounded-xl mb-5" style="background:#EFF6FF;border:1px solid #BFDBFE;">
+      <i class="fas fa-lock" style="color:#1D4ED8;"></i>
+      <div class="text-xs" style="color:#1E40AF;">
+        <span class="font-bold">256-bit SSL encryption.</span>
+        Powered by Stripe — your card details are never stored on our servers.
+      </div>
+    </div>
+
+    <button id="card-button" type="button"
+            class="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white"
+            style="background:#F97316;border:none;">
+      <i class="fas fa-credit-card"></i> Save Card
+    </button>
+
+    <div id="card-spinner" class="inline-flex items-center gap-2 ml-3 text-sm text-gray-400" style="display:none!important;">
+      <div class="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style="border-color:#F97316;border-top-color:transparent;"></div>
+      Processing…
+    </div>
+
+  </form>
+</div>
 
 <script>
-    console.log("Customer1.");
-    var stripe = Stripe("{{ STRIPE_API_PUBLIC_KEY }}");
-    var elements = stripe.elements();
-    var cardElement  = elements.create('card');
-    cardElement.mount('#card-element');
+(function(){
+  var stripe  = Stripe("{{ STRIPE_API_PUBLIC_KEY }}");
+  var elements = stripe.elements();
 
-    var cardholderName = document.getElementById('card-holder-name');
-    var cardButton = document.getElementById('card-button');
-    var clientSecret = "{{ client_secret }}";
+  var cardElement = elements.create('card', {
+    style: {
+      base: {
+        fontFamily: 'Sora, sans-serif',
+        fontSize: '15px',
+        color: '#0D1B3E',
+        '::placeholder': { color: '#9CA3AF' },
+      },
+      invalid: { color: '#DC2626' }
+    }
+  });
+  cardElement.mount('#card-element');
 
-    cardButton.addEventListener('click', function(ev) {
-        stripe.confirmCardSetup(
-            clientSecret,
-            {
-                payment_method: {
-                    card: cardElement,
-                }
-            }
-        ).then(function(result) {
-            if (result.error) {
-                // Show error to your customer (e.g., insufficient funds, invalid state, etc.)
-                alert(result.error.message);
-            } else {
-                alert("Payment method is added successfully");
-                window.location.reload(true); // Force reload from the server
-            }
-        }).catch(function(error) {
-            console.error(error);
-            // Handle any other errors
-        });
+  // Focus styling
+  cardElement.on('focus', function(){
+    document.getElementById('card-wrap').classList.add('focused');
+  });
+  cardElement.on('blur', function(){
+    document.getElementById('card-wrap').classList.remove('focused');
+  });
+
+  // Error display
+  cardElement.on('change', function(e){
+    var errDiv = document.getElementById('card-error');
+    var errMsg = document.getElementById('card-error-msg');
+    if (e.error) {
+      errMsg.textContent = e.error.message;
+      errDiv.style.display = 'block';
+    } else {
+      errDiv.style.display = 'none';
+    }
+  });
+
+  var btn      = document.getElementById('card-button');
+  var spinner  = document.getElementById('card-spinner');
+  var clientSecret = "{{ client_secret }}";
+
+  btn.addEventListener('click', function(){
+    btn.disabled = true;
+    btn.style.opacity = '.65';
+    spinner.style.removeProperty('display');
+
+    stripe.confirmCardSetup(clientSecret, {
+      payment_method: { card: cardElement }
+    }).then(function(result){
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      spinner.style.setProperty('display','none','important');
+
+      if (result.error) {
+        document.getElementById('card-error-msg').textContent = result.error.message;
+        document.getElementById('card-error').style.display = 'block';
+      } else {
+        // Show success briefly then reload
+        btn.textContent = '✓ Card saved!';
+        btn.style.background = '#16A34A';
+        setTimeout(function(){ window.location.reload(true); }, 800);
+      }
+    }).catch(function(err){
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      spinner.style.setProperty('display','none','important');
+      document.getElementById('card-error-msg').textContent = err.message || 'An error occurred.';
+      document.getElementById('card-error').style.display = 'block';
     });
+  });
 
-    $.ajaxSetup({
-        beforeSend: function(xhr, settings) {
-            if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
-                xhr.setRequestHeader("X-CSRFToken", getToken());
-            }
-        }
-    });
+  // CSRF for AJAX
+  $.ajaxSetup({
+    beforeSend: function(xhr, settings){
+      if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain){
+        xhr.setRequestHeader("X-CSRFToken",
+          document.querySelector('[name=csrfmiddlewaretoken]').value);
+      }
+    }
+  });
+})();
 </script>
+
 {% endif %}
+
+<!-- Accepted cards info -->
+<div class="pc p-5">
+  <div class="font-bold text-sm mb-3" style="color:#0D1B3E;font-family:'Sora',sans-serif;">
+    <i class="fas fa-info-circle mr-2" style="color:#F97316;"></i>About Payments
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-500">
+    <div class="flex items-start gap-2">
+      <i class="fas fa-check-circle mt-0.5" style="color:#16A34A;font-size:.8rem;"></i>
+      <span>Payments are processed securely by Stripe</span>
+    </div>
+    <div class="flex items-start gap-2">
+      <i class="fas fa-check-circle mt-0.5" style="color:#16A34A;font-size:.8rem;"></i>
+      <span>Funds only released after successful delivery</span>
+    </div>
+    <div class="flex items-start gap-2">
+      <i class="fas fa-check-circle mt-0.5" style="color:#16A34A;font-size:.8rem;"></i>
+      <span>Visa, Mastercard, and Amex accepted</span>
+    </div>
+    <div class="flex items-start gap-2">
+      <i class="fas fa-check-circle mt-0.5" style="color:#16A34A;font-size:.8rem;"></i>
+      <span>Card details are never stored on our servers</span>
+    </div>
+  </div>
+</div>
 
 {% endblock %}
