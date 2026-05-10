@@ -1,121 +1,13 @@
-````markdown
-# Django Project Setup
 
-Follow the steps below to set up and run the project locally.
+## Test the confirmation flow end to end:
+docker compose exec web python manage.py shell -c "
+from Truck.models import Job
+job = Job.objects.get(id='c3023809-2838-47fd-ac08-02d19b5acd82')
+print('Confirmation URL:', job.get_confirmation_url())
+print('Confirmed:', job.customer_confirmed)
+"
+## Run to change the job id status
+docker compose exec web python manage.py shell -c "from Truck.models import CourierZoneState, GeofenceEvent, Job; CourierZoneState.objects.all().delete(); GeofenceEvent.objects.all().delete(); Job.objects.filter(id='c3023809-2838-47fd-ac08-02d19b5acd82').update(status='picking'); print('Reset done')"
 
----
-
-## 1. Clone the Repository
-
-```bash
-git clone <repository-url>
-cd <project-folder>
-````
-
----
-
-## 2. Create Virtual Environment
-
-```bash
-python -m venv venv
-```
-
----
-
-## 3. Activate Virtual Environment
-
-**Windows**
-
-```bash
-venv\Scripts\activate
-```
-
-**Mac/Linux**
-
-```bash
-source venv/bin/activate
-```
-
----
-
-## 4. Install Dependencies
-
-Install packages from `requirements.txt`.
-
-```bash
-pip install -r requirements.txt
-```
-
-If new dependencies are added, update the file using:
-
-```bash
-pip freeze > requirements.txt
-```
-
----
-
-## 5. Ensure You Are in the Correct Directory
-
-Before running Django commands, confirm you are inside the directory containing `manage.py`.
-
-Example:
-
-```bash
-ls
-```
-
-You should see:
-
-```
-manage.py
-```
-
----
-
-## 6. Run Database Migrations
-
-```bash
-python manage.py migrate
-```
-
----
-
-## 7. Create Admin Superuser
-
-```bash
-python manage.py createsuperuser
-```
-
-Follow the prompts to set username, email, and password.
-
----
-
-## 8. Run the Development Server
-
-```bash
-python manage.py runserver
-```
-
-The application will be available at:
-
-```
-http://127.0.0.1:8000/
-```
-
-Admin panel:
-
-```
-http://127.0.0.1:8000/admin/
-```
-
----
-
-## Support
-
-If you encounter any issues during setup or running the project, contact:
-
-**Joseph Gikuru**
-📧 [gikurujoseph53@gmail.com](mailto:gikurujoseph53@gmail.com)
-
-```
-```
+## Running the simulation for geofencing step by step
+python gps_replay.py --route atlanta_marietta --speed 2 --pause-at 120 --username Joseph --password Jossey@2003 --job-id c3023809-2838-47fd-ac08-02d19b5acd82

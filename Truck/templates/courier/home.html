@@ -1,0 +1,366 @@
+{% extends 'courier/base.html' %}
+{% load static %}
+
+{% block title %}Dashboard — RVC Courier{% endblock %}
+{% block nav_home %}active{% endblock %}
+{% block snav_home %}active{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+body { background: var(--dark); }
+
+/* ── Top bar ─────────────────────────────────────── */
+.top-bar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: var(--top-h);
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 20px; gap: 14px; z-index: 300;
+}
+@media(min-width:768px){ .top-bar { left: 72px; } }
+.top-avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  object-fit: cover; border: 2px solid var(--orange);
+}
+.top-greeting { flex: 1; }
+.top-greeting .sub { font-size: .7rem; color: var(--muted); font-weight: 500; }
+.top-greeting .name { font-size: .95rem; font-weight: 700; color: var(--text); }
+
+/* ── Online toggle ───────────────────────────────── */
+.online-toggle-wrap {
+  position: relative;
+}
+.online-toggle {
+  width: 52px; height: 28px;
+  background: var(--border-l);
+  border-radius: 14px;
+  position: relative;
+  cursor: pointer;
+  transition: background .25s;
+  border: none;
+  display: block;
+}
+.online-toggle.on { background: var(--green); }
+.online-toggle::after {
+  content: '';
+  position: absolute; top: 3px; left: 3px;
+  width: 22px; height: 22px;
+  background: #fff; border-radius: 50%;
+  transition: transform .25s;
+  box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+.online-toggle.on::after { transform: translateX(24px); }
+
+/* ── Status banner ───────────────────────────────── */
+.status-banner {
+  margin: 0 16px 0;
+  border-radius: 14px;
+  padding: 14px 18px;
+  display: flex; align-items: center; gap: 12px;
+  font-size: .875rem; font-weight: 600;
+}
+.status-banner.online  { background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.25); }
+.status-banner.offline { background: var(--card); border: 1px solid var(--border); }
+.status-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.status-dot.green { background: var(--green); box-shadow: 0 0 8px rgba(16,185,129,.6); animation: pulse 2s infinite; }
+.status-dot.grey  { background: var(--muted); }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+
+/* ── Stats grid ──────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 16px 16px 0;
+}
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px 16px;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.stat-card.orange::before { background: var(--orange); }
+.stat-card.green::before  { background: var(--green); }
+.stat-card.blue::before   { background: #3B82F6; }
+.stat-card.purple::before { background: #8B5CF6; }
+
+.stat-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .9rem; margin-bottom: 12px;
+}
+.stat-icon.orange { background: rgba(249,115,22,.15); color: var(--orange); }
+.stat-icon.green  { background: rgba(16,185,129,.15); color: var(--green); }
+.stat-icon.blue   { background: rgba(59,130,246,.15); color: #3B82F6; }
+.stat-icon.purple { background: rgba(139,92,246,.15); color: #8B5CF6; }
+
+.stat-val { font-size: 1.6rem; font-weight: 800; color: var(--text); line-height: 1; }
+.stat-lbl { font-size: .7rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-top: 4px; }
+
+/* ── Active job card ─────────────────────────────── */
+.section-hdr {
+  font-size: .7rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em;
+  padding: 20px 16px 10px;
+}
+.active-job-card {
+  margin: 0 16px;
+  background: linear-gradient(135deg, var(--navy) 0%, #1a3a6e 100%);
+  border: 1px solid var(--border-l);
+  border-radius: 18px;
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+}
+.active-job-card::before {
+  content: '';
+  position: absolute; top: -20px; right: -20px;
+  width: 100px; height: 100px; border-radius: 50%;
+  background: rgba(255,255,255,.04);
+}
+.job-status-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px;
+  font-size: .7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em;
+  margin-bottom: 10px;
+}
+.chip-picking    { background: rgba(59,130,246,.2); color: #60A5FA; }
+.chip-delivering { background: rgba(249,115,22,.2); color: var(--orange); }
+
+.job-name { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.job-addr { font-size: .8rem; color: var(--muted-l); margin-bottom: 14px; }
+
+.job-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--orange);
+  color: #fff; font-weight: 700; font-size: .875rem;
+  padding: 11px 20px; border-radius: 12px;
+  border: none; transition: background .15s;
+}
+.job-btn:hover { background: var(--orange-d); color: #fff; }
+
+/* ── Mini map ────────────────────────────────────── */
+.mini-map-wrap {
+  margin: 0 16px;
+  border-radius: 16px; overflow: hidden;
+  border: 1px solid var(--border);
+  height: 180px;
+}
+#mini-map { width: 100%; height: 100%; }
+
+/* ── Quick actions ───────────────────────────────── */
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 0 16px;
+}
+.quick-btn {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 10px;
+  text-align: center;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 8px;
+  color: var(--muted-l);
+  font-size: .72rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .04em;
+  transition: background .15s, color .15s;
+}
+.quick-btn i { font-size: 22px; color: var(--orange); }
+.quick-btn:hover { background: var(--card-l); color: var(--text); }
+
+/* ── No active job placeholder ───────────────────── */
+.no-job-card {
+  margin: 0 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px 20px;
+  text-align: center;
+}
+.no-job-icon {
+  width: 56px; height: 56px;
+  background: var(--card-l);
+  border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+  font-size: 24px; color: var(--muted);
+}
+.browse-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--orange); color: #fff;
+  font-weight: 700; font-size: .875rem;
+  padding: 12px 24px; border-radius: 12px;
+  border: none; margin-top: 14px;
+  transition: background .15s;
+}
+.browse-btn:hover { background: var(--orange-d); color: #fff; }
+</style>
+{% endblock %}
+
+{% block body %}
+
+<!-- Top bar -->
+<div class="top-bar">
+  <img src="{% if request.user.courier.user.customer.avatar %}{{ request.user.courier.user.customer.avatar.url }}{% else %}https://ui-avatars.com/api/?name={{ request.user.get_full_name|urlencode }}&background=0D1B3E&color=F97316&size=80{% endif %}"
+       alt="avatar" class="top-avatar">
+  <div class="top-greeting">
+    <div class="sub">Good {% now "G" as h %}{% if h < 12 %}morning{% elif h < 17 %}afternoon{% else %}evening{% endif %}</div>
+    <div class="name">{{ request.user.first_name|default:request.user.username }}</div>
+  </div>
+  <!-- Online toggle -->
+  <div>
+    <button class="online-toggle {% if is_online %}on{% endif %}" id="online-toggle"
+            onclick="toggleOnline()" title="Go online / offline"></button>
+  </div>
+</div>
+
+<div class="page-scroll" style="padding-top:calc(var(--top-h) + 12px);">
+
+  <!-- Status banner -->
+  <div class="status-banner {% if is_online %}online{% else %}offline{% endif %}" id="status-banner">
+    <div class="status-dot {% if is_online %}green{% else %}grey{% endif %}" id="status-dot"></div>
+    <div>
+      <div id="status-title" style="color:var(--text);">
+        {% if is_online %}You're Online{% else %}You're Offline{% endif %}
+      </div>
+      <div id="status-sub" style="font-size:.75rem;color:var(--muted);font-weight:400;margin-top:2px;">
+        {% if is_online %}Visible to customers — jobs will appear{% else %}Go online to start receiving jobs{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats grid -->
+  <div class="section-hdr">Today's Summary</div>
+  <div class="stats-grid">
+    <div class="stat-card orange">
+      <div class="stat-icon orange"><i class="fas fa-dollar-sign"></i></div>
+      <div class="stat-val">${{ today_earnings|default:"0.00" }}</div>
+      <div class="stat-lbl">Earned Today</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+      <div class="stat-val">{{ today_jobs|default:"0" }}</div>
+      <div class="stat-lbl">Jobs Today</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-icon blue"><i class="fas fa-route"></i></div>
+      <div class="stat-val">{{ today_miles|default:"0" }}</div>
+      <div class="stat-lbl">Miles Driven</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-icon purple"><i class="fas fa-calendar-week"></i></div>
+      <div class="stat-val">${{ week_earnings|default:"0.00" }}</div>
+      <div class="stat-lbl">This Week</div>
+    </div>
+  </div>
+
+  <!-- Active job or browse prompt -->
+  <div class="section-hdr">Active Job</div>
+
+  {% if active_job %}
+  <div class="active-job-card">
+    <div class="job-status-chip {% if active_job.status == 'picking' %}chip-picking{% else %}chip-delivering{% endif %}">
+      <i class="fas fa-{% if active_job.status == 'picking' %}box{% else %}shipping-fast{% endif %}"></i>
+      {% if active_job.status == 'picking' %}Picking Up{% else %}Delivering{% endif %}
+    </div>
+    <div class="job-name">{{ active_job.names }}</div>
+    <div class="job-addr">
+      <i class="fas fa-map-marker-alt" style="color:var(--orange);margin-right:5px;"></i>
+      {% if active_job.status == 'picking' %}{{ active_job.pickup_address }}{% else %}{{ active_job.delivery_address }}{% endif %}
+    </div>
+    <a href="{% url 'courier:current_job' %}" class="job-btn">
+      <i class="fas fa-truck"></i> Continue Job
+    </a>
+  </div>
+
+  {% else %}
+  <div class="no-job-card">
+    <div class="no-job-icon"><i class="fas fa-box-open"></i></div>
+    <div style="color:var(--text);font-weight:700;font-size:.95rem;">No Active Job</div>
+    <div style="color:var(--muted);font-size:.8rem;margin-top:5px;">Browse available jobs to start earning.</div>
+    <a href="{% url 'courier:available_jobs' %}" class="browse-btn">
+      <i class="fas fa-search"></i> Browse Jobs
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- Mini map — courier location -->
+  <div class="section-hdr">Your Location</div>
+  <div class="mini-map-wrap">
+    <div id="mini-map"></div>
+  </div>
+
+  <!-- Quick actions -->
+  <div class="section-hdr">Quick Actions</div>
+  <div class="quick-grid" style="margin-bottom:16px;">
+    <a href="{% url 'courier:available_jobs' %}" class="quick-btn">
+      <i class="fas fa-map-marked-alt"></i>
+      <span>Find Jobs</span>
+    </a>
+    <a href="{% url 'courier:archived_jobs' %}" class="quick-btn">
+      <i class="fas fa-dollar-sign"></i>
+      <span>Earnings</span>
+    </a>
+    <a href="{% url 'courier:profile' %}" class="quick-btn">
+      <i class="fas fa-user-circle"></i>
+      <span>Profile</span>
+    </a>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Mini map — show courier location ──────────────
+var map = L.map('mini-map', {zoomControl:false, attributionControl:false, dragging:false, scrollWheelZoom:false})
+           .setView([33.7490, -84.3880], 12);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
+
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(function(p){
+    var lat=p.coords.latitude, lng=p.coords.longitude;
+    map.setView([lat,lng], 14);
+    L.circleMarker([lat,lng],{radius:10,fillColor:'#F97316',color:'#fff',weight:2,fillOpacity:1}).addTo(map);
+  });
+}
+
+// ── Online toggle ─────────────────────────────────
+var online = {{ is_online|yesno:"true,false" }};
+function toggleOnline() {
+  online = !online;
+  var btn    = document.getElementById('online-toggle');
+  var banner = document.getElementById('status-banner');
+  var dot    = document.getElementById('status-dot');
+  var title  = document.getElementById('status-title');
+  var sub    = document.getElementById('status-sub');
+
+  btn.classList.toggle('on', online);
+  banner.className = 'status-banner ' + (online ? 'online' : 'offline');
+  dot.className    = 'status-dot '    + (online ? 'green' : 'grey');
+  title.textContent = online ? "You're Online"  : "You're Offline";
+  sub.textContent   = online ? "Visible to customers — jobs will appear" : "Go online to start receiving jobs";
+
+  fetch('/courier/api/online-status/', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({online: online}),
+    credentials: 'same-origin',
+  }).catch(function(){});
+}
+</script>
+{% endblock %}

@@ -249,3 +249,20 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SECURE = False
 CSRF_COOKIE_HTTPONLY = False    # Must be False so JS can read it for fetch() calls
 CSRF_COOKIE_SAMESITE = 'Lax'
+
+# ── Celery Beat — 2AM daily zone regeneration ──────────────
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'regenerate-delivery-zones-daily': {
+        'task':     'Truck.tasks.generate_zones_task',
+        'schedule': crontab(hour=2, minute=0),
+        'kwargs':   {'demo_mode': False, 'clear_existing': True},
+    },
+}
+
+# ── Twilio WhatsApp ────────────────────────────────────────
+TWILIO_ACCOUNT_SID    = os.environ.get('TWILIO_ACCOUNT_SID', '')
+TWILIO_AUTH_TOKEN     = os.environ.get('TWILIO_AUTH_TOKEN', '')
+TWILIO_WHATSAPP_FROM  = os.environ.get('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886')
+SITE_URL              = os.environ.get('SITE_URL', 'http://localhost:8000')
