@@ -403,3 +403,37 @@ def job_page(request, job_id):
         "job": job,
         "OSRM_BASE_URL": settings.OSRM_BASE_URL,
     })
+    
+# ── Delivery confirmation (no login required — token is the auth) ────────────
+def confirm_delivery_page(request, job_id, token):
+    """
+    Customer clicks the WhatsApp link → confirms receipt.
+    URL: /customer/confirm/{job_id}/{token}/
+    No login required — UUID token authenticates the request.
+    """
+    from django.utils import timezone as tz
+    try:
+        job = Job.objects.select_related(
+            'Customer__user', 'courier__user'
+        ).get(id=job_id, confirmation_token=token)
+    except Job.DoesNotExist:
+        return render(request, 'customer/confirm_delivery.html', {'invalid': True})
+
+    if request.method == 'POST' and not job.customer_confirmed:
+        job.customer_confirmed = True
+        job.confirmed_at       = tz.now()
+        job.save(update_fields=['customer_confirmed', 'confirmed_at'])
+
+        # Send thank-you WhatsApp
+        try:
+            from Truck.notifications import send_whatsapp
+            send_whatsapp(
+                job.Customer.phone_number,
+                f"✅ *RiftValley Carriers*\n\n"
+                f"Thank you for confirming receipt of *{job.names}*! "
+                f"We hope to serve you again soon. 🙏",
+            )
+        except Exception:
+            pass
+
+    return render(request, 'customer/confirm_delivery.html', {'job': job})

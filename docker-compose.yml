@@ -58,6 +58,21 @@ services:
       - redis
     env_file:
       - .env
+  celery-beat:
+    build: .
+    container_name: rvc_celery_beat
+    command: python -m celery -A RiftValley beat --loglevel=info
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - DATABASE_URL=postgis://rvc_user:rvc_pass_2026@db:5432/rvc_spatial
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
   osrm:
     image: ghcr.io/project-osrm/osrm-backend:v5.27.1
     container_name: rvc_osrm

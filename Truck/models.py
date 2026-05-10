@@ -124,6 +124,15 @@ class Job(models.Model):
 
     delivery_photo = models.ImageField(upload_to='job/delivery_photos/', null=True, blank=True)
     delivered_at = models.DateTimeField(null=True, blank=True)
+    # ── Customer delivery confirmation ──────────────────────────────────────
+    confirmation_token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    customer_confirmed = models.BooleanField(default=False)
+    confirmed_at       = models.DateTimeField(null=True, blank=True)
+
+    def get_confirmation_url(self, base_url=''):
+        from django.conf import settings
+        base = base_url or getattr(settings, 'SITE_URL', 'http://localhost:8000')
+        return f"{base}/customer/confirm/{self.id}/{self.confirmation_token}/"
 
     def __str__(self):
         return f"{self.names} - {self.Customer}"

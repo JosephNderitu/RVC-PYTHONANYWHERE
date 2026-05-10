@@ -1,537 +1,259 @@
-{% extends 'courier/base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 
 {% block head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
 <style>
-  #map {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    bottom: var(--tab-h);
-    z-index: 1;
-  }
+body { font-family: 'Sora', sans-serif; background: #F1F5F9; }
+.courier-shell { max-width: 520px; margin: 0 auto; padding: 16px 12px 40px; }
 
-  /* ── Top floating bar ── */
-  .top-bar {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 300;
-    background: linear-gradient(180deg, rgba(15,17,23,0.97) 0%, transparent 100%);
-    padding: 14px 18px 20px;
-    pointer-events: none;
-  }
-  .top-bar > * { pointer-events: auto; }
+.gps-banner { border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font-size: .875rem; font-weight: 600; }
+.gps-banner.inactive { background: #FEF3C7; color: #B45309; border: 1.5px solid #FDE68A; }
+.gps-banner.active   { background: #D1FAE5; color: #065F46; border: 1.5px solid #BBF7D0; }
+.gps-banner.error    { background: #FEE2E2; color: #991B1B; border: 1.5px solid #FCA5A5; }
 
-  /* ── Status pill ── */
-  .status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 14px;
-    border-radius: 20px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.03em;
-  }
-  .status-picking    { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); color: #F59E0B; }
-  .status-delivering { background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); color: #3B82F6; }
-  .pulse-dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    animation: pulse-anim 1.5s ease-in-out infinite;
-  }
-  @keyframes pulse-anim { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
+.gps-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.gps-dot.pulse { animation: glow 1.5s infinite; background: #16A34A; }
+.gps-dot.idle  { background: #D97706; }
+.gps-dot.err   { background: #DC2626; }
+@keyframes glow { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.4)} }
 
-  /* ── Bottom job card ── */
-  #job-card {
-    position: fixed;
-    bottom: var(--tab-h);
-    left: 0; right: 0;
-    z-index: 200;
-    background: #1A1D27;
-    border-top: 1px solid #2E3352;
-    border-radius: 22px 22px 0 0;
-    box-shadow: 0 -12px 48px rgba(0,0,0,0.55);
-    transform: translateY(0);
-    transition: transform 0.28s cubic-bezier(0.34,1.08,0.64,1);
-    max-height: 70vh;
-    display: flex;
-    flex-direction: column;
-  }
-  #job-card.mini { transform: translateY(calc(100% - 70px)); }
+.map-box { height: 260px; border-radius: 14px; overflow: hidden; border: 1px solid #E5E7EB; margin-bottom: 16px; }
+#courier-map { width: 100%; height: 100%; }
 
-  .card-handle {
-    display: flex;
-    justify-content: center;
-    padding: 10px 0 4px;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-  .card-handle span {
-    width: 36px; height: 4px;
-    background: #3B82F6;
-    border-radius: 2px;
-    opacity: 0.4;
-  }
+.c-card { background: #fff; border: 1px solid #E5E7EB; border-radius: 14px; margin-bottom: 14px; overflow: hidden; }
+.c-card-hdr { background: #0D1B3E; padding: 11px 18px; display: flex; align-items: center; gap: 10px; }
+.c-card-hdr span { color: #fff; font-weight: 700; font-size: .875rem; }
+.c-card-body { padding: 16px 18px; }
 
-  .card-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 4px 18px 12px;
-    flex-shrink: 0;
-    cursor: pointer;
-  }
-  .card-photo {
-    width: 52px; height: 52px;
-    border-radius: 12px;
-    object-fit: cover;
-    border: 2px solid #2E3352;
-    flex-shrink: 0;
-  }
-  .card-title { font-size: 0.96rem; font-weight: 600; color: #F8FAFC; line-height: 1.3; }
-  .card-sub   { font-size: 0.75rem; color: #6B7280; margin-top: 2px; }
+.addr-row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+.addr-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: .75rem; flex-shrink: 0; margin-top: 2px; }
 
-  .card-body {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 0 18px 20px;
-    flex: 1;
-  }
+.stats-strip { display: flex; background: #F8FAFC; border: 1px solid #E5E7EB; border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
+.stat-item { flex: 1; text-align: center; padding: 12px 6px; }
+.stat-item:not(:last-child) { border-right: 1px solid #E5E7EB; }
+.stat-val { font-size: 1rem; font-weight: 800; color: #0D1B3E; }
+.stat-lbl { font-size: .65rem; color: #9CA3AF; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
 
-  /* ── Stats ── */
-  .stats-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-bottom: 14px;
-  }
-  .stat-card {
-    background: #22263A;
-    border: 1px solid #2E3352;
-    border-radius: 12px;
-    padding: 10px 6px;
-    text-align: center;
-  }
-  .stat-val { font-size: 0.96rem; font-weight: 700; color: #F8FAFC; }
-  .stat-lbl { font-size: 0.65rem; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+.btn-o { background: #F97316; color: #fff; border: none; border-radius: 12px; padding: 14px; font-weight: 700; font-size: .9rem; font-family: 'Sora', sans-serif; width: 100%; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; transition: all .2s; text-decoration: none; }
+.btn-o:hover { background: #EA6C0A; color: #fff; }
+.btn-stop { background: #DC2626; }
+.btn-stop:hover { background: #B91C1C; }
 
-  /* ── Route card ── */
-  .route-card {
-    background: #22263A;
-    border: 1px solid #2E3352;
-    border-radius: 14px;
-    padding: 12px 14px;
-    margin-bottom: 12px;
-  }
-  .route-stop { display: flex; align-items: flex-start; gap: 10px; }
-  .route-stop + .route-stop { margin-top: 10px; }
-  .stop-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
-  .stop-label { font-size: 0.65rem; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; }
-  .stop-addr  { font-size: 0.84rem; color: #E2E8F0; line-height: 1.4; }
-  .stop-contact { font-size: 0.76rem; color: #6B7280; margin-top: 1px; }
-  .route-divider { height: 14px; border-left: 2px dashed #2E3352; margin-left: 4px; }
-
-  /* ── Location status ── */
-  .loc-status {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    font-size: 0.76rem;
-    color: #6B7280;
-    margin-bottom: 12px;
-  }
-  .loc-dot { width: 7px; height: 7px; border-radius: 50%; background: #6B7280; }
-  .loc-status.live .loc-dot { background: #10B981; animation: pulse-anim 1.5s infinite; }
-  .loc-status.live { color: #10B981; }
-  .loc-status.err  { color: #EF4444; }
-  .loc-status.err .loc-dot { background: #EF4444; animation: none; }
-
-  /* ── Action button ── */
-  .action-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: 100%;
-    padding: 14px;
-    border: none;
-    border-radius: 14px;
-    font-size: 0.95rem;
-    font-weight: 600;
-    font-family: 'Inter', sans-serif;
-    text-align: center;
-    text-decoration: none;
-    cursor: pointer;
-    transition: opacity 0.15s;
-    letter-spacing: -0.01em;
-  }
-  .action-pickup   { background: #10B981; color: #fff; }
-  .action-delivery { background: #3B82F6; color: #fff; }
-  .action-btn:hover { opacity: 0.9; color: #fff; text-decoration: none; }
-
-  /* ── Tab bar ── */
-  .tab-bar {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    height: var(--tab-h);
-    z-index: 300;
-    background: rgba(26,29,39,0.97);
-    border-top: 1px solid #2E3352;
-    display: flex;
-    align-items: stretch;
-  }
-  .tab-item {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    color: #6B7280;
-    text-decoration: none;
-    font-size: 0.68rem;
-    font-weight: 500;
-    letter-spacing: 0.03em;
-    -webkit-tap-highlight-color: transparent;
-    transition: color 0.15s;
-  }
-  .tab-item i { font-size: 18px; }
-  .tab-item.active, .tab-item:hover { color: #3B82F6; text-decoration: none; }
-
-  /* ── No job state ── */
-  .no-job-state {
-    position: fixed;
-    top: 50%; left: 50%;
-    transform: translate(-50%,-50%);
-    text-align: center;
-    z-index: 50;
-  }
-
-  /* ── Attribution ── */
-  .leaflet-control-attribution {
-    background: rgba(15,17,23,0.7) !important;
-    color: #4B5563 !important;
-    font-size: 9px !important;
-    margin-bottom: calc(var(--tab-h) + 2px) !important;
-  }
-  .leaflet-control-zoom {
-    margin-bottom: calc(var(--tab-h) + 12px) !important;
-    border: 1px solid #2E3352 !important;
-    border-radius: 10px !important;
-    overflow: hidden;
-  }
-  .leaflet-control-zoom a {
-    background: rgba(26,29,39,0.95) !important;
-    color: #94A3B8 !important;
-    border-bottom-color: #2E3352 !important;
-  }
-  .leaflet-control-zoom a:hover { background: #22263A !important; color: #F8FAFC !important; }
-
-  /* Desktop */
-  @media (min-width: 768px) {
-    .tab-bar { display: none; }
-    #map { bottom: 0; left: 64px; }
-    #job-card { left: 64px; }
-    .top-bar  { left: 64px; }
-    .desktop-nav { display: flex !important; }
-  }
-
-  .desktop-nav {
-    display: none;
-    position: fixed;
-    left: 0; top: 0; bottom: 0;
-    width: 64px;
-    background: rgba(26,29,39,0.97);
-    border-right: 1px solid #2E3352;
-    flex-direction: column;
-    align-items: center;
-    padding: 16px 0;
-    gap: 8px;
-    z-index: 300;
-  }
-  .desktop-nav a {
-    width: 44px; height: 44px;
-    border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    color: #6B7280; text-decoration: none; font-size: 18px;
-    transition: background 0.15s, color 0.15s;
-  }
-  .desktop-nav a.active,
-  .desktop-nav a:hover { background: #22263A; color: #3B82F6; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: .75rem; font-weight: 700; }
+.chip-picking    { background: #DBEAFE; color: #1D4ED8; }
+.chip-delivering { background: #D1FAE5; color: #065F46; }
 </style>
 {% endblock %}
 
 {% block content %}
 
-{% if job %}
-
-<!-- Full-screen dark map -->
-<div id="map"></div>
-
-<!-- Floating top bar -->
-<div class="top-bar">
-  <div class="flex items-center justify-between">
-    <div>
-      <a href="{% url 'courier:available_jobs' %}"
-         class="inline-flex items-center gap-2 text-gray-400 hover:text-white text-sm mb-2 transition-colors"
-         style="text-decoration:none;">
-        <i class="fas fa-chevron-left" style="font-size:11px;"></i>
-        <span>Jobs</span>
-      </a>
-      <div class="flex items-center gap-2">
-        <span class="status-pill {% if job.status == 'picking' %}status-picking{% else %}status-delivering{% endif %}">
-          <span class="pulse-dot" style="background:{% if job.status == 'picking' %}#F59E0B{% else %}#3B82F6{% endif %};"></span>
-          {% if job.status == 'picking' %}Heading to Pickup{% else %}Delivering{% endif %}
-        </span>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ── Job card ── -->
-<div id="job-card">
-  <div class="card-handle" onclick="toggleCard()"><span></span></div>
-
-  <!-- Header always visible — tap to expand/collapse -->
-  <div class="card-header" onclick="toggleCard()">
-    <img class="card-photo" src="{{ job.photo.url }}" alt="{{ job.names }}">
-    <div class="flex-1 min-w-0">
-      <div class="card-title truncate">{{ job.names }}</div>
-      <div class="card-sub">{{ job.get_size_display }} · {{ job.quantity }} tonne(s)</div>
-    </div>
-    <div id="toggle-icon" class="text-gray-500" style="font-size:14px;">
-      <i class="fas fa-chevron-up"></i>
-    </div>
-  </div>
-
-  <!-- Scrollable body -->
-  <div class="card-body">
-
-    <!-- Stats -->
-    <div class="stats-row">
-      <div class="stat-card">
-        <div class="stat-val">KES {{ job.price }}</div>
-        <div class="stat-lbl">Earnings</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val">{{ job.distance }} km</div>
-        <div class="stat-lbl">Distance</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val">~{{ job.duration }} min</div>
-        <div class="stat-lbl">Est. time</div>
-      </div>
-    </div>
-
-    <!-- Route -->
-    <div class="route-card">
-      <div class="route-stop">
-        <div class="stop-dot" style="background:#10B981;"></div>
-        <div>
-          <div class="stop-label">Pickup</div>
-          <div class="stop-addr">{{ job.pickup_address }}</div>
-          <div class="stop-contact">{{ job.pickup_name }} · {{ job.pickup_phone }}</div>
-        </div>
-      </div>
-      <div class="route-divider"></div>
-      <div class="route-stop">
-        <div class="stop-dot" style="background:#EF4444;"></div>
-        <div>
-          <div class="stop-label">Delivery</div>
-          <div class="stop-addr">{{ job.delivery_address }}</div>
-          <div class="stop-contact">{{ job.delivery_name }} · {{ job.delivery_phone }}</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Live location status -->
-    <div class="loc-status" id="loc-status">
-      <span class="loc-dot"></span>
-      Acquiring your location…
-    </div>
-
-    <!-- Action button -->
-    <a href="{% url 'courier:current_job_take_photo' job.id %}"
-       class="action-btn {% if job.status == 'picking' %}action-pickup{% else %}action-delivery{% endif %}">
-      <i class="fas {% if job.status == 'picking' %}fa-camera{% else %}fa-flag-checkered{% endif %}"></i>
-      {% if job.status == 'picking' %}Confirm Pickup &amp; Photo{% else %}Confirm Delivery &amp; Photo{% endif %}
+{% if not job %}
+<div style="display:flex;align-items:center;justify-content:center;min-height:85vh;padding:20px;">
+  <div style="text-align:center;max-width:300px;">
+    <div style="font-size:3rem;margin-bottom:16px;">🚛</div>
+    <h2 style="color:#0D1B3E;font-weight:800;margin-bottom:8px;">No Active Job</h2>
+    <p style="color:#6B7280;font-size:.875rem;margin-bottom:20px;">Browse available jobs to get started.</p>
+    <a href="{% url 'courier:available_jobs' %}" class="btn-o" style="max-width:240px;margin:0 auto;">
+      <i class="fas fa-search"></i> Browse Jobs
     </a>
-
   </div>
 </div>
 
 {% else %}
+<div class="courier-shell">
 
-<!-- No active job -->
-<div class="no-job-state">
-  <div class="w-20 h-20 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center mx-auto mb-4">
-    <i class="fas fa-truck text-gray-600" style="font-size:28px;"></i>
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+    <div style="flex:1;">
+      <div style="font-size:.7rem;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.08em;">Active Job</div>
+      <div style="font-size:1.05rem;font-weight:800;color:#0D1B3E;margin-top:2px;">{{ job.names }}</div>
+    </div>
+    <span class="chip {% if job.status == 'picking' %}chip-picking{% else %}chip-delivering{% endif %}">
+      <i class="fas fa-{% if job.status == 'picking' %}truck{% else %}shipping-fast{% endif %}"></i>
+      {% if job.status == 'picking' %}Picking Up{% else %}Delivering{% endif %}
+    </span>
   </div>
-  <p class="text-white font-semibold mb-1">No active job</p>
-  <p class="text-gray-500 text-sm mb-4">Accept a job to start tracking.</p>
-  <a href="{% url 'courier:available_jobs' %}"
-     class="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
-     style="text-decoration:none;">
-    <i class="fas fa-map-marked-alt"></i> Find Jobs
-  </a>
+
+  <!-- GPS Banner -->
+  <div class="gps-banner inactive" id="gps-banner">
+    <div class="gps-dot idle" id="gps-dot"></div>
+    <div style="flex:1;">
+      <div id="gps-title">GPS inactive — tap Start to begin</div>
+      <div id="gps-detail" style="font-size:.75rem;opacity:.75;font-weight:400;margin-top:2px;">Your location will be sent to the platform every few seconds</div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-strip">
+    <div class="stat-item"><div class="stat-val">{{ job.distance }} mi</div><div class="stat-lbl">Distance</div></div>
+    <div class="stat-item"><div class="stat-val">~{{ job.duration }}m</div><div class="stat-lbl">Est. Time</div></div>
+    <div class="stat-item"><div class="stat-val" style="color:#F97316;">${{ job.price }}</div><div class="stat-lbl">Earnings</div></div>
+    <div class="stat-item"><div class="stat-val" id="ping-count">0</div><div class="stat-lbl">GPS Pings</div></div>
+  </div>
+
+  <!-- Map -->
+  <div class="map-box"><div id="courier-map"></div></div>
+
+  <!-- GPS Button -->
+  <button class="btn-o" id="gps-btn" onclick="toggleGPS()">
+    <i class="fas fa-location-arrow" id="gps-icon"></i>
+    <span id="gps-btn-label">Start GPS Tracking</span>
+  </button>
+
+  <!-- Route -->
+  <div class="c-card">
+    <div class="c-card-hdr"><i class="fas fa-route" style="color:#F97316;"></i><span>Route</span></div>
+    <div class="c-card-body">
+      <div class="addr-row">
+        <div class="addr-dot" style="background:#2196F3;">P</div>
+        <div>
+          <div style="font-size:.7rem;color:#9CA3AF;font-weight:700;text-transform:uppercase;">Pickup</div>
+          <div style="font-weight:700;color:#0D1B3E;font-size:.9rem;">{{ job.pickup_name }}</div>
+          <div style="font-size:.8rem;color:#6B7280;">{{ job.pickup_address }}</div>
+          {% if job.pickup_phone %}<div style="font-size:.8rem;color:#F97316;font-weight:600;"><i class="fas fa-phone mr-1"></i>{{ job.pickup_phone }}</div>{% endif %}
+        </div>
+      </div>
+      <div style="border-left:2px dashed #E5E7EB;height:14px;margin-left:13px;"></div>
+      <div class="addr-row" style="margin-bottom:0;">
+        <div class="addr-dot" style="background:#F97316;">D</div>
+        <div>
+          <div style="font-size:.7rem;color:#9CA3AF;font-weight:700;text-transform:uppercase;">Delivery</div>
+          <div style="font-weight:700;color:#0D1B3E;font-size:.9rem;">{{ job.delivery_name }}</div>
+          <div style="font-size:.8rem;color:#6B7280;">{{ job.delivery_address }}</div>
+          {% if job.delivery_phone %}<div style="font-size:.8rem;color:#F97316;font-weight:600;"><i class="fas fa-phone mr-1"></i>{{ job.delivery_phone }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Photo action -->
+  <div class="c-card">
+    <div class="c-card-hdr">
+      <i class="fas fa-camera" style="color:#F97316;"></i>
+      <span>{% if job.status == 'picking' %}Confirm Pickup{% else %}Confirm Delivery{% endif %}</span>
+    </div>
+    <div class="c-card-body">
+      <p style="font-size:.875rem;color:#6B7280;margin-bottom:14px;">
+        {% if job.status == 'picking' %}
+          Arrived at the pickup address? Take a photo of the parcel.
+          This <strong>automatically updates</strong> the job status to
+          <span style="color:#065F46;font-weight:700;">Delivering</span> and notifies the customer via WhatsApp.
+        {% else %}
+          Delivered the parcel? Take a proof-of-delivery photo.
+          This <strong>completes the job</strong> and sends the customer a
+          <span style="color:#F97316;font-weight:700;">confirmation link</span> via WhatsApp.
+        {% endif %}
+      </p>
+      <a href="{% url 'courier:current_job_take_photo' job.id %}" class="btn-o">
+        <i class="fas fa-camera"></i>
+        {% if job.status == 'picking' %}Take Pickup Photo{% else %}Take Delivery Photo{% endif %}
+      </a>
+    </div>
+  </div>
+
 </div>
 
-{% endif %}
-
-<!-- Tab bar -->
-<nav class="tab-bar">
-  <a href="{% url 'courier:available_jobs' %}" class="tab-item">
-    <i class="fas fa-map-marked-alt"></i>
-    <span>Jobs</span>
-  </a>
-  <a href="{% url 'courier:current_job' %}" class="tab-item active">
-    <i class="fas fa-truck"></i>
-    <span>My Job</span>
-  </a>
-  <a href="{% url 'courier:profile' %}" class="tab-item">
-    <i class="fas fa-user-circle"></i>
-    <span>Profile</span>
-  </a>
-</nav>
-
-<!-- Desktop side nav -->
-<nav class="desktop-nav">
-  <a href="{% url 'courier:available_jobs' %}" title="Jobs"><i class="fas fa-map-marked-alt"></i></a>
-  <a href="{% url 'courier:current_job' %}" class="active" title="My Job"><i class="fas fa-truck"></i></a>
-  <a href="{% url 'courier:profile' %}" title="Profile"><i class="fas fa-user-circle"></i></a>
-</nav>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-{% if job %}
+<!-- Leaflet + GPS -->
 <script>
-var pLat = {{ job.pickup_lat|default:0 }};
-var pLng = {{ job.pickup_lng|default:0 }};
-var dLat = {{ job.delivery_lat|default:0 }};
-var dLng = {{ job.delivery_lng|default:0 }};
+var PLAT={{ job.pickup_lat|default:0 }},PLNG={{ job.pickup_lng|default:0 }};
+var DLAT={{ job.delivery_lat|default:0 }},DLNG={{ job.delivery_lng|default:0 }};
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Map ───────────────────────────────────────────────────
+var map = L.map('courier-map').setView([(PLAT+DLAT)/2,(PLNG+DLNG)/2],11);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  {attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
 
-var TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-var TILE_OPT = {
-  attribution: '&copy; <a href="https://openstreetmap.org">OSM</a>',
-  maxZoom: 19
-};
+function dot(color,label){
+  return L.divIcon({className:'',
+    html:'<div style="background:'+color+';width:28px;height:28px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;">'+label+'</div>',
+    iconSize:[28,28],iconAnchor:[14,14]});
+}
+L.marker([PLAT,PLNG],{icon:dot('#2196F3','P')}).addTo(map).bindPopup('<b>Pickup</b>');
+L.marker([DLAT,DLNG],{icon:dot('#F97316','D')}).addTo(map).bindPopup('<b>Delivery</b>');
 
-var map = L.map('map', { zoomControl: false }).setView(
-  [(pLat + dLat) / 2 || -1.2921, (pLng + dLng) / 2 || 36.8219], 13
-);
-L.tileLayer(TILE_URL, TILE_OPT).addTo(map);
-L.control.zoom({ position: 'bottomright' }).addTo(map);
+// Draw road route via proxy
+fetch('/courier/api/osrm/?path='+encodeURIComponent('/route/v1/driving/'+PLNG+','+PLAT+';'+DLNG+','+DLAT)+'&query='+encodeURIComponent('overview=full&geometries=geojson'),{credentials:'same-origin'})
+  .then(r=>r.json()).then(d=>{
+    if(d.code==='Ok'&&d.routes.length){
+      L.polyline(d.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]),
+        {color:'#1565C0',weight:4,opacity:.8}).addTo(map);
+    }
+  }).catch(()=>{});
 
-function mkIcon(color, faIcon, size) {
-  size = size || 40;
-  return L.divIcon({
-    className: '',
-    html: '<div style="background:' + color + ';width:' + size + 'px;height:' + size + 'px;'
-        + 'border-radius:50%;display:flex;align-items:center;justify-content:center;'
-        + 'box-shadow:0 4px 16px rgba(0,0,0,0.6);border:3px solid rgba(255,255,255,0.2);">'
-        + '<i class="fas ' + faIcon + '" style="color:#fff;font-size:' + (size*0.36) + 'px;"></i>'
-        + '</div>',
-    iconSize:   [size,size],
-    iconAnchor: [size/2,size/2],
-    popupAnchor:[0,-size/2-4],
-  });
+// ── GPS Tracking ──────────────────────────────────────────
+var watchId=null, gpsOn=false, pings=0, courierMk=null;
+
+function toggleGPS(){ gpsOn ? stopGPS() : startGPS(); }
+
+function startGPS(){
+  if(!navigator.geolocation){ setStatus('error','GPS not supported','Your device does not support geolocation.'); return; }
+  setStatus('inactive','Requesting permission…','Allow location access when prompted.');
+  watchId = navigator.geolocation.watchPosition(onPos, onErr,
+    {enableHighAccuracy:true, maximumAge:0, timeout:15000});
+  gpsOn = true;
+  var btn=document.getElementById('gps-btn');
+  document.getElementById('gps-btn-label').textContent='Stop GPS Tracking';
+  document.getElementById('gps-icon').className='fas fa-stop-circle';
+  btn.classList.add('btn-stop');
 }
 
-var courierMarker = null;
-
-if (pLat && pLng) {
-  L.marker([pLat,pLng], { icon: mkIcon('#10B981','fa-box',40) }).addTo(map)
-    .bindPopup('<span style="color:#F8FAFC;font-family:Inter,sans-serif;font-size:13px;"><b>Pickup</b><br>{{ job.pickup_address|escapejs }}</span>');
-}
-if (dLat && dLng) {
-  L.marker([dLat,dLng], { icon: mkIcon('#EF4444','fa-flag-checkered',40) }).addTo(map)
-    .bindPopup('<span style="color:#F8FAFC;font-family:Inter,sans-serif;font-size:13px;"><b>Delivery</b><br>{{ job.delivery_address|escapejs }}</span>');
-}
-if (pLat && pLng && dLat && dLng) {
-  var osrmUrl = '/courier/api/osrm/?coords=' + pLng + ',' + pLat + ';' + dLng + ',' + dLat + '&overview=full&geometries=geojson&steps=false&alternatives=false';
-    + pLng + ',' + pLat + ';' + dLng + ',' + dLat
-    + '?overview=full&geometries=geojson&steps=false&alternatives=false';
-  fetch(osrmUrl)
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      if (!data || data.code !== 'Ok' || !data.routes.length) throw new Error('no route');
-      var lls = data.routes[0].geometry.coordinates.map(function(c){ return [c[1],c[0]]; });
-      var line = L.polyline(lls, { color:'#3B82F6', weight:4, opacity:0.85 }).addTo(map);
-      map.fitBounds(line.getBounds(), { padding:[80,80] });
-    })
-    .catch(function(){
-      // Fallback: straight dashed line if OSRM unavailable
-      var line = L.polyline([[pLat,pLng],[dLat,dLng]], {
-        color:'#3B82F6', weight:3, dashArray:'6 8', opacity:0.7
-      }).addTo(map);
-      map.fitBounds(line.getBounds(), { padding:[80,80] });
-    });
+function stopGPS(){
+  if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;}
+  gpsOn=false;
+  setStatus('inactive','GPS tracking stopped','Tap Start to resume sending your location.');
+  var btn=document.getElementById('gps-btn');
+  document.getElementById('gps-btn-label').textContent='Start GPS Tracking';
+  document.getElementById('gps-icon').className='fas fa-location-arrow';
+  btn.classList.remove('btn-stop');
 }
 
-// ── Card toggle ───────────────────────────────────────────────────────────────
-var cardMini = false;
-function toggleCard() {
-  var card = document.getElementById('job-card');
-  var icon = document.getElementById('toggle-icon');
-  cardMini = !cardMini;
-  card.classList.toggle('mini', cardMini);
-  icon.innerHTML = cardMini
-    ? '<i class="fas fa-chevron-down"></i>'
-    : '<i class="fas fa-chevron-up"></i>';
+function onPos(pos){
+  var lat=pos.coords.latitude, lng=pos.coords.longitude, acc=Math.round(pos.coords.accuracy);
+  setStatus('active','Live — sending GPS every update','±'+acc+'m · '+lat.toFixed(5)+', '+lng.toFixed(5));
+
+  // Update courier marker
+  if(!courierMk){
+    courierMk=L.marker([lat,lng],{icon:dot('#10B981','C'),zIndexOffset:20}).addTo(map).bindPopup('<b>You</b>');
+  } else { courierMk.setLatLng([lat,lng]); }
+  map.panTo([lat,lng]);
+
+  // Send to Django
+  fetch('/courier/api/courier-location/update/',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({lat:lat,lng:lng}),
+    credentials:'same-origin'
+  }).then(r=>r.json()).then(d=>{
+    if(d.success){
+      pings++;
+      document.getElementById('ping-count').textContent=pings;
+    } else if(d.error==='No active job'){
+      // Job was completed — reload to show no-job state
+      stopGPS();
+      setTimeout(()=>window.location.href="{% url 'courier:job_complete' %}",1000);
+    }
+  }).catch(e=>console.warn('GPS send error:',e));
 }
 
-// Drag down to minimise
-(function() {
-  var card = document.getElementById('job-card');
-  var sy = 0;
-  card.addEventListener('touchstart', function(e) { sy = e.touches[0].clientY; }, { passive:true });
-  card.addEventListener('touchend', function(e) {
-    var dy = e.changedTouches[0].clientY - sy;
-    if (dy > 50 && !cardMini) toggleCard();
-    if (dy < -50 && cardMini)  toggleCard();
-  }, { passive:true });
-})();
+function onErr(e){
+  var msgs={1:'Permission denied. Enable location in browser settings.',2:'GPS unavailable. Move to open area.',3:'GPS timeout — retrying…'};
+  setStatus('error','GPS Error',msgs[e.code]||e.message);
+}
 
-// ── Live location ─────────────────────────────────────────────────────────────
-var locEl = document.getElementById('loc-status');
-var _lastPush = 0;
-function onPos(pos) {
-  var lat = pos.coords.latitude, lng = pos.coords.longitude;
-  if (courierMarker) {
-    courierMarker.setLatLng([lat,lng]);
-  } else {
-    courierMarker = L.marker([lat,lng], { icon: mkIcon('#3B82F6','fa-motorcycle',44), zIndexOffset:1000 })
-      .addTo(map).bindPopup('<span style="color:#F8FAFC;font-size:13px;">Your location</span>');
-  }
-  locEl.className = 'loc-status live';
-  locEl.innerHTML = '<span class="loc-dot"></span>Live location active';
+function setStatus(type,title,detail){
+  var b=document.getElementById('gps-banner');
+  var d=document.getElementById('gps-dot');
+  b.className='gps-banner '+(type==='active'?'active':type==='error'?'error':'inactive');
+  d.className='gps-dot '+(type==='active'?'pulse':type==='error'?'err':'idle');
+  document.getElementById('gps-title').textContent=title;
+  document.getElementById('gps-detail').textContent=detail||'';
+}
 
-  // Push to server max once every 5s (watchPosition fires more often)
-  var now = Date.now();
-  if (now - _lastPush < 5000) return;
-  _lastPush = now;
-  fetch('/api/courier-location/update/', {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': '{{ csrf_token }}'
-    },
-    body: JSON.stringify({ lat: lat, lng: lng })
-  }).catch(function() {}); // silent — map still works if push fails
-}
-function onErr() {
-  locEl.className = 'loc-status err';
-  locEl.innerHTML = '<span class="loc-dot"></span>Location unavailable';
-}
-if (navigator.geolocation) {
-  navigator.geolocation.watchPosition(onPos, onErr, {
-    enableHighAccuracy:true, maximumAge:5000, timeout:10000
-  });
-}
+// Auto-start GPS on page load
+window.addEventListener('load',()=>setTimeout(startGPS,600));
 </script>
 {% endif %}
 {% endblock %}

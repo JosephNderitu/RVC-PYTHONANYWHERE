@@ -95,6 +95,12 @@ def current_job_update_api(request, id):
         job.status       = Job.DELIVERING_STATUS
         job.save()
 
+        # WhatsApp: parcel picked up, now delivering
+        try:
+            from Truck.notifications import notify_delivering
+            notify_delivering(job)
+        except Exception: pass
+
     elif job.status == Job.DELIVERING_STATUS:
         photo = request.FILES.get('delivery_photo')
         if not photo:
@@ -103,6 +109,12 @@ def current_job_update_api(request, id):
         job.delivered_at   = timezone.now()
         job.status         = Job.COMPLETED_STATUS
         job.save()
+
+        # WhatsApp: delivered + proof of delivery photo
+        try:
+            from Truck.notifications import notify_delivered
+            notify_delivered(job)
+        except Exception: pass
 
     return JsonResponse({"success": True, "new_status": job.status})
 
