@@ -1,75 +1,227 @@
 {% extends "courier/base.html" %}
 {% load static %}
 
+{% block title %}Profile | RVC Courier{% endblock %}
+
+{% block head %}
+<style>
+  html, body { overflow-y: auto !important; overflow-x: hidden; }
+  #content   { height: auto !important; min-height: 100vh; }
+
+  .top-bar {
+    position: sticky; top: 0; left: 0; right: 0;
+    height: var(--top-h, 56px);
+    background: rgba(17,24,39,.98); border-bottom: 1px solid var(--rvc-border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 18px; z-index: 200;
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  }
+  .top-title { font-size: 1rem; font-weight: 700; color: var(--rvc-text); font-family: 'Sora', sans-serif; }
+  .settings-btn {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--rvc-card-l); border: 1px solid var(--rvc-border-l);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--rvc-muted-l); text-decoration: none; font-size: 15px;
+    transition: background .15s, color .15s;
+  }
+  .settings-btn:hover { background: var(--rvc-border); color: var(--rvc-orange); }
+
+  .page-wrap { max-width: 540px; margin: 0 auto; padding: 20px 16px calc(var(--tab-h, 64px) + 32px); }
+
+  /* ── Hero ───────────────────────────────────────── */
+  .profile-hero {
+    background: linear-gradient(135deg, #0D1B3E 0%, #1a3a6e 100%);
+    border: 1px solid var(--rvc-border-l); border-radius: 20px;
+    padding: 28px 20px 22px; text-align: center; margin-bottom: 14px;
+    position: relative; overflow: hidden;
+  }
+  .profile-hero::before {
+    content: ''; position: absolute; top: -40px; right: -40px;
+    width: 150px; height: 150px; border-radius: 50%;
+    background: rgba(249,115,22,.06);
+  }
+  .avatar-ring {
+    width: 80px; height: 80px; border-radius: 50%;
+    border: 3px solid var(--rvc-orange); margin: 0 auto 14px;
+    overflow: hidden; box-shadow: 0 4px 20px rgba(249,115,22,.25);
+  }
+  .avatar-ring img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .courier-name { font-size: 1.15rem; font-weight: 800; color: var(--rvc-text); font-family: 'Sora', sans-serif; margin-bottom: 4px; }
+  .courier-email { font-size: .8rem; color: var(--rvc-muted-l); margin-bottom: 6px; }
+  .courier-vehicle { font-size: .72rem; color: rgba(249,115,22,.8); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 20px; }
+
+  .hero-stats { display: flex; border-top: 1px solid rgba(255,255,255,.08); padding-top: 18px; }
+  .hstat { flex: 1; text-align: center; }
+  .hstat:not(:last-child) { border-right: 1px solid rgba(255,255,255,.08); }
+  .hstat-val { font-size: 1.2rem; font-weight: 800; color: var(--rvc-text); font-family: 'Sora', sans-serif; line-height: 1; }
+  .hstat-val.c-orange { color: var(--rvc-orange); }
+  .hstat-val.c-green  { color: var(--rvc-green);  }
+  .hstat-lbl { font-size: .62rem; color: var(--rvc-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-top: 5px; }
+
+  .sec-hdr { font-size: .68rem; font-weight: 700; color: var(--rvc-muted); text-transform: uppercase; letter-spacing: .07em; padding: 18px 4px 8px; }
+
+  .rcard { background: var(--rvc-card); border: 1px solid var(--rvc-border); border-radius: 16px; overflow: hidden; margin-bottom: 12px; }
+
+  .menu-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 15px 18px; text-decoration: none !important;
+    color: var(--rvc-text); transition: background .15s;
+  }
+  .menu-row:hover { background: var(--rvc-card-l); text-decoration: none; }
+  .menu-row:not(:last-child) { border-bottom: 1px solid var(--rvc-border); }
+  .menu-icon { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: .92rem; flex-shrink: 0; }
+  .mi-o { background: rgba(249,115,22,.12); color: var(--rvc-orange); }
+  .mi-b { background: rgba(59,130,246,.12);  color: #3B82F6; }
+  .mi-g { background: rgba(16,185,129,.12);  color: var(--rvc-green); }
+  .menu-label { font-size: .875rem; font-weight: 600; color: var(--rvc-text); font-family: 'Sora', sans-serif; }
+  .menu-sub   { font-size: .73rem; color: var(--rvc-muted); margin-top: 2px; }
+  .menu-arrow { color: var(--rvc-muted); font-size: 12px; margin-left: auto; }
+
+  .pay-table { width: 100%; border-collapse: collapse; }
+  .pay-table th { font-size: .63rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--rvc-muted); padding: 11px 18px 8px; text-align: left; border-bottom: 1px solid var(--rvc-border); }
+  .pay-table td { padding: 13px 18px; font-size: .84rem; color: var(--rvc-muted-l); }
+  .pay-table tr:not(:last-child) td { border-bottom: 1px solid var(--rvc-border); }
+  .pay-job  { color: var(--rvc-text) !important; font-weight: 600; }
+  .pay-earn { color: var(--rvc-orange) !important; font-weight: 800; font-family: 'Sora', sans-serif; text-align: right; }
+  .pay-empty { padding: 24px 18px; text-align: center; color: var(--rvc-muted); font-size: .84rem; }
+  .pay-empty i { font-size: 26px; display: block; margin-bottom: 8px; color: var(--rvc-border-l); }
+
+  .signout-btn {
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    width: 100%; padding: 14px; background: rgba(239,68,68,.08);
+    border: 1px solid rgba(239,68,68,.25); border-radius: 14px;
+    color: var(--rvc-red); font-size: .92rem; font-weight: 700;
+    font-family: 'Sora', sans-serif; cursor: pointer; transition: background .15s;
+  }
+  .signout-btn:hover { background: rgba(239,68,68,.14); }
+
+  .desktop-nav { display: none; position: fixed; left: 0; top: 0; bottom: 0; width: 64px; background: rgba(17,24,39,.98); border-right: 1px solid var(--rvc-border); flex-direction: column; align-items: center; padding: 16px 0; gap: 6px; z-index: 300; }
+  .dn-logo { width: 38px; height: 38px; background: var(--rvc-orange); border-radius: 11px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .dn-logo i { font-size: 16px; color: #fff; }
+  .desktop-nav a { width: 46px; height: 46px; border-radius: 13px; display: flex; align-items: center; justify-content: center; color: var(--rvc-muted); font-size: 19px; text-decoration: none; transition: background .15s, color .15s; }
+  .desktop-nav a:hover  { background: var(--rvc-card-l); color: var(--rvc-muted-l); }
+  .desktop-nav a.active { background: rgba(249,115,22,.15); color: var(--rvc-orange); }
+  .dn-spacer { flex: 1; }
+
+  @media (min-width: 768px) {
+    .desktop-nav { display: flex; }
+    .top-bar     { left: 64px; }
+    .page-wrap   { margin-left: 80px; }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 
-<div class="media align-items-center bg-warning p-3">
-    <img src="{% static 'images/avatar.png' %}" class="rounded-circle" width="60" height="60">
-    <div class="media-body ml-4">
-        <h4 class="mb-0">{{ request.user.get_full_name }}</h4>
+<div class="top-bar">
+  <span class="top-title">
+    <i class="fas fa-user-circle" style="color:var(--rvc-orange);margin-right:8px;font-size:.9rem;"></i>
+    Profile
+  </span>
+  <a href="{% url 'courier:settings' %}" class="settings-btn" title="Settings">
+    <i class="fas fa-cog"></i>
+  </a>
+</div>
+
+<div class="page-wrap">
+
+  <!-- ── Hero ─────────────────────────────────────── -->
+  <div class="profile-hero">
+    <div class="avatar-ring">
+      {% if request.user.courier.avatar %}
+        <img src="{{ request.user.courier.avatar.url }}" alt="{{ request.user.get_full_name }}">
+      {% else %}
+        <img src="https://ui-avatars.com/api/?name={{ request.user.get_full_name|urlencode }}&background=0D1B3E&color=F97316&size=160&bold=true"
+             alt="{{ request.user.get_full_name }}">
+      {% endif %}
     </div>
-</div>
-
-<div class="mt-4 p-2 mb-5">
-    <b class="text-secondary">PAYOUT</b>
-    <a href="{% url "courier:payout_method" %}" class="btn btn-outline-secondary btn-block btn-md mt-2">
-        Setup
-    </a>
-</div>
-
-<div class="mt-2 p-2">
-    <b class="text-secondary">SUMMARY</b>
-    <hr>
-
-    <div class="d-flex text-center">
-        <div class="flex-grow-1">
-            <h4 class="text-success">${{ total_earnings }}</h4>
-            <span class="text-secondary">Total Earnings</span>
-        </div>
-        <div class="flex-grow-1">
-            <h4 class="text-primary">{{ total_jobs }} Jobs</h4>
-            <span class="text-secondary">Completed</span>
-        </div>
-        <div class="flex-grow-1">
-            <h4 class="text-danger">{{ total_km }} Km</h4>
-            <span class="text-secondary">Driven</span>
-        </div>
+    <div class="courier-name">{{ request.user.get_full_name }}</div>
+    <div class="courier-email">{{ request.user.email }}</div>
+    {% if request.user.courier.vehicle_type %}
+    <div class="courier-vehicle">
+      <i class="fas fa-truck" style="margin-right:5px;"></i>{{ request.user.courier.get_vehicle_type_display }}
     </div>
-    <hr>
-</div>
-<!--pending payment section-->
-<div class="mt-2 p-2">
-    <b class="text-secondary">PENDING PAYMENTS</b>
-    <hr>
-    {% if pending_payments %}
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Job Name</th>
-                    <th>Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for payment in pending_payments %}
-                    <tr>
-                        <td>{{ payment.job.names }}</td>
-                        <td class="text-success">${{ payment.amount_to_receive }}</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p class="text-secondary">All your completed jobs pending payments will appear here.</p>
     {% endif %}
+    <div class="hero-stats">
+      <div class="hstat"><div class="hstat-val c-orange">${{ total_earnings }}</div><div class="hstat-lbl">Earned</div></div>
+      <div class="hstat"><div class="hstat-val c-green">{{ total_jobs }}</div><div class="hstat-lbl">Jobs Done</div></div>
+      <div class="hstat"><div class="hstat-val">{{ total_km }}</div><div class="hstat-lbl">Miles</div></div>
+    </div>
+  </div>
+
+  <!-- ── Account ──────────────────────────────────── -->
+  <div class="sec-hdr">Account</div>
+  <div class="rcard">
+    <a href="{% url 'courier:settings' %}" class="menu-row">
+      <div class="menu-icon mi-g"><i class="fas fa-cog"></i></div>
+      <div style="flex:1;"><div class="menu-label">Settings</div><div class="menu-sub">Photo, email, vehicle, notifications</div></div>
+      <i class="fas fa-chevron-right menu-arrow"></i>
+    </a>
+    <a href="{% url 'courier:payout_method' %}" class="menu-row">
+      <div class="menu-icon mi-o"><i class="fas fa-dollar-sign"></i></div>
+      <div style="flex:1;">
+        <div class="menu-label">Payout Method</div>
+        <div class="menu-sub">
+          {% if request.user.courier.paypal_email %}{{ request.user.courier.paypal_email }}{% else %}Not set &mdash; tap to add PayPal{% endif %}
+        </div>
+      </div>
+      <i class="fas fa-chevron-right menu-arrow"></i>
+    </a>
+    <a href="{% url 'password_reset' %}" class="menu-row">
+      <div class="menu-icon mi-b"><i class="fas fa-lock"></i></div>
+      <div style="flex:1;"><div class="menu-label">Change Password</div><div class="menu-sub">Send a password reset to {{ request.user.email }}</div></div>
+      <i class="fas fa-chevron-right menu-arrow"></i>
+    </a>
+  </div>
+
+  <!-- ── Pending payments ─────────────────────────── -->
+  <div class="sec-hdr">Pending Payments</div>
+  <div class="rcard">
+    {% if pending_payments %}
+    <table class="pay-table">
+      <thead><tr><th>Job</th><th style="text-align:right;">Amount Due</th></tr></thead>
+      <tbody>
+        {% for payment in pending_payments %}
+        <tr>
+          <td class="pay-job">{{ payment.job.names }}</td>
+          <td class="pay-earn">${{ payment.amount_to_receive }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="pay-empty">
+      <i class="fas fa-check-circle" style="color:var(--rvc-green);"></i>
+      No pending payments &mdash; you are all clear.
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── Sign out ──────────────────────────────────── -->
+  <div class="sec-hdr">Session</div>
+  <form method="POST" action="{% url 'sign_out' %}">
+    {% csrf_token %}
+    <button type="submit" class="signout-btn">
+      <i class="fas fa-sign-out-alt"></i> Sign Out
+    </button>
+  </form>
+
+  <div style="text-align:center;padding:16px 0 4px;">
+    <span style="font-size:.67rem;color:var(--rvc-border-l);font-weight:600;letter-spacing:.05em;">RIFTVALLEY CARRIERS &mdash; COURIER PORTAL</span>
+  </div>
+
 </div>
-<div class="p-2">
-    <form method="post" action="{% url 'sign_out' %}" class="form-inline">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-block btn-danger btn-md mt-2"><i class="fa fa-sign-out-alt mr-1"></i> Sign Out</button>
-    </form>
-</div>
-<br><br><br><hr>
 
 {% include 'courier/bottom_tabs.html' %}
 
-{% endblock  %}
+<nav class="desktop-nav">
+  <div class="dn-logo"><i class="fas fa-truck"></i></div>
+  <a href="{% url 'courier:home' %}"           title="Home"><i class="fas fa-home"></i></a>
+  <a href="{% url 'courier:available_jobs' %}"  title="Jobs"><i class="fas fa-map-marked-alt"></i></a>
+  <a href="{% url 'courier:current_job' %}"     title="My Job"><i class="fas fa-truck"></i></a>
+  <a href="{% url 'courier:archived_jobs' %}"   title="Earnings"><i class="fas fa-dollar-sign"></i></a>
+  <div class="dn-spacer"></div>
+  <a href="{% url 'courier:profile' %}" class="active" title="Profile"><i class="fas fa-user-circle"></i></a>
+</nav>
+
+{% endblock %}

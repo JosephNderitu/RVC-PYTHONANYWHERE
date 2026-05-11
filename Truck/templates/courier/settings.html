@@ -1,0 +1,504 @@
+{% extends 'courier/base.html' %}
+{% load static %}
+{% load bootstrap4 %}
+
+{% block title %}Settings | RVC Courier{% endblock %}
+
+{% block head %}
+<style>
+  html, body { overflow-y: auto !important; overflow-x: hidden; }
+  #content   { height: auto !important; min-height: 100vh; }
+
+  /* ── Top bar ────────────────────────────────────── */
+  .top-bar {
+    position: sticky; top: 0; left: 0; right: 0;
+    height: var(--top-h, 56px);
+    background: rgba(17,24,39,.98);
+    border-bottom: 1px solid var(--rvc-border);
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 18px; z-index: 200;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .back-btn {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--rvc-card-l); border: 1px solid var(--rvc-border-l);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--rvc-muted-l); text-decoration: none; flex-shrink: 0;
+    transition: background .15s, color .15s;
+  }
+  .back-btn:hover { background: var(--rvc-border); color: var(--rvc-text); }
+  .top-title { font-size: .95rem; font-weight: 700; color: var(--rvc-text); font-family: 'Sora', sans-serif; }
+
+  .page-wrap {
+    max-width: 540px; margin: 0 auto;
+    padding: 20px 16px calc(var(--tab-h, 64px) + 36px);
+  }
+
+  /* ── Section header ─────────────────────────────── */
+  .sec-hdr {
+    font-size: .68rem; font-weight: 700; color: var(--rvc-muted);
+    text-transform: uppercase; letter-spacing: .07em;
+    padding: 20px 4px 8px;
+  }
+
+  /* ── Card ───────────────────────────────────────── */
+  .rcard {
+    background: var(--rvc-card); border: 1px solid var(--rvc-border);
+    border-radius: 16px; overflow: hidden; margin-bottom: 12px;
+  }
+  .rcard-body { padding: 18px; }
+  .rcard-divider { border: none; border-top: 1px solid var(--rvc-border); margin: 0; }
+
+  /* ── Avatar upload ──────────────────────────────── */
+  .avatar-upload-wrap {
+    display: flex; align-items: center; gap: 18px;
+    padding: 18px;
+  }
+  .avatar-preview-ring {
+    width: 72px; height: 72px; border-radius: 50%;
+    border: 3px solid var(--rvc-orange);
+    overflow: hidden; flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(249,115,22,.2);
+    position: relative; cursor: pointer;
+  }
+  .avatar-preview-ring img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .avatar-overlay {
+    position: absolute; inset: 0; border-radius: 50%;
+    background: rgba(0,0,0,.5);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity .2s;
+  }
+  .avatar-preview-ring:hover .avatar-overlay { opacity: 1; }
+  .avatar-overlay i { color: #fff; font-size: 18px; }
+
+  .avatar-info { flex: 1; }
+  .avatar-info .title { font-size: .9rem; font-weight: 700; color: var(--rvc-text); margin-bottom: 3px; }
+  .avatar-info .sub   { font-size: .76rem; color: var(--rvc-muted); margin-bottom: 12px; line-height: 1.4; }
+
+  .upload-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(249,115,22,.12); border: 1px solid rgba(249,115,22,.25);
+    color: var(--rvc-orange); padding: 9px 16px; border-radius: 10px;
+    font-size: .82rem; font-weight: 700; font-family: 'Sora', sans-serif;
+    cursor: pointer; transition: background .15s;
+  }
+  .upload-btn:hover { background: rgba(249,115,22,.2); }
+
+  /* ── Form fields ────────────────────────────────── */
+  .field-wrap { margin-bottom: 14px; }
+  .field-label {
+    display: block; font-size: .72rem; font-weight: 700;
+    color: var(--rvc-muted); text-transform: uppercase;
+    letter-spacing: .06em; margin-bottom: 7px;
+  }
+  .field-input {
+    width: 100%; background: var(--rvc-card-l);
+    border: 1px solid var(--rvc-border-l); border-radius: 12px;
+    padding: 13px 16px; color: var(--rvc-text);
+    font-size: .9rem; font-family: 'Sora', sans-serif;
+    transition: border-color .15s, box-shadow .15s; outline: none;
+  }
+  .field-input:focus {
+    border-color: var(--rvc-orange);
+    box-shadow: 0 0 0 3px rgba(249,115,22,.18);
+  }
+  .field-input::placeholder { color: var(--rvc-muted); }
+  .field-input.field-error  { border-color: var(--rvc-red) !important; }
+  .field-help { font-size: .74rem; color: var(--rvc-muted); margin-top: 6px; }
+  .field-err  { font-size: .74rem; color: var(--rvc-red);   margin-top: 6px; }
+
+  /* Bootstrap select override */
+  select.field-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
+
+  /* ── Buttons ────────────────────────────────────── */
+  .save-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 13px; background: var(--rvc-orange); color: #fff;
+    border: none; border-radius: 12px; font-size: .9rem; font-weight: 700;
+    font-family: 'Sora', sans-serif; cursor: pointer;
+    transition: background .15s, transform .1s;
+    box-shadow: 0 4px 16px rgba(249,115,22,.25);
+  }
+  .save-btn:hover  { background: var(--rvc-orange-d); }
+  .save-btn:active { transform: scale(.98); }
+
+  /* ── Menu rows (static links) ───────────────────── */
+  .menu-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 15px 18px; text-decoration: none !important;
+    color: var(--rvc-text); transition: background .15s;
+  }
+  .menu-row:hover { background: var(--rvc-card-l); }
+  .menu-row:not(:last-child) { border-bottom: 1px solid var(--rvc-border); }
+  .menu-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: .88rem; flex-shrink: 0; }
+  .mi-orange { background: rgba(249,115,22,.12); color: var(--rvc-orange); }
+  .mi-blue   { background: rgba(59,130,246,.12);  color: #3B82F6; }
+  .mi-green  { background: rgba(16,185,129,.12);  color: var(--rvc-green); }
+  .mi-red    { background: rgba(239,68,68,.1);    color: var(--rvc-red);   }
+  .menu-text { flex: 1; }
+  .menu-label { font-size: .875rem; font-weight: 600; color: var(--rvc-text); font-family: 'Sora', sans-serif; }
+  .menu-sub   { font-size: .73rem; color: var(--rvc-muted); margin-top: 2px; }
+  .menu-arrow { color: var(--rvc-muted); font-size: 12px; }
+
+  /* ── Toggle switch ──────────────────────────────── */
+  .toggle-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 18px; border-bottom: 1px solid var(--rvc-border);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: .88rem; flex-shrink: 0; }
+  .toggle-text { flex: 1; }
+  .toggle-label { font-size: .875rem; font-weight: 600; color: var(--rvc-text); }
+  .toggle-sub   { font-size: .73rem; color: var(--rvc-muted); margin-top: 2px; }
+
+  /* Switch widget */
+  .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; inset: 0; border-radius: 12px;
+    background: var(--rvc-border-l); cursor: pointer;
+    transition: background .2s;
+  }
+  .slider::before {
+    content: ''; position: absolute;
+    width: 18px; height: 18px; border-radius: 50%;
+    left: 3px; top: 3px; background: #fff;
+    transition: transform .2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,.3);
+  }
+  .switch input:checked + .slider { background: var(--rvc-orange); }
+  .switch input:checked + .slider::before { transform: translateX(20px); }
+
+  /* ── Desktop sidebar ────────────────────────────── */
+  .desktop-nav {
+    display: none; position: fixed;
+    left: 0; top: 0; bottom: 0; width: 64px;
+    background: rgba(17,24,39,.98); border-right: 1px solid var(--rvc-border);
+    flex-direction: column; align-items: center; padding: 16px 0; gap: 6px; z-index: 300;
+  }
+  .dn-logo { width: 38px; height: 38px; background: var(--rvc-orange); border-radius: 11px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .dn-logo i { font-size: 16px; color: #fff; }
+  .desktop-nav a { width: 46px; height: 46px; border-radius: 13px; display: flex; align-items: center; justify-content: center; color: var(--rvc-muted); font-size: 19px; text-decoration: none; transition: background .15s, color .15s; }
+  .desktop-nav a:hover  { background: var(--rvc-card-l); color: var(--rvc-muted-l); }
+  .desktop-nav a.active { background: rgba(249,115,22,.15); color: var(--rvc-orange); }
+  .dn-spacer { flex: 1; }
+
+  @media (min-width: 768px) {
+    .desktop-nav { display: flex; }
+    .top-bar     { left: 64px; }
+    .page-wrap   { margin-left: 80px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="top-bar">
+  <a href="{% url 'courier:profile' %}" class="back-btn" title="Back to profile">
+    <i class="fas fa-chevron-left" style="font-size:13px;"></i>
+  </a>
+  <span class="top-title">Settings</span>
+</div>
+
+<div class="page-wrap">
+
+  <!-- ══════════════════════════════════════════════
+       PROFILE PHOTO
+  ══════════════════════════════════════════════ -->
+  <div class="sec-hdr">Profile Photo</div>
+  <div class="rcard">
+    <form method="POST" enctype="multipart/form-data" id="avatar-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="update_avatar">
+      <!-- Hidden file input — triggered by clicking the avatar ring -->
+      <input type="file" id="avatar-file-input" name="avatar"
+             accept="image/jpeg,image/png,image/webp"
+             style="display:none;" onchange="previewAndSubmit(this)">
+
+      <div class="avatar-upload-wrap">
+        <!-- Clickable avatar preview -->
+        <label for="avatar-file-input" class="avatar-preview-ring" style="cursor:pointer;" title="Tap to change photo">
+          <img id="avatar-preview"
+               src="{% if courier.avatar %}{{ courier.avatar.url }}{% else %}https://ui-avatars.com/api/?name={{ request.user.get_full_name|urlencode }}&background=0D1B3E&color=F97316&size=160&bold=true{% endif %}"
+               alt="Profile photo">
+          <div class="avatar-overlay"><i class="fas fa-camera"></i></div>
+        </label>
+
+        <div class="avatar-info">
+          <div class="title">Profile Photo</div>
+          <div class="sub">Tap your photo to update it. JPEG or PNG, max 5MB. Shown on your job cards and in the app.</div>
+          <label for="avatar-file-input" class="upload-btn">
+            <i class="fas fa-camera"></i> Choose Photo
+          </label>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       CHANGE EMAIL
+  ══════════════════════════════════════════════ -->
+  <div class="sec-hdr">Email Address</div>
+  <div class="rcard">
+    <div class="rcard-body">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--rvc-border);">
+        <i class="fas fa-envelope" style="color:var(--rvc-muted);font-size:.9rem;"></i>
+        <div>
+          <div style="font-size:.72rem;color:var(--rvc-muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Current</div>
+          <div style="font-size:.9rem;color:var(--rvc-text);font-weight:600;margin-top:2px;">{{ request.user.email }}</div>
+        </div>
+      </div>
+
+      <form method="POST" novalidate id="email-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_email">
+
+        <div class="field-wrap">
+          <label class="field-label" for="id_new_email">New Email Address</label>
+          <input type="email" name="new_email" id="id_new_email"
+                 class="field-input {% if email_form.errors %}field-error{% endif %}"
+                 placeholder="you@example.com"
+                 value="{{ email_form.new_email.value|default:'' }}"
+                 autocomplete="email">
+          {% if email_form.non_field_errors %}
+            <div class="field-err"><i class="fas fa-exclamation-circle"></i> {{ email_form.non_field_errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <div class="field-wrap">
+          <label class="field-label" for="id_confirm_email">Confirm New Email</label>
+          <input type="email" name="confirm_email" id="id_confirm_email"
+                 class="field-input"
+                 placeholder="Repeat new email address"
+                 value="{{ email_form.confirm_email.value|default:'' }}"
+                 autocomplete="email">
+        </div>
+
+        <div class="field-wrap">
+          <label class="field-label" for="id_password">Current Password</label>
+          <input type="password" name="password" id="id_password"
+                 class="field-input"
+                 placeholder="Confirm with your password"
+                 autocomplete="current-password">
+          <div class="field-help"><i class="fas fa-shield-alt" style="margin-right:4px;"></i>Required to authorise the email change.</div>
+        </div>
+
+        <button type="submit" class="save-btn">
+          <i class="fas fa-envelope"></i> Update Email Address
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       VEHICLE DETAILS
+  ══════════════════════════════════════════════ -->
+  <div class="sec-hdr">Vehicle Details</div>
+  <div class="rcard">
+    <div class="rcard-body">
+      <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_vehicle">
+
+        <div class="field-wrap">
+          <label class="field-label" for="id_vehicle_type">Vehicle Type</label>
+          <select name="vehicle_type" id="id_vehicle_type" class="field-input">
+            <option value="">Select your vehicle</option>
+            {% for val, label in vehicle_form.instance.vehicle_type.field.choices %}
+              {% if val %}
+              <option value="{{ val }}" {% if courier.vehicle_type == val %}selected{% endif %}>{{ label }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+          <div class="field-help">Helps customers know what to expect for their delivery.</div>
+        </div>
+
+        <button type="submit" class="save-btn">
+          <i class="fas fa-truck"></i> Save Vehicle
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       NOTIFICATIONS
+  ══════════════════════════════════════════════ -->
+  <div class="sec-hdr">Notifications</div>
+  <div class="rcard">
+    <div class="toggle-row">
+      <div class="toggle-icon mi-orange"><i class="fas fa-bell"></i></div>
+      <div class="toggle-text">
+        <div class="toggle-label">Push Notifications</div>
+        <div class="toggle-sub">New job alerts and delivery updates</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-icon mi-green"><i class="fas fa-comment-alt"></i></div>
+      <div class="toggle-text">
+        <div class="toggle-label">WhatsApp Alerts</div>
+        <div class="toggle-sub">Job confirmations and earnings updates</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-icon mi-blue"><i class="fas fa-envelope"></i></div>
+      <div class="toggle-text">
+        <div class="toggle-label">Email Notifications</div>
+        <div class="toggle-sub">Weekly earnings summary</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECURITY
+  ══════════════════════════════════════════════ -->
+  <div class="sec-hdr">Security</div>
+  <div class="rcard">
+    <a href="{% url 'password_reset' %}" class="menu-row">
+      <div class="menu-icon mi-blue"><i class="fas fa-lock"></i></div>
+      <div class="menu-text">
+        <div class="menu-label">Change Password</div>
+        <div class="menu-sub">A reset link will be sent to {{ request.user.email }}</div>
+      </div>
+      <i class="fas fa-chevron-right menu-arrow"></i>
+    </a>
+    <a href="{% url 'courier:payout_method' %}" class="menu-row">
+      <div class="menu-icon mi-orange"><i class="fas fa-dollar-sign"></i></div>
+      <div class="menu-text">
+        <div class="menu-label">Payout Method</div>
+        <div class="menu-sub">Manage your PayPal payout email</div>
+      </div>
+      <i class="fas fa-chevron-right menu-arrow"></i>
+    </a>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       ABOUT
+  ══════════════════════════════════════════════ -->
+  <div class="sec-hdr">About</div>
+  <div class="rcard">
+    <div class="menu-row" style="cursor:default;">
+      <div class="menu-icon mi-blue"><i class="fas fa-info-circle"></i></div>
+      <div class="menu-text">
+        <div class="menu-label">App Version</div>
+        <div class="menu-sub">RVC Courier Portal v1.0</div>
+      </div>
+    </div>
+    <a href="{% url 'terms_and_conditions' %}" class="menu-row">
+      <div class="menu-icon mi-blue"><i class="fas fa-file-contract"></i></div>
+      <div class="menu-text">
+        <div class="menu-label">Terms &amp; Conditions</div>
+        <div class="menu-sub">RiftValley Carriers courier agreement</div>
+      </div>
+      <i class="fas fa-chevron-right menu-arrow"></i>
+    </a>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       DANGER ZONE
+  ══════════════════════════════════════════════ -->
+  <div class="sec-hdr">Danger Zone</div>
+  <div class="rcard" style="border-color:rgba(239,68,68,.2);">
+    <div class="menu-row" onclick="confirmDeleteAccount()">
+      <div class="menu-icon mi-red"><i class="fas fa-trash-alt"></i></div>
+      <div class="menu-text">
+        <div class="menu-label" style="color:var(--rvc-red);">Delete Account</div>
+        <div class="menu-sub">Permanently remove your courier account and data</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{% include 'courier/bottom_tabs.html' %}
+
+<nav class="desktop-nav">
+  <div class="dn-logo"><i class="fas fa-truck"></i></div>
+  <a href="{% url 'courier:home' %}"           title="Home"><i class="fas fa-home"></i></a>
+  <a href="{% url 'courier:available_jobs' %}"  title="Jobs"><i class="fas fa-map-marked-alt"></i></a>
+  <a href="{% url 'courier:current_job' %}"     title="My Job"><i class="fas fa-truck"></i></a>
+  <a href="{% url 'courier:archived_jobs' %}"   title="Earnings"><i class="fas fa-dollar-sign"></i></a>
+  <div class="dn-spacer"></div>
+  <a href="{% url 'courier:profile' %}" class="active" title="Profile"><i class="fas fa-user-circle"></i></a>
+</nav>
+
+<script>
+// ── Avatar preview before upload ──────────────────
+function previewAndSubmit(input) {
+  if (!input.files || !input.files[0]) return;
+  var file = input.files[0];
+  if (file.size > 5 * 1024 * 1024) {
+    Swal.fire({
+      icon: 'error', title: 'File too large',
+      text: 'Please choose an image under 5MB.',
+      toast: false, confirmButtonColor: '#F97316',
+    });
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById('avatar-preview').src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  // Auto-submit after short preview delay
+  setTimeout(function() {
+    document.getElementById('avatar-form').submit();
+  }, 400);
+}
+
+// ── Delete account confirmation ───────────────────
+function confirmDeleteAccount() {
+  Swal.fire({
+    icon:              'warning',
+    title:             'Delete your account?',
+    text:              'This will permanently remove your courier account, job history and all data. This cannot be undone.',
+    showCancelButton:  true,
+    confirmButtonText: 'Yes, delete it',
+    cancelButtonText:  'Cancel',
+    confirmButtonColor:'#EF4444',
+    cancelButtonColor: '#1F2937',
+  }).then(function(result) {
+    if (result.isConfirmed) {
+      Swal.fire({
+        icon: 'info', title: 'Contact support',
+        text: 'Please email support@rvcarriers.com to request account deletion.',
+        confirmButtonColor: '#F97316',
+      });
+    }
+  });
+}
+
+// ── Vehicle type select — fix choices rendering ───
+// Populate select from actual vehicle choices via Django
+(function() {
+  var sel = document.getElementById('id_vehicle_type');
+  var choices = [
+    ['van',        'Van'],
+    ['truck',      'Truck'],
+    ['pickup',     'Pickup Truck'],
+    ['motorcycle', 'Motorcycle'],
+    ['car',        'Car'],
+  ];
+  var current = "{{ courier.vehicle_type|default:'' }}";
+  sel.innerHTML = '<option value="">Select your vehicle</option>';
+  choices.forEach(function(c) {
+    var opt = document.createElement('option');
+    opt.value = c[0]; opt.textContent = c[1];
+    if (c[0] === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+})();
+</script>
+{% endblock %}

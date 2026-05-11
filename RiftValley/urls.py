@@ -36,6 +36,7 @@ courier_urlpatterns = [
     path('jobs/archived/', courier_views.archived_jobs_page, name="archived_jobs"),
     path('profile/', courier_views.profile_page, name="profile"),
     path('payout_method/', courier_views.payout_method_page, name="payout_method"),
+    path('settings/', courier_views.settings_page, name='settings'),
     
     path('api/jobs/current/<id>/update/', courier_apis.current_job_update_api, name="current_job_update_api"),
     path('api/fcm-token/update/', courier_apis.fcm_token_update_api, name="fcm_token_update_api"),

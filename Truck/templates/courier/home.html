@@ -1,313 +1,348 @@
 {% extends 'courier/base.html' %}
 {% load static %}
 
-{% block title %}Dashboard — RVC Courier{% endblock %}
-{% block nav_home %}active{% endblock %}
-{% block snav_home %}active{% endblock %}
+{% block title %}Home | RVC Courier{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-body { background: var(--dark); }
+  /* This page scrolls */
+  html, body { overflow-y: auto !important; overflow-x: hidden; }
+  #content   { height: auto !important; min-height: 100vh; }
 
-/* ── Top bar ─────────────────────────────────────── */
-.top-bar {
-  position: fixed; top: 0; left: 0; right: 0;
-  height: var(--top-h);
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center;
-  padding: 0 20px; gap: 14px; z-index: 300;
-}
-@media(min-width:768px){ .top-bar { left: 72px; } }
-.top-avatar {
-  width: 38px; height: 38px; border-radius: 50%;
-  object-fit: cover; border: 2px solid var(--orange);
-}
-.top-greeting { flex: 1; }
-.top-greeting .sub { font-size: .7rem; color: var(--muted); font-weight: 500; }
-.top-greeting .name { font-size: .95rem; font-weight: 700; color: var(--text); }
+  /* ── Top bar ────────────────────────────────────── */
+  .top-bar {
+    position: sticky; top: 0; left: 0; right: 0;
+    height: var(--top-h, 56px);
+    background: rgba(11,15,26,.97);
+    border-bottom: 1px solid var(--rvc-border);
+    display: flex; align-items: center;
+    justify-content: space-between;
+    padding: 0 18px; z-index: 200;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .top-left { display: flex; align-items: center; gap: 12px; }
+  .top-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    object-fit: cover; border: 2px solid var(--rvc-orange);
+    flex-shrink: 0;
+  }
+  .top-greet-sub  { font-size: .68rem; color: var(--rvc-muted); font-weight: 500; }
+  .top-greet-name { font-size: .95rem; font-weight: 700; color: var(--rvc-text); font-family: 'Sora', sans-serif; line-height: 1.2; }
+  .top-right { display: flex; align-items: center; gap: 10px; }
+  .icon-btn {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: var(--rvc-card-l); border: 1px solid var(--rvc-border-l);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--rvc-muted-l); font-size: 15px;
+    text-decoration: none; transition: background .15s, color .15s;
+  }
+  .icon-btn:hover { background: var(--rvc-border); color: var(--rvc-orange); }
 
-/* ── Online toggle ───────────────────────────────── */
-.online-toggle-wrap {
-  position: relative;
-}
-.online-toggle {
-  width: 52px; height: 28px;
-  background: var(--border-l);
-  border-radius: 14px;
-  position: relative;
-  cursor: pointer;
-  transition: background .25s;
-  border: none;
-  display: block;
-}
-.online-toggle.on { background: var(--green); }
-.online-toggle::after {
-  content: '';
-  position: absolute; top: 3px; left: 3px;
-  width: 22px; height: 22px;
-  background: #fff; border-radius: 50%;
-  transition: transform .25s;
-  box-shadow: 0 2px 6px rgba(0,0,0,.3);
-}
-.online-toggle.on::after { transform: translateX(24px); }
+  /* ── Page wrapper ───────────────────────────────── */
+  .page-wrap {
+    max-width: 600px; margin: 0 auto;
+    padding: 16px 16px calc(var(--tab-h, 64px) + 24px);
+  }
 
-/* ── Status banner ───────────────────────────────── */
-.status-banner {
-  margin: 0 16px 0;
-  border-radius: 14px;
-  padding: 14px 18px;
-  display: flex; align-items: center; gap: 12px;
-  font-size: .875rem; font-weight: 600;
-}
-.status-banner.online  { background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.25); }
-.status-banner.offline { background: var(--card); border: 1px solid var(--border); }
-.status-dot {
-  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
-}
-.status-dot.green { background: var(--green); box-shadow: 0 0 8px rgba(16,185,129,.6); animation: pulse 2s infinite; }
-.status-dot.grey  { background: var(--muted); }
-@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+  /* ── Online toggle banner ───────────────────────── */
+  .online-banner {
+    display: flex; align-items: center; gap: 14px;
+    border-radius: 16px; padding: 14px 18px;
+    margin-bottom: 16px; cursor: pointer;
+    user-select: none; transition: opacity .15s;
+  }
+  .online-banner:active { opacity: .9; }
+  .online-banner.is-online {
+    background: rgba(16,185,129,.1);
+    border: 1px solid rgba(16,185,129,.25);
+  }
+  .online-banner.is-offline {
+    background: var(--rvc-card);
+    border: 1px solid var(--rvc-border-l);
+  }
+  .status-dot-wrap { position: relative; width: 12px; height: 12px; flex-shrink: 0; }
+  .status-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    position: absolute; top: 0; left: 0;
+  }
+  .status-dot.online  { background: var(--rvc-green); }
+  .status-dot.offline { background: var(--rvc-muted); }
+  .status-dot.online::before {
+    content: ''; position: absolute; inset: -3px; border-radius: 50%;
+    border: 2px solid rgba(16,185,129,.4);
+    animation: ring-pulse 2s infinite;
+  }
+  @keyframes ring-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.3;transform:scale(1.6)} }
 
-/* ── Stats grid ──────────────────────────────────── */
-.stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 16px 16px 0;
-}
-.stat-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 18px 16px;
-  position: relative;
-  overflow: hidden;
-}
-.stat-card::before {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0;
-  height: 3px;
-}
-.stat-card.orange::before { background: var(--orange); }
-.stat-card.green::before  { background: var(--green); }
-.stat-card.blue::before   { background: #3B82F6; }
-.stat-card.purple::before { background: #8B5CF6; }
+  .banner-text { flex: 1; }
+  .banner-title { font-size: .9rem; font-weight: 700; color: var(--rvc-text); font-family: 'Sora', sans-serif; }
+  .banner-sub   { font-size: .74rem; color: var(--rvc-muted); margin-top: 2px; }
 
-.stat-icon {
-  width: 36px; height: 36px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: .9rem; margin-bottom: 12px;
-}
-.stat-icon.orange { background: rgba(249,115,22,.15); color: var(--orange); }
-.stat-icon.green  { background: rgba(16,185,129,.15); color: var(--green); }
-.stat-icon.blue   { background: rgba(59,130,246,.15); color: #3B82F6; }
-.stat-icon.purple { background: rgba(139,92,246,.15); color: #8B5CF6; }
+  /* Toggle switch */
+  .toggle-pill {
+    width: 48px; height: 26px; border-radius: 13px;
+    position: relative; flex-shrink: 0;
+    transition: background .25s; cursor: pointer;
+    border: none; padding: 0;
+  }
+  .toggle-pill.on  { background: var(--rvc-green); }
+  .toggle-pill.off { background: var(--rvc-border-l); }
+  .toggle-pill::after {
+    content: ''; position: absolute;
+    top: 3px; left: 3px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; transition: transform .25s;
+    box-shadow: 0 1px 4px rgba(0,0,0,.3);
+  }
+  .toggle-pill.on::after { transform: translateX(22px); }
 
-.stat-val { font-size: 1.6rem; font-weight: 800; color: var(--text); line-height: 1; }
-.stat-lbl { font-size: .7rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-top: 4px; }
+  /* ── Stats grid ──────────────────────────────────── */
+  .sec-hdr {
+    font-size: .68rem; font-weight: 700; color: var(--rvc-muted);
+    text-transform: uppercase; letter-spacing: .07em;
+    padding: 4px 2px 10px;
+  }
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 10px; margin-bottom: 16px;
+  }
+  .stat-card {
+    background: var(--rvc-card); border: 1px solid var(--rvc-border);
+    border-radius: 16px; padding: 16px 14px;
+    position: relative; overflow: hidden;
+  }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .sc-orange::before { background: var(--rvc-orange); }
+  .sc-green::before  { background: var(--rvc-green); }
+  .sc-blue::before   { background: #3B82F6; }
+  .sc-purple::before { background: #8B5CF6; }
+  .stat-icon {
+    width: 34px; height: 34px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85rem; margin-bottom: 12px;
+  }
+  .si-orange { background: rgba(249,115,22,.12); color: var(--rvc-orange); }
+  .si-green  { background: rgba(16,185,129,.12); color: var(--rvc-green); }
+  .si-blue   { background: rgba(59,130,246,.12);  color: #3B82F6; }
+  .si-purple { background: rgba(139,92,246,.12); color: #8B5CF6; }
+  .stat-val { font-size: 1.55rem; font-weight: 800; color: var(--rvc-text); font-family: 'Sora', sans-serif; line-height: 1; }
+  .stat-lbl { font-size: .65rem; color: var(--rvc-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-top: 5px; }
 
-/* ── Active job card ─────────────────────────────── */
-.section-hdr {
-  font-size: .7rem; font-weight: 700; color: var(--muted);
-  text-transform: uppercase; letter-spacing: .06em;
-  padding: 20px 16px 10px;
-}
-.active-job-card {
-  margin: 0 16px;
-  background: linear-gradient(135deg, var(--navy) 0%, #1a3a6e 100%);
-  border: 1px solid var(--border-l);
-  border-radius: 18px;
-  padding: 18px;
-  position: relative;
-  overflow: hidden;
-}
-.active-job-card::before {
-  content: '';
-  position: absolute; top: -20px; right: -20px;
-  width: 100px; height: 100px; border-radius: 50%;
-  background: rgba(255,255,255,.04);
-}
-.job-status-chip {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 4px 10px; border-radius: 20px;
-  font-size: .7rem; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .05em;
-  margin-bottom: 10px;
-}
-.chip-picking    { background: rgba(59,130,246,.2); color: #60A5FA; }
-.chip-delivering { background: rgba(249,115,22,.2); color: var(--orange); }
+  /* ── Active job card ─────────────────────────────── */
+  .active-card {
+    background: linear-gradient(135deg, #0D1B3E 0%, #1a3a6e 100%);
+    border: 1px solid var(--rvc-border-l);
+    border-radius: 18px; padding: 18px;
+    margin-bottom: 16px;
+    position: relative; overflow: hidden;
+    text-decoration: none;
+  }
+  .active-card::before {
+    content: ''; position: absolute; top: -30px; right: -30px;
+    width: 120px; height: 120px; border-radius: 50%;
+    background: rgba(249,115,22,.07);
+  }
+  .active-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 11px; border-radius: 20px;
+    font-size: .68rem; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; margin-bottom: 10px;
+  }
+  .chip-picking    { background: rgba(59,130,246,.2); color: #60A5FA; }
+  .chip-delivering { background: rgba(249,115,22,.2); color: var(--rvc-orange); }
+  .active-job-name { font-size: 1rem; font-weight: 700; color: var(--rvc-text); font-family: 'Sora', sans-serif; margin-bottom: 5px; }
+  .active-job-addr { font-size: .8rem; color: var(--rvc-muted-l); margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+  .continue-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--rvc-orange); color: #fff;
+    font-weight: 700; font-size: .875rem;
+    padding: 10px 20px; border-radius: 11px;
+    border: none; transition: background .15s;
+  }
+  .continue-btn:hover { background: var(--rvc-orange-d); color: #fff; }
 
-.job-name { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
-.job-addr { font-size: .8rem; color: var(--muted-l); margin-bottom: 14px; }
+  /* ── No active job ───────────────────────────────── */
+  .no-job-card {
+    background: var(--rvc-card); border: 1px solid var(--rvc-border);
+    border-radius: 18px; padding: 24px 20px;
+    text-align: center; margin-bottom: 16px;
+  }
+  .no-job-icon {
+    width: 52px; height: 52px; border-radius: 16px;
+    background: var(--rvc-card-l); border: 1px solid var(--rvc-border-l);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 12px; font-size: 22px; color: var(--rvc-muted);
+  }
+  .find-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--rvc-orange); color: #fff;
+    font-weight: 700; font-size: .875rem;
+    padding: 12px 26px; border-radius: 12px;
+    margin-top: 14px; transition: background .15s;
+  }
+  .find-btn:hover { background: var(--rvc-orange-d); color: #fff; }
 
-.job-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  background: var(--orange);
-  color: #fff; font-weight: 700; font-size: .875rem;
-  padding: 11px 20px; border-radius: 12px;
-  border: none; transition: background .15s;
-}
-.job-btn:hover { background: var(--orange-d); color: #fff; }
+  /* ── Quick action grid ───────────────────────────── */
+  .quick-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 10px; margin-bottom: 16px;
+  }
+  .quick-btn {
+    background: var(--rvc-card); border: 1px solid var(--rvc-border);
+    border-radius: 14px; padding: 16px 10px;
+    text-align: center; display: flex; flex-direction: column;
+    align-items: center; gap: 8px; text-decoration: none;
+    color: var(--rvc-muted-l); font-size: .68rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .04em;
+    transition: background .15s, color .15s;
+  }
+  .quick-btn i { font-size: 22px; color: var(--rvc-orange); }
+  .quick-btn:hover { background: var(--rvc-card-l); color: var(--rvc-text); }
 
-/* ── Mini map ────────────────────────────────────── */
-.mini-map-wrap {
-  margin: 0 16px;
-  border-radius: 16px; overflow: hidden;
-  border: 1px solid var(--border);
-  height: 180px;
-}
-#mini-map { width: 100%; height: 100%; }
+  /* ── Mini map (location) ─────────────────────────── */
+  .map-card {
+    background: var(--rvc-card); border: 1px solid var(--rvc-border);
+    border-radius: 16px; overflow: hidden; margin-bottom: 16px;
+  }
+  .map-card-hdr {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--rvc-border);
+  }
+  .map-card-title { font-size: .78rem; font-weight: 700; color: var(--rvc-text); }
+  #mini-map { height: 180px; width: 100%; }
 
-/* ── Quick actions ───────────────────────────────── */
-.quick-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  padding: 0 16px;
-}
-.quick-btn {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px 10px;
-  text-align: center;
-  display: flex; flex-direction: column;
-  align-items: center; gap: 8px;
-  color: var(--muted-l);
-  font-size: .72rem; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .04em;
-  transition: background .15s, color .15s;
-}
-.quick-btn i { font-size: 22px; color: var(--orange); }
-.quick-btn:hover { background: var(--card-l); color: var(--text); }
+  /* ── Desktop sidebar ────────────────────────────── */
+  .desktop-nav {
+    display: none; position: fixed;
+    left: 0; top: 0; bottom: 0; width: 64px;
+    background: rgba(17,24,39,.98); border-right: 1px solid var(--rvc-border);
+    flex-direction: column; align-items: center;
+    padding: 16px 0; gap: 6px; z-index: 300;
+  }
+  .dn-logo { width: 38px; height: 38px; background: var(--rvc-orange); border-radius: 11px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .dn-logo i { font-size: 16px; color: #fff; }
+  .desktop-nav a { width: 46px; height: 46px; border-radius: 13px; display: flex; align-items: center; justify-content: center; color: var(--rvc-muted); font-size: 19px; text-decoration: none; transition: background .15s, color .15s; }
+  .desktop-nav a:hover  { background: var(--rvc-card-l); color: var(--rvc-muted-l); }
+  .desktop-nav a.active { background: rgba(249,115,22,.15); color: var(--rvc-orange); }
+  .dn-spacer { flex: 1; }
 
-/* ── No active job placeholder ───────────────────── */
-.no-job-card {
-  margin: 0 16px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 28px 20px;
-  text-align: center;
-}
-.no-job-icon {
-  width: 56px; height: 56px;
-  background: var(--card-l);
-  border-radius: 18px;
-  display: flex; align-items: center; justify-content: center;
-  margin: 0 auto 14px;
-  font-size: 24px; color: var(--muted);
-}
-.browse-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  background: var(--orange); color: #fff;
-  font-weight: 700; font-size: .875rem;
-  padding: 12px 24px; border-radius: 12px;
-  border: none; margin-top: 14px;
-  transition: background .15s;
-}
-.browse-btn:hover { background: var(--orange-d); color: #fff; }
+  @media (min-width: 768px) {
+    .desktop-nav { display: flex; }
+    .top-bar     { left: 64px; }
+    .page-wrap   { margin-left: 80px; }
+  }
+  @media (min-width: 1024px) {
+    .stats-grid { grid-template-columns: repeat(4, 1fr); }
+    .page-wrap  { max-width: 900px; }
+  }
 </style>
 {% endblock %}
 
-{% block body %}
+{% block content %}
 
 <!-- Top bar -->
 <div class="top-bar">
-  <img src="{% if request.user.courier.user.customer.avatar %}{{ request.user.courier.user.customer.avatar.url }}{% else %}https://ui-avatars.com/api/?name={{ request.user.get_full_name|urlencode }}&background=0D1B3E&color=F97316&size=80{% endif %}"
-       alt="avatar" class="top-avatar">
-  <div class="top-greeting">
-    <div class="sub">Good {% now "G" as h %}{% if h < 12 %}morning{% elif h < 17 %}afternoon{% else %}evening{% endif %}</div>
-    <div class="name">{{ request.user.first_name|default:request.user.username }}</div>
+  <div class="top-left">
+    {% if request.user.courier.avatar %}
+      <img src="{{ request.user.courier.avatar.url }}" alt="avatar" class="top-avatar">
+    {% else %}
+      <img src="https://ui-avatars.com/api/?name={{ request.user.get_full_name|urlencode }}&background=0D1B3E&color=F97316&size=80&bold=true"
+           alt="avatar" class="top-avatar">
+    {% endif %}
+    <div>
+      <div class="top-greet-sub">
+        {% now "G" as h %}{% if h < 12 %}Good morning{% elif h < 17 %}Good afternoon{% else %}Good evening{% endif %}
+      </div>
+      <div class="top-greet-name">{{ request.user.first_name|default:request.user.username }}</div>
+    </div>
   </div>
-  <!-- Online toggle -->
-  <div>
-    <button class="online-toggle {% if is_online %}on{% endif %}" id="online-toggle"
-            onclick="toggleOnline()" title="Go online / offline"></button>
+  <div class="top-right">
+    <a href="{% url 'courier:settings' %}" class="icon-btn" title="Settings">
+      <i class="fas fa-cog"></i>
+    </a>
   </div>
 </div>
 
-<div class="page-scroll" style="padding-top:calc(var(--top-h) + 12px);">
+<div class="page-wrap">
 
-  <!-- Status banner -->
-  <div class="status-banner {% if is_online %}online{% else %}offline{% endif %}" id="status-banner">
-    <div class="status-dot {% if is_online %}green{% else %}grey{% endif %}" id="status-dot"></div>
-    <div>
-      <div id="status-title" style="color:var(--text);">
-        {% if is_online %}You're Online{% else %}You're Offline{% endif %}
+  <!-- ── Online / Offline toggle ──────────────────── -->
+  <div class="online-banner {% if is_online %}is-online{% else %}is-offline{% endif %}"
+       id="online-banner" onclick="toggleOnline()">
+    <div class="status-dot-wrap">
+      <div class="status-dot {% if is_online %}online{% else %}offline{% endif %}" id="status-dot"></div>
+    </div>
+    <div class="banner-text">
+      <div class="banner-title" id="banner-title">
+        {% if is_online %}You are Online{% else %}You are Offline{% endif %}
       </div>
-      <div id="status-sub" style="font-size:.75rem;color:var(--muted);font-weight:400;margin-top:2px;">
-        {% if is_online %}Visible to customers — jobs will appear{% else %}Go online to start receiving jobs{% endif %}
+      <div class="banner-sub" id="banner-sub">
+        {% if is_online %}Customers can see you &mdash; jobs will appear on the map{% else %}Tap to go online and start receiving jobs{% endif %}
       </div>
     </div>
+    <button class="toggle-pill {% if is_online %}on{% else %}off{% endif %}"
+            id="online-toggle" aria-label="Toggle online status"></button>
   </div>
 
-  <!-- Stats grid -->
-  <div class="section-hdr">Today's Summary</div>
+  <!-- ── Today's stats ────────────────────────────── -->
+  <div class="sec-hdr">Today</div>
   <div class="stats-grid">
-    <div class="stat-card orange">
-      <div class="stat-icon orange"><i class="fas fa-dollar-sign"></i></div>
+    <div class="stat-card sc-orange">
+      <div class="stat-icon si-orange"><i class="fas fa-dollar-sign"></i></div>
       <div class="stat-val">${{ today_earnings|default:"0.00" }}</div>
       <div class="stat-lbl">Earned Today</div>
     </div>
-    <div class="stat-card green">
-      <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+    <div class="stat-card sc-green">
+      <div class="stat-icon si-green"><i class="fas fa-check-circle"></i></div>
       <div class="stat-val">{{ today_jobs|default:"0" }}</div>
       <div class="stat-lbl">Jobs Today</div>
     </div>
-    <div class="stat-card blue">
-      <div class="stat-icon blue"><i class="fas fa-route"></i></div>
+    <div class="stat-card sc-blue">
+      <div class="stat-icon si-blue"><i class="fas fa-route"></i></div>
       <div class="stat-val">{{ today_miles|default:"0" }}</div>
       <div class="stat-lbl">Miles Driven</div>
     </div>
-    <div class="stat-card purple">
-      <div class="stat-icon purple"><i class="fas fa-calendar-week"></i></div>
+    <div class="stat-card sc-purple">
+      <div class="stat-icon" style="background:rgba(139,92,246,.12);color:#8B5CF6;width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:.85rem;margin-bottom:12px;">
+        <i class="fas fa-calendar-week"></i>
+      </div>
       <div class="stat-val">${{ week_earnings|default:"0.00" }}</div>
       <div class="stat-lbl">This Week</div>
     </div>
   </div>
 
-  <!-- Active job or browse prompt -->
-  <div class="section-hdr">Active Job</div>
-
+  <!-- ── Active job ────────────────────────────────── -->
+  <div class="sec-hdr">Current Job</div>
   {% if active_job %}
-  <div class="active-job-card">
-    <div class="job-status-chip {% if active_job.status == 'picking' %}chip-picking{% else %}chip-delivering{% endif %}">
+  <a href="{% url 'courier:current_job' %}" class="active-card" style="display:block;text-decoration:none;">
+    <div class="active-chip {% if active_job.status == 'picking' %}chip-picking{% else %}chip-delivering{% endif %}">
       <i class="fas fa-{% if active_job.status == 'picking' %}box{% else %}shipping-fast{% endif %}"></i>
       {% if active_job.status == 'picking' %}Picking Up{% else %}Delivering{% endif %}
     </div>
-    <div class="job-name">{{ active_job.names }}</div>
-    <div class="job-addr">
-      <i class="fas fa-map-marker-alt" style="color:var(--orange);margin-right:5px;"></i>
-      {% if active_job.status == 'picking' %}{{ active_job.pickup_address }}{% else %}{{ active_job.delivery_address }}{% endif %}
+    <div class="active-job-name">{{ active_job.names }}</div>
+    <div class="active-job-addr">
+      <i class="fas fa-map-marker-alt" style="color:var(--rvc-orange);"></i>
+      {% if active_job.status == 'picking' %}{{ active_job.pickup_address|truncatechars:55 }}{% else %}{{ active_job.delivery_address|truncatechars:55 }}{% endif %}
     </div>
-    <a href="{% url 'courier:current_job' %}" class="job-btn">
+    <button class="continue-btn">
       <i class="fas fa-truck"></i> Continue Job
-    </a>
-  </div>
-
+    </button>
+  </a>
   {% else %}
   <div class="no-job-card">
     <div class="no-job-icon"><i class="fas fa-box-open"></i></div>
-    <div style="color:var(--text);font-weight:700;font-size:.95rem;">No Active Job</div>
-    <div style="color:var(--muted);font-size:.8rem;margin-top:5px;">Browse available jobs to start earning.</div>
-    <a href="{% url 'courier:available_jobs' %}" class="browse-btn">
-      <i class="fas fa-search"></i> Browse Jobs
+    <div style="font-size:.92rem;font-weight:700;color:var(--rvc-text);">No Active Job</div>
+    <div style="font-size:.8rem;color:var(--rvc-muted);margin-top:4px;">Find a job on the map and start earning.</div>
+    <a href="{% url 'courier:available_jobs' %}" class="find-btn">
+      <i class="fas fa-search"></i> Find Available Jobs
     </a>
   </div>
   {% endif %}
 
-  <!-- Mini map — courier location -->
-  <div class="section-hdr">Your Location</div>
-  <div class="mini-map-wrap">
-    <div id="mini-map"></div>
-  </div>
-
-  <!-- Quick actions -->
-  <div class="section-hdr">Quick Actions</div>
-  <div class="quick-grid" style="margin-bottom:16px;">
+  <!-- ── Quick actions ─────────────────────────────── -->
+  <div class="sec-hdr">Quick Access</div>
+  <div class="quick-grid">
     <a href="{% url 'courier:available_jobs' %}" class="quick-btn">
       <i class="fas fa-map-marked-alt"></i>
       <span>Find Jobs</span>
@@ -322,45 +357,117 @@ body { background: var(--dark); }
     </a>
   </div>
 
+  <!-- ── Your location mini map ────────────────────── -->
+  <div class="sec-hdr">Your Location</div>
+  <div class="map-card">
+    <div class="map-card-hdr">
+      <span class="map-card-title">
+        <i class="fas fa-location-arrow" style="color:var(--rvc-orange);margin-right:6px;font-size:.8rem;"></i>
+        Live Position
+      </span>
+      <span style="font-size:.72rem;color:var(--rvc-muted);" id="location-status">Locating...</span>
+    </div>
+    <div id="mini-map"></div>
+  </div>
+
+  <!-- ── All-time stats strip ──────────────────────── -->
+  <div style="background:var(--rvc-card);border:1px solid var(--rvc-border);border-radius:14px;display:flex;overflow:hidden;margin-bottom:16px;">
+    <div style="flex:1;text-align:center;padding:14px 8px;">
+      <div style="font-size:1.15rem;font-weight:800;color:var(--rvc-text);font-family:'Sora',sans-serif;">{{ total_jobs }}</div>
+      <div style="font-size:.62rem;color:var(--rvc-muted);text-transform:uppercase;letter-spacing:.05em;margin-top:4px;">Total Jobs</div>
+    </div>
+    <div style="width:1px;background:var(--rvc-border);"></div>
+    <div style="flex:1;text-align:center;padding:14px 8px;">
+      <div style="font-size:1.15rem;font-weight:800;color:var(--rvc-orange);font-family:'Sora',sans-serif;">
+        {% if request.user.courier.paypal_email %}
+          <i class="fab fa-paypal" style="font-size:1rem;"></i>
+        {% else %}
+          <i class="fas fa-exclamation-circle" style="font-size:1rem;color:var(--rvc-muted);"></i>
+        {% endif %}
+      </div>
+      <div style="font-size:.62rem;color:var(--rvc-muted);text-transform:uppercase;letter-spacing:.05em;margin-top:4px;">
+        {% if request.user.courier.paypal_email %}Payout Set{% else %}Set Payout{% endif %}
+      </div>
+    </div>
+    <div style="width:1px;background:var(--rvc-border);"></div>
+    <div style="flex:1;text-align:center;padding:14px 8px;">
+      <div style="font-size:1.15rem;font-weight:800;color:var(--rvc-text);font-family:'Sora',sans-serif;">
+        {{ request.user.courier.get_vehicle_type_display|default:"&mdash;" }}
+      </div>
+      <div style="font-size:.62rem;color:var(--rvc-muted);text-transform:uppercase;letter-spacing:.05em;margin-top:4px;">Vehicle</div>
+    </div>
+  </div>
+
 </div>
+
+{% include 'courier/bottom_tabs.html' %}
+
+<nav class="desktop-nav">
+  <div class="dn-logo"><i class="fas fa-truck"></i></div>
+  <a href="{% url 'courier:home' %}" class="active" title="Home"><i class="fas fa-home"></i></a>
+  <a href="{% url 'courier:available_jobs' %}"  title="Jobs"><i class="fas fa-map-marked-alt"></i></a>
+  <a href="{% url 'courier:current_job' %}"     title="My Job"><i class="fas fa-truck"></i></a>
+  <a href="{% url 'courier:archived_jobs' %}"   title="Earnings"><i class="fas fa-dollar-sign"></i></a>
+  <div class="dn-spacer"></div>
+  <a href="{% url 'courier:profile' %}"         title="Profile"><i class="fas fa-user-circle"></i></a>
+</nav>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// ── Mini map — show courier location ──────────────
-var map = L.map('mini-map', {zoomControl:false, attributionControl:false, dragging:false, scrollWheelZoom:false})
-           .setView([33.7490, -84.3880], 12);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
+// ── Mini map ──────────────────────────────────────
+var miniMap = L.map('mini-map', {
+  zoomControl: false, attributionControl: false,
+  dragging: false, scrollWheelZoom: false,
+  touchZoom: false, doubleClickZoom: false,
+}).setView([33.7490, -84.3880], 13);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  {maxZoom:19}).addTo(miniMap);
 
 if (navigator.geolocation) {
-  navigator.geolocation.getCurrentPosition(function(p){
-    var lat=p.coords.latitude, lng=p.coords.longitude;
-    map.setView([lat,lng], 14);
-    L.circleMarker([lat,lng],{radius:10,fillColor:'#F97316',color:'#fff',weight:2,fillOpacity:1}).addTo(map);
+  navigator.geolocation.getCurrentPosition(function(p) {
+    var lat = p.coords.latitude, lng = p.coords.longitude;
+    miniMap.setView([lat, lng], 15);
+    L.circleMarker([lat, lng], {
+      radius: 10, fillColor: '#F97316', color: '#fff',
+      weight: 2, fillOpacity: 1,
+      className: ''
+    }).addTo(miniMap);
+    document.getElementById('location-status').textContent =
+      lat.toFixed(4) + ', ' + lng.toFixed(4);
+  }, function() {
+    document.getElementById('location-status').textContent = 'Location unavailable';
   });
+} else {
+  document.getElementById('location-status').textContent = 'GPS not supported';
 }
 
 // ── Online toggle ─────────────────────────────────
 var online = {{ is_online|yesno:"true,false" }};
+
 function toggleOnline() {
   online = !online;
-  var btn    = document.getElementById('online-toggle');
-  var banner = document.getElementById('status-banner');
-  var dot    = document.getElementById('status-dot');
-  var title  = document.getElementById('status-title');
-  var sub    = document.getElementById('status-sub');
+  var banner  = document.getElementById('online-banner');
+  var dot     = document.getElementById('status-dot');
+  var toggle  = document.getElementById('online-toggle');
+  var title   = document.getElementById('banner-title');
+  var sub     = document.getElementById('banner-sub');
 
-  btn.classList.toggle('on', online);
-  banner.className = 'status-banner ' + (online ? 'online' : 'offline');
-  dot.className    = 'status-dot '    + (online ? 'green' : 'grey');
-  title.textContent = online ? "You're Online"  : "You're Offline";
-  sub.textContent   = online ? "Visible to customers — jobs will appear" : "Go online to start receiving jobs";
+  banner.className  = 'online-banner ' + (online ? 'is-online' : 'is-offline');
+  dot.className     = 'status-dot ' + (online ? 'online' : 'offline');
+  toggle.className  = 'toggle-pill ' + (online ? 'on' : 'off');
+  title.textContent = online ? 'You are Online' : 'You are Offline';
+  sub.textContent   = online
+    ? 'Customers can see you \u2014 jobs will appear on the map'
+    : 'Tap to go online and start receiving jobs';
 
+  // Persist to server
   fetch('/courier/api/online-status/', {
     method: 'POST',
-    headers: {'Content-Type':'application/json'},
+    headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({online: online}),
     credentials: 'same-origin',
-  }).catch(function(){});
+  }).catch(function() {});
 }
 </script>
 {% endblock %}

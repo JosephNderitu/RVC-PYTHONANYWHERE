@@ -1,666 +1,457 @@
 {% extends 'courier/base.html' %}
 {% load static %}
 
+{% block title %}Available Jobs | RVC Courier{% endblock %}
+
 {% block head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
 <style>
-  /* ── Map fills full screen ── */
+  /* ── Full-screen map ─────────────────────────────── */
   #map {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     z-index: 1;
   }
 
-  /* ── Top bar floats over map ── */
+  /* ── Top bar floats over map ─────────────────────── */
   .top-bar {
     position: fixed;
     top: 0; left: 0; right: 0;
-    height: var(--top-h);
+    height: var(--top-h, 56px);
     z-index: 300;
-    background: linear-gradient(180deg, rgba(15,17,23,0.96) 0%, rgba(15,17,23,0.0) 100%);
-    display: flex;
-    align-items: center;
+    background: linear-gradient(180deg, rgba(11,15,26,.97) 0%, transparent 100%);
+    display: flex; align-items: center;
     justify-content: space-between;
-    padding: 0 20px;
+    padding: 0 18px;
     pointer-events: none;
   }
   .top-bar > * { pointer-events: auto; }
 
-  /* ── Tab bar ── */
-  .tab-bar {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    height: var(--tab-h);
-    z-index: 300;
-    background: rgba(26,29,39,0.97);
-    border-top: 1px solid #2E3352;
-    display: flex;
-    align-items: stretch;
+  .top-left { display: flex; align-items: center; gap: 10px; }
+  .top-logo-badge {
+    width: 34px; height: 34px; border-radius: 10px;
+    background: var(--rvc-orange);
+    display: flex; align-items: center; justify-content: center;
   }
-  .tab-item {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    color: #6B7280;
-    text-decoration: none;
-    font-size: 0.68rem;
-    font-weight: 500;
-    letter-spacing: 0.03em;
-    transition: color 0.15s;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .tab-item i { font-size: 18px; }
-  .tab-item.active, .tab-item:hover { color: #3B82F6; text-decoration: none; }
-  .tab-item.active i { color: #3B82F6; }
+  .top-logo-badge i { font-size: 15px; color: #fff; }
+  .top-page-title { font-size: .9rem; font-weight: 700; color: #fff; font-family: 'Sora', sans-serif; }
 
-  /* ── Bottom panel — hidden by default ── */
+  .job-count-badge {
+    background: var(--rvc-orange); color: #fff;
+    font-size: .72rem; font-weight: 700;
+    padding: 4px 12px; border-radius: 20px;
+    display: none;
+    box-shadow: 0 2px 12px rgba(249,115,22,.35);
+  }
+
+  /* ── Slide-up job panel ──────────────────────────── */
   #job-panel {
     position: fixed;
     left: 0; right: 0;
-    bottom: var(--tab-h);
+    bottom: var(--tab-h, 64px);
     z-index: 200;
     transform: translateY(100%);
-    transition: transform 0.32s cubic-bezier(0.34,1.08,0.64,1);
+    transition: transform .3s cubic-bezier(.34,1.08,.64,1);
+    max-height: 88vh;
+    border-radius: 22px 22px 0 0;
+    background: var(--rvc-card);
+    border-top: 1px solid var(--rvc-border-l);
+    box-shadow: 0 -16px 60px rgba(0,0,0,.35);
+    display: flex; flex-direction: column;
     will-change: transform;
-    max-height: 85vh;
-    border-radius: 22px 22px 0 0;
-    background: #1A1D27;
-    border-top: 1px solid #2E3352;
-    box-shadow: 0 -12px 48px rgba(0,0,0,0.55);
-    display: flex;
-    flex-direction: column;
   }
-  #job-panel.open    { transform: translateY(0); }
-  #job-panel.mini    { transform: translateY(calc(100% - 76px)); }
+  #job-panel.open { transform: translateY(0); }
+  #job-panel.mini { transform: translateY(calc(100% - 80px)); }
 
-  /* Panel header (always visible when panel open/mini) */
-  .panel-header {
-    flex-shrink: 0;
-    padding: 10px 18px 8px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    border-radius: 22px 22px 0 0;
-  }
   .drag-pill {
-    position: absolute;
-    top: 8px; left: 50%;
+    position: absolute; top: 9px; left: 50%;
     transform: translateX(-50%);
     width: 36px; height: 4px;
-    background: #3B82F6;
-    border-radius: 2px;
-    opacity: 0.5;
+    background: var(--rvc-border-l); border-radius: 2px;
   }
 
-  /* Panel body scrollable */
-  .panel-body {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 0 18px 20px;
-    flex: 1;
-  }
-
-  /* ── Job photo preview in header ── */
-  .header-photo {
-    width: 48px; height: 48px;
-    border-radius: 10px;
-    object-fit: cover;
-    border: 2px solid #2E3352;
+  /* Panel header */
+  .panel-hdr {
     flex-shrink: 0;
+    padding: 22px 16px 10px;
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer; border-radius: 22px 22px 0 0;
+    -webkit-tap-highlight-color: transparent;
   }
-  .header-title   { font-size: 0.96rem; font-weight: 600; color: #F8FAFC; line-height: 1.3; }
-  .header-sub     { font-size: 0.75rem; color: #6B7280; }
-  .header-actions { margin-left: auto; display: flex; gap: 6px; }
+  .panel-thumb {
+    width: 50px; height: 50px; border-radius: 12px;
+    object-fit: cover; flex-shrink: 0;
+    border: 1.5px solid var(--rvc-border-l);
+    background: var(--rvc-card-l);
+  }
+  .panel-name { font-size: .97rem; font-weight: 700; color: var(--rvc-text); font-family: 'Sora', sans-serif; }
+  .panel-meta { font-size: .74rem; color: var(--rvc-muted); margin-top: 2px; }
+  .panel-close {
+    margin-left: auto; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--rvc-card-l); border: 1px solid var(--rvc-border-l);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--rvc-muted); font-size: 11px; cursor: pointer; flex-shrink: 0;
+    transition: background .15s;
+  }
+  .panel-close:hover { background: var(--rvc-border); }
 
-  /* ── Stats ── */
-  .stats-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin: 14px 0;
-  }
-  .stat-card {
-    background: #22263A;
-    border: 1px solid #2E3352;
-    border-radius: 12px;
-    padding: 10px 6px;
-    text-align: center;
-  }
-  .stat-val { font-size: 1rem; font-weight: 700; color: #F8FAFC; }
-  .stat-lbl { font-size: 0.65rem; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+  /* Panel body */
+  .panel-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 16px 28px; }
 
-  /* ── Route card ── */
-  .route-card {
-    background: #22263A;
-    border: 1px solid #2E3352;
-    border-radius: 14px;
-    padding: 12px 14px;
-    margin-bottom: 12px;
-  }
+  /* Stats row */
+  .pstats { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 14px; }
+  .pstat { background: var(--rvc-card-l); border: 1px solid var(--rvc-border); border-radius: 12px; padding: 11px 6px; text-align: center; }
+  .pstat-val { font-size: 1rem; font-weight: 800; color: var(--rvc-text); font-family: 'Sora', sans-serif; }
+  .pstat-val.orange { color: var(--rvc-orange); }
+  .pstat-lbl { font-size: .6rem; color: var(--rvc-muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 3px; font-weight: 600; }
+
+  /* Route */
+  .route-card { background: var(--rvc-card-l); border: 1px solid var(--rvc-border); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; }
   .route-stop { display: flex; align-items: flex-start; gap: 10px; }
   .route-stop + .route-stop { margin-top: 10px; }
-  .stop-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
-  .stop-label { font-size: 0.65rem; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; }
-  .stop-addr  { font-size: 0.84rem; color: #E2E8F0; line-height: 1.4; }
-  .route-divider { height: 14px; border-left: 2px dashed #2E3352; margin-left: 4px; }
+  .stop-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .stop-lbl  { font-size: .6rem; font-weight: 700; color: var(--rvc-muted); text-transform: uppercase; letter-spacing: .06em; }
+  .stop-addr { font-size: .84rem; color: var(--rvc-muted-l); line-height: 1.4; margin-top: 2px; }
+  .route-dash { height: 12px; border-left: 2px dashed var(--rvc-border-l); margin-left: 4px; }
 
-  /* ── Customer row ── */
-  .cust-row {
-    background: #22263A;
-    border: 1px solid #2E3352;
-    border-radius: 14px;
-    padding: 10px 14px;
-    margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .cust-avatar {
-    width: 40px; height: 40px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
-    border: 2px solid #3B82F6;
-  }
-  .cust-name  { font-size: 0.9rem; font-weight: 600; color: #F8FAFC; }
-  .cust-info  { font-size: 0.76rem; color: #6B7280; }
+  /* Customer row */
+  .cust-row { background: var(--rvc-card-l); border: 1px solid var(--rvc-border); border-radius: 14px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .cust-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--rvc-orange); flex-shrink: 0; }
+  .cust-name { font-size: .88rem; font-weight: 600; color: var(--rvc-text); }
+  .cust-phone { font-size: .75rem; color: var(--rvc-muted); }
 
-  /* ── Accept button ── */
+  /* CTA button */
   .accept-btn {
-    display: block;
-    width: 100%;
-    padding: 14px;
-    background: #3B82F6;
-    color: #fff;
-    border: none;
-    border-radius: 14px;
-    font-size: 0.95rem;
-    font-weight: 600;
-    font-family: 'Inter', sans-serif;
-    text-align: center;
-    text-decoration: none;
-    cursor: pointer;
-    transition: background 0.15s;
-    letter-spacing: -0.01em;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 15px;
+    background: var(--rvc-orange); color: #fff;
+    border: none; border-radius: 14px;
+    font-size: .95rem; font-weight: 700; font-family: 'Sora', sans-serif;
+    transition: background .15s;
+    box-shadow: 0 6px 20px rgba(249,115,22,.3);
+    text-decoration: none; text-align: center;
   }
-  .accept-btn:hover { background: #2563EB; color: #fff; text-decoration: none; }
+  .accept-btn:hover { background: var(--rvc-orange-d); color: #fff; }
 
-  /* ── Map overlays ── */
+  /* ── Map overlays ────────────────────────────────── */
   #map-loading {
-    position: fixed;
-    top: 50%; left: 50%;
-    transform: translate(-50%,-50%);
-    z-index: 500;
-    background: rgba(26,29,39,0.95);
-    border: 1px solid #2E3352;
-    border-radius: 16px;
-    padding: 16px 24px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.88rem;
-    color: #94A3B8;
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%,-50%); z-index: 500;
+    background: rgba(255,255,255,.95);
+    border: 1px solid #E5E7EB; border-radius: 16px;
+    padding: 16px 24px; display: flex; align-items: center; gap: 10px;
+    font-size: .875rem; color: #374151;
+    box-shadow: 0 8px 32px rgba(0,0,0,.12);
   }
   .spinner {
     width: 18px; height: 18px;
-    border: 2px solid #2E3352;
-    border-top-color: #3B82F6;
+    border: 2px solid #E5E7EB;
+    border-top-color: var(--rvc-orange);
     border-radius: 50%;
-    animation: spin 0.7s linear infinite;
+    animation: spin .7s linear infinite;
+    flex-shrink: 0;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   #no-jobs {
-    display: none;
-    position: fixed;
-    top: 50%; left: 50%;
-    transform: translate(-50%,-50%);
-    z-index: 500;
-    background: rgba(26,29,39,0.97);
-    border: 1px solid #2E3352;
-    border-radius: 20px;
-    padding: 32px 28px;
-    text-align: center;
-    width: calc(100% - 48px);
-    max-width: 320px;
+    display: none; position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%,-50%); z-index: 500;
+    background: rgba(255,255,255,.97);
+    border: 1px solid #E5E7EB; border-radius: 20px;
+    padding: 32px 28px; text-align: center;
+    width: calc(100% - 48px); max-width: 320px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.15);
   }
   .no-jobs-icon {
-    width: 60px; height: 60px;
-    background: #22263A;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    margin: 0 auto 14px;
+    width: 58px; height: 58px; border-radius: 50%;
+    background: #FEF3C7; display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 14px; font-size: 24px; color: var(--rvc-orange);
   }
-  .no-jobs-icon i { font-size: 24px; color: #3B82F6; }
 
-  /* ── Leaflet popup — dark ── */
+  /* ── Map popup ───────────────────────────────────── */
   .leaflet-popup-content-wrapper {
-    background: #1A1D27 !important;
-    border: 1px solid #2E3352 !important;
-    border-radius: 16px !important;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
-    padding: 0 !important;
-    color: #F8FAFC !important;
+    background: #fff !important; border-radius: 14px !important;
+    border: 1px solid #E5E7EB !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,.12) !important;
+    padding: 0 !important; color: #111827 !important;
   }
   .leaflet-popup-content { margin: 0 !important; }
-  .leaflet-popup-tip     { background: #1A1D27 !important; }
   .leaflet-popup-tip-container { display: none; }
   .leaflet-popup-close-button  { display: none !important; }
-
   .map-popup {
-    padding: 13px 16px;
-    min-width: 165px;
-    cursor: pointer;
-    font-family: 'Inter', sans-serif;
+    padding: 12px 16px; min-width: 170px;
+    cursor: pointer; font-family: 'Sora', sans-serif;
   }
-  .popup-name {
-    font-size: 0.9rem; font-weight: 600; color: #F8FAFC;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    max-width: 180px; margin-bottom: 5px;
-  }
-  .popup-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .popup-dist { font-size: 0.74rem; color: #6B7280; }
-  .popup-price {
-    background: #3B82F6; color: #fff;
-    font-size: 0.74rem; font-weight: 700;
-    padding: 3px 10px; border-radius: 20px;
-  }
-  .popup-tap {
-    font-size: 0.68rem; color: #4B5563; margin-top: 6px;
-    display: flex; align-items: center; gap: 4px;
-  }
-  .popup-tap::before {
-    content: ''; display: inline-block;
-    width: 6px; height: 6px;
-    border-radius: 50%; background: #10B981; flex-shrink: 0;
-  }
+  .popup-name { font-size: .9rem; font-weight: 700; color: #111827; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+  .popup-row  { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .popup-dist { font-size: .74rem; color: #6B7280; }
+  .popup-price { background: var(--rvc-orange); color: #fff; font-size: .74rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+  .popup-tap  { font-size: .68rem; color: #9CA3AF; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+  .popup-tap::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--rvc-green); display:inline-block; flex-shrink:0; }
 
-  /* ── Attribution ── */
+  /* ── Leaflet control overrides (for light map) ───── */
   .leaflet-control-attribution {
-    background: rgba(15,17,23,0.7) !important;
-    color: #4B5563 !important;
+    background: rgba(255,255,255,.85) !important; color: #9CA3AF !important;
     font-size: 9px !important;
-    margin-bottom: calc(var(--tab-h) + 2px) !important;
+    margin-bottom: calc(var(--tab-h, 64px) + 2px) !important;
   }
-  .leaflet-control-attribution a { color: #6B7280 !important; }
-
-  /* ── Zoom control ── */
   .leaflet-control-zoom {
-    margin-bottom: calc(var(--tab-h) + 12px) !important;
-    border: 1px solid #2E3352 !important;
-    border-radius: 10px !important;
-    overflow: hidden;
+    margin-bottom: calc(var(--tab-h, 64px) + 12px) !important;
+    border: 1px solid #E5E7EB !important; border-radius: 10px !important; overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,.1) !important;
   }
   .leaflet-control-zoom a {
-    background: rgba(26,29,39,0.95) !important;
-    color: #94A3B8 !important;
-    border-bottom-color: #2E3352 !important;
+    background: rgba(255,255,255,.95) !important; color: #374151 !important;
+    border-bottom-color: #E5E7EB !important;
+    width: 34px !important; height: 34px !important; line-height: 34px !important;
   }
-  .leaflet-control-zoom a:hover { background: #22263A !important; color: #F8FAFC !important; }
+  .leaflet-control-zoom a:hover { background: #F9FAFB !important; color: #111827 !important; }
 
-  /* ── Responsive: wider screens get a sidebar panel ── */
+  /* ── Desktop responsive ──────────────────────────── */
   @media (min-width: 768px) {
+    #map { left: 64px; }
+    .top-bar { left: 64px; }
     #job-panel {
-      left: auto; right: 0;
-      width: 380px;
-      bottom: 0;
-      border-radius: 0;
-      max-height: 100vh;
-      border-top: none;
-      border-left: 1px solid #2E3352;
+      left: 64px; right: 0; width: 380px; left: auto;
+      bottom: 0; border-radius: 0; max-height: 100vh;
+      border-top: none; border-left: 1px solid var(--rvc-border);
+      transform: translateX(100%);
     }
     #job-panel.open { transform: translateX(0); }
     #job-panel.mini { transform: translateX(0); }
-    #job-panel { transform: translateX(100%); }
-
-    .tab-bar { display: none; }
-
-    /* Desktop sidebar nav */
-    .desktop-nav {
-      display: flex !important;
-      position: fixed;
-      left: 0; top: 0; bottom: 0;
-      width: 64px;
-      background: rgba(26,29,39,0.97);
-      border-right: 1px solid #2E3352;
-      flex-direction: column;
-      align-items: center;
-      padding: 16px 0;
-      gap: 8px;
-      z-index: 300;
-    }
-    .desktop-nav a {
-      width: 44px; height: 44px;
-      border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      color: #6B7280; text-decoration: none; font-size: 18px;
-      transition: background 0.15s, color 0.15s;
-    }
-    .desktop-nav a.active,
-    .desktop-nav a:hover { background: #22263A; color: #3B82F6; }
-
-    #map { left: 64px; }
-    .top-bar { left: 64px; }
   }
+
+  /* ── Desktop sidebar ────────────────────────────── */
+  .desktop-nav {
+    display: none; position: fixed;
+    left: 0; top: 0; bottom: 0; width: 64px;
+    background: rgba(17,24,39,.98); border-right: 1px solid var(--rvc-border);
+    flex-direction: column; align-items: center;
+    padding: 16px 0; gap: 6px; z-index: 300;
+  }
+  .dn-logo { width: 38px; height: 38px; background: var(--rvc-orange); border-radius: 11px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .dn-logo i { font-size: 16px; color: #fff; }
+  .desktop-nav a { width: 46px; height: 46px; border-radius: 13px; display: flex; align-items: center; justify-content: center; color: var(--rvc-muted); font-size: 19px; text-decoration: none; transition: background .15s, color .15s; }
+  .desktop-nav a:hover  { background: var(--rvc-card-l); color: var(--rvc-muted-l); }
+  .desktop-nav a.active { background: rgba(249,115,22,.15); color: var(--rvc-orange); }
+  .dn-spacer { flex: 1; }
+
+  @media (min-width: 768px) { .desktop-nav { display: flex; } }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- Full-screen map -->
 <div id="map"></div>
 
-<!-- Top bar floating over map -->
+<!-- Top bar -->
 <div class="top-bar">
-  <div class="flex items-center gap-3">
-    <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-content-center">
-      <i class="fas fa-truck text-white" style="font-size:14px;"></i>
-    </div>
-    <span class="text-white font-semibold text-sm tracking-tight">Available Jobs</span>
+  <div class="top-left">
+    <div class="top-logo-badge"><i class="fas fa-map-marked-alt"></i></div>
+    <span class="top-page-title">Available Jobs</span>
   </div>
-  <span class="job-count-badge hidden bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full"
-        id="job-count-badge"></span>
+  <span class="job-count-badge" id="job-count-badge"></span>
 </div>
 
-<!-- Loading -->
+<!-- Loading overlay -->
 <div id="map-loading">
   <div class="spinner"></div>
-  <span>Finding jobs near you…</span>
+  <span>Finding jobs near you&hellip;</span>
 </div>
 
-<!-- No jobs -->
+<!-- No jobs overlay -->
 <div id="no-jobs">
   <div class="no-jobs-icon"><i class="fas fa-box-open"></i></div>
-  <p class="text-white font-semibold mb-1">No jobs available</p>
-  <p class="text-gray-500 text-sm">Check back shortly — new jobs appear in real time.</p>
+  <p style="color:#111827;font-weight:700;margin-bottom:5px;font-family:'Sora',sans-serif;">No Jobs Available</p>
+  <p style="color:#6B7280;font-size:.82rem;">New jobs appear in real time. Stay online!</p>
 </div>
 
-<!-- ── Bottom / Side panel (hidden until marker tap) ── -->
+<!-- Job detail panel -->
 <div id="job-panel">
   <div class="drag-pill"></div>
-
-  <!-- Panel header — tap to toggle mini/full -->
-  <div class="panel-header" id="panel-header" onclick="toggleMini()">
-    <img class="header-photo" id="jp-photo" src="" alt="">
-    <div class="flex-1 min-w-0">
-      <div class="header-title truncate" id="jp-name">—</div>
-      <div class="header-sub" id="jp-meta"></div>
+  <div class="panel-hdr" id="panel-hdr" onclick="toggleMini()">
+    <img class="panel-thumb" id="jp-thumb" src="" alt="">
+    <div style="flex:1;min-width:0;">
+      <div class="panel-name" id="jp-name">—</div>
+      <div class="panel-meta" id="jp-meta"></div>
     </div>
-    <div class="header-actions">
-      <button onclick="event.stopPropagation(); closePanel()"
-              class="w-8 h-8 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
-        <i class="fas fa-times" style="font-size:12px;"></i>
-      </button>
-    </div>
+    <button class="panel-close" onclick="event.stopPropagation();closePanel()">
+      <i class="fas fa-times"></i>
+    </button>
   </div>
-
-  <!-- Panel body — scrollable detail -->
-  <div class="panel-body" id="panel-body">
-
-    <!-- Stats -->
-    <div class="stats-row">
-      <div class="stat-card">
-        <div class="stat-val" id="jp-price">—</div>
-        <div class="stat-lbl">KES</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val" id="jp-distance">—</div>
-        <div class="stat-lbl">km</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val" id="jp-duration">—</div>
-        <div class="stat-lbl">min est.</div>
-      </div>
+  <div class="panel-body">
+    <div class="pstats">
+      <div class="pstat"><div class="pstat-val orange" id="jp-price">—</div><div class="pstat-lbl">USD</div></div>
+      <div class="pstat"><div class="pstat-val" id="jp-dist">—</div><div class="pstat-lbl">Miles</div></div>
+      <div class="pstat"><div class="pstat-val" id="jp-dur">—</div><div class="pstat-lbl">Min Est.</div></div>
     </div>
-
-    <!-- Route -->
     <div class="route-card">
       <div class="route-stop">
-        <div class="stop-dot" style="background:#10B981;"></div>
-        <div>
-          <div class="stop-label">Pickup</div>
-          <div class="stop-addr" id="jp-pickup">—</div>
-        </div>
+        <div class="stop-dot" style="background:var(--rvc-green);"></div>
+        <div><div class="stop-lbl">Pickup</div><div class="stop-addr" id="jp-pickup">—</div></div>
       </div>
-      <div class="route-divider"></div>
+      <div class="route-dash"></div>
       <div class="route-stop">
-        <div class="stop-dot" style="background:#EF4444;"></div>
-        <div>
-          <div class="stop-label">Delivery</div>
-          <div class="stop-addr" id="jp-delivery">—</div>
-        </div>
+        <div class="stop-dot" style="background:var(--rvc-orange);"></div>
+        <div><div class="stop-lbl">Delivery</div><div class="stop-addr" id="jp-delivery">—</div></div>
       </div>
     </div>
-
-    <!-- Customer -->
     <div class="cust-row">
       <img class="cust-avatar" id="jp-avatar" src="" alt="">
       <div>
         <div class="cust-name" id="jp-cname">—</div>
-        <div class="cust-info" id="jp-cphone"></div>
+        <div class="cust-phone" id="jp-cphone"></div>
       </div>
     </div>
-
-    <!-- CTA -->
     <a class="accept-btn" id="jp-link" href="#">
-      View &amp; Accept Job <i class="fas fa-arrow-right ml-2" style="font-size:12px;"></i>
+      <i class="fas fa-check-circle"></i> View &amp; Accept Job
     </a>
-
   </div>
 </div>
 
-<!-- ── Mobile tab bar ── -->
-<nav class="tab-bar">
-  <a href="{% url 'courier:available_jobs' %}" class="tab-item active">
-    <i class="fas fa-map-marked-alt"></i>
-    <span>Jobs</span>
-  </a>
-  <a href="{% url 'courier:current_job' %}" class="tab-item">
-    <i class="fas fa-truck"></i>
-    <span>My Job</span>
-  </a>
-  <a href="{% url 'courier:profile' %}" class="tab-item">
-    <i class="fas fa-user-circle"></i>
-    <span>Profile</span>
-  </a>
-</nav>
+{% include 'courier/bottom_tabs.html' %}
 
-<!-- ── Desktop side nav (hidden on mobile) ── -->
-<nav class="desktop-nav" style="display:none;">
-  <a href="{% url 'courier:available_jobs' %}" class="active" title="Available Jobs">
-    <i class="fas fa-map-marked-alt"></i>
-  </a>
-  <a href="{% url 'courier:current_job' %}" title="My Job">
-    <i class="fas fa-truck"></i>
-  </a>
-  <a href="{% url 'courier:profile' %}" title="Profile">
-    <i class="fas fa-user-circle"></i>
-  </a>
+<nav class="desktop-nav">
+  <div class="dn-logo"><i class="fas fa-truck"></i></div>
+  <a href="{% url 'courier:home' %}"           title="Home"><i class="fas fa-home"></i></a>
+  <a href="{% url 'courier:available_jobs' %}" class="active" title="Jobs"><i class="fas fa-map-marked-alt"></i></a>
+  <a href="{% url 'courier:current_job' %}"    title="My Job"><i class="fas fa-truck"></i></a>
+  <a href="{% url 'courier:archived_jobs' %}"  title="Earnings"><i class="fas fa-dollar-sign"></i></a>
+  <div class="dn-spacer"></div>
+  <a href="{% url 'courier:profile' %}"        title="Profile"><i class="fas fa-user-circle"></i></a>
 </nav>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-var NAIROBI  = [-1.2921, 36.8219];
-var TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-var TILE_OPT = {
-  attribution: '&copy; <a href="https://openstreetmap.org">OSM</a> &copy; <a href="https://carto.com">CARTO</a>',
-  maxZoom: 19
-};
+var ATLANTA  = [33.7490, -84.3880];
+var VOYAGER  = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+var ATTR     = '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> &copy; <a href="https://carto.com">CARTO</a>';
 
-var map = L.map('map', {
-  zoomControl: false,
-  attributionControl: true,
-}).setView(NAIROBI, 12);
+var map = L.map('map', {zoomControl:false, attributionControl:true}).setView(ATLANTA, 11);
+L.tileLayer(VOYAGER, {attribution:ATTR, maxZoom:19}).addTo(map);
+L.control.zoom({position:'bottomright'}).addTo(map);
 
-L.tileLayer(TILE_URL, TILE_OPT).addTo(map);
-L.control.zoom({ position: 'bottomright' }).addTo(map);
+var isPanelOpen=false, isMini=false;
+var defaultThumb = "{% static 'images/avatar.png' %}";
 
-var isPanelOpen = false;
-var isMini = false;
-var defaultAvatar = "{% static 'images/avatar.png' %}";
-
-// ── Markers ───────────────────────────────────────────────────────────────────
-function makeIcon(color, icon) {
-  return L.divIcon({
-    className: '',
-    html: '<div style="position:relative;width:46px;height:46px;">'
-        + '<div style="background:' + color + ';width:46px;height:46px;border-radius:50%;'
-        + 'display:flex;align-items:center;justify-content:center;'
-        + 'box-shadow:0 4px 16px rgba(0,0,0,0.6);border:3px solid rgba(255,255,255,0.15);">'
-        + '<i class="fas ' + icon + '" style="color:#fff;font-size:16px;"></i>'
-        + '</div></div>',
-    iconSize:   [46,46],
-    iconAnchor: [23,23],
-    popupAnchor:[0,-28],
+// ── Courier location marker ───────────────────────
+var courierMk = null;
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(function(p) {
+    var ll = [p.coords.latitude, p.coords.longitude];
+    courierMk = L.circleMarker(ll, {
+      radius:10, fillColor:'#0D1B3E', color:'#fff',
+      weight:2, fillOpacity:1,
+    }).addTo(map);
+    courierMk.bindTooltip('You', {permanent:true, direction:'top', offset:[0,-12],
+      className:'courier-tip'});
+    map.setView(ll, 12);
   });
 }
 
-var jobIcon = makeIcon('#3B82F6', 'fa-box');
+// ── Job marker ────────────────────────────────────
+function makeMarker() {
+  return L.divIcon({
+    className: '',
+    html: '<div style="background:#F97316;width:42px;height:42px;border-radius:50%;'
+        + 'display:flex;align-items:center;justify-content:center;'
+        + 'box-shadow:0 4px 16px rgba(249,115,22,.45);border:3px solid #fff;">'
+        + '<i class="fas fa-box" style="color:#fff;font-size:15px;"></i></div>',
+    iconSize:[42,42], iconAnchor:[21,21], popupAnchor:[0,-26],
+  });
+}
 
-// ── Load jobs ─────────────────────────────────────────────────────────────────
-fetch("{% url 'courier:available_jobs_api' %}")
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
+// ── Load jobs from API ─────────────────────────────
+fetch("{% url 'courier:available_jobs_api' %}", {credentials:'same-origin'})
+  .then(r => r.json())
+  .then(data => {
     document.getElementById('map-loading').style.display = 'none';
-
-    if (!data.success || !data.jobs || !data.jobs.length) {
+    if (!data.success || !data.jobs?.length) {
       document.getElementById('no-jobs').style.display = 'block';
       return;
     }
-
     var badge = document.getElementById('job-count-badge');
-    badge.textContent = data.jobs.length + (data.jobs.length === 1 ? ' job' : ' jobs');
-    badge.classList.remove('hidden');
+    badge.textContent = data.jobs.length + ' job' + (data.jobs.length === 1 ? '' : 's');
+    badge.style.display = 'block';
 
     var bounds = L.latLngBounds();
-    var valid  = data.jobs.filter(function(j) { return j.pickup_lat && j.pickup_lng; });
-
-    valid.forEach(function(job) {
+    data.jobs.filter(j => j.pickup_lat && j.pickup_lng).forEach(job => {
       var ll = [job.pickup_lat, job.pickup_lng];
-      var mk = L.marker(ll, { icon: jobIcon }).addTo(map);
-
-      mk.bindPopup(buildPopup(job), {
-        maxWidth: 230, closeButton: false,
-      });
-
-      mk.on('click', function() {
-        mk.openPopup();
-        showJob(job);
-      });
-
+      var mk = L.marker(ll, {icon: makeMarker()}).addTo(map);
+      mk.bindPopup(popup(job), {maxWidth:240, closeButton:false});
+      mk.on('click', () => { mk.openPopup(); showPanel(job); });
       bounds.extend(ll);
     });
-
-    if (valid.length) map.fitBounds(bounds, { padding: [70, 70], maxZoom: 15 });
+    if (bounds.isValid()) map.fitBounds(bounds, {padding:[70,70], maxZoom:14});
   })
-  .catch(function() {
+  .catch(() => {
     document.getElementById('map-loading').style.display = 'none';
     document.getElementById('no-jobs').style.display = 'block';
   });
 
-// ── Popup HTML ────────────────────────────────────────────────────────────────
-function buildPopup(job) {
+function popup(job) {
   return '<div class="map-popup">'
     + '<div class="popup-name">' + esc(job.names) + '</div>'
     + '<div class="popup-row">'
-    + '<span class="popup-dist">' + job.distance + ' km · ~' + job.duration + ' min</span>'
-    + '<span class="popup-price">KES ' + job.price + '</span>'
+    + '<span class="popup-dist">' + job.distance + ' mi &middot; ~' + job.duration + ' min</span>'
+    + '<span class="popup-price">$' + job.price + '</span>'
     + '</div>'
     + '<div class="popup-tap">Tap to view details</div>'
     + '</div>';
 }
 
-// ── Panel controls ────────────────────────────────────────────────────────────
-function showJob(job) {
-  var photo = job.photo || defaultAvatar;
+// ── Panel ─────────────────────────────────────────
+function showPanel(job) {
+  var img = document.getElementById('jp-thumb');
+  img.src = job.photo || defaultThumb;
+  img.onerror = () => { img.src = defaultThumb; };
 
-  var img = document.getElementById('jp-photo');
-  img.src = photo;
-  img.onerror = function() { this.src = defaultAvatar; };
-
-  document.getElementById('jp-name').textContent     = job.names;
-  document.getElementById('jp-meta').textContent     = job.size + ' · ' + job.quantity + ' tonne(s)';
-  document.getElementById('jp-price').textContent    = job.price;
-  document.getElementById('jp-distance').textContent = job.distance;
-  document.getElementById('jp-duration').textContent = job.duration;
-  document.getElementById('jp-pickup').textContent   = job.pickup_address   || 'Not specified';
-  document.getElementById('jp-delivery').textContent = job.delivery_address || 'Not specified';
-  document.getElementById('jp-cname').textContent    = job.customer_name    || 'Customer';
-  document.getElementById('jp-cphone').textContent   = job.customer_phone   || '';
+  document.getElementById('jp-name').textContent    = job.names;
+  document.getElementById('jp-meta').textContent    = (job.size||'') + (job.quantity ? ' · ' + job.quantity + ' item(s)' : '');
+  document.getElementById('jp-price').textContent   = '$' + job.price;
+  document.getElementById('jp-dist').textContent    = job.distance + ' mi';
+  document.getElementById('jp-dur').textContent     = job.duration;
+  document.getElementById('jp-pickup').textContent  = job.pickup_address  || 'Not specified';
+  document.getElementById('jp-delivery').textContent= job.delivery_address|| 'Not specified';
+  document.getElementById('jp-cname').textContent   = job.customer_name   || 'Customer';
+  document.getElementById('jp-cphone').textContent  = job.customer_phone  || '';
 
   var av = document.getElementById('jp-avatar');
-  av.src = job.customer_avatar || defaultAvatar;
-  av.onerror = function() { this.src = defaultAvatar; };
+  av.src = job.customer_avatar || defaultThumb;
+  av.onerror = () => { av.src = defaultThumb; };
 
   document.getElementById('jp-link').href = '/courier/jobs/available/' + job.id + '/';
 
   var panel = document.getElementById('job-panel');
-  panel.classList.remove('mini');
-  panel.classList.add('open');
-  isPanelOpen = true;
-  isMini = false;
+  panel.classList.remove('mini'); panel.classList.add('open');
+  isPanelOpen = true; isMini = false;
 }
 
 function toggleMini() {
-  var panel = document.getElementById('job-panel');
   if (!isPanelOpen) return;
-  if (isMini) {
-    panel.classList.remove('mini');
-    panel.classList.add('open');
-    isMini = false;
-  } else {
-    panel.classList.remove('open');
-    panel.classList.add('mini');
-    isMini = true;
-  }
+  var panel = document.getElementById('job-panel');
+  if (isMini) { panel.classList.remove('mini'); panel.classList.add('open'); isMini = false; }
+  else { panel.classList.remove('open'); panel.classList.add('mini'); isMini = true; }
 }
 
 function closePanel() {
-  var panel = document.getElementById('job-panel');
-  panel.classList.remove('open', 'mini');
-  isPanelOpen = false;
-  isMini = false;
-  map.closePopup();
+  document.getElementById('job-panel').classList.remove('open','mini');
+  isPanelOpen = false; isMini = false; map.closePopup();
 }
 
-// Close panel on map tap (but not on marker click)
-map.on('click', function() { closePanel(); });
+map.on('click', () => closePanel());
 
-// ── Drag-to-dismiss on mobile ─────────────────────────────────────────────────
-(function() {
-  var panel = document.getElementById('job-panel');
-  var startY = 0, startT = 0;
-
-  panel.addEventListener('touchstart', function(e) {
-    startY = e.touches[0].clientY;
-    startT = Date.now();
-  }, { passive: true });
-
-  panel.addEventListener('touchend', function(e) {
-    var dy = e.changedTouches[0].clientY - startY;
-    var dt = Date.now() - startT;
-    if (dy > 60 && dt < 400) {
-      if (!isMini) { toggleMini(); }
-      else         { closePanel(); }
-    }
-    if (dy < -60 && dt < 400 && isMini) {
-      toggleMini();
-    }
-  }, { passive: true });
+// ── Touch drag to dismiss ─────────────────────────
+(function(){
+  var p=document.getElementById('job-panel'), sy=0, st=0;
+  p.addEventListener('touchstart', e=>{sy=e.touches[0].clientY;st=Date.now();},{passive:true});
+  p.addEventListener('touchend', e=>{
+    var dy=e.changedTouches[0].clientY-sy, dt=Date.now()-st;
+    if(dy>60&&dt<400){ !isMini?toggleMini():closePanel(); }
+    if(dy<-60&&dt<400&&isMini){ toggleMini(); }
+  },{passive:true});
 })();
 
-// ── Utility ───────────────────────────────────────────────────────────────────
-function esc(s) {
-  return String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 </script>
 {% endblock %}

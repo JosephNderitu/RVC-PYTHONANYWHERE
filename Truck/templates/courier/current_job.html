@@ -1,151 +1,349 @@
-{% extends 'base.html' %}
+{% extends 'courier/base.html' %}
 {% load static %}
+
+{% block title %}My Job | RVC Courier{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-body { font-family: 'Sora', sans-serif; background: #F1F5F9; }
-.courier-shell { max-width: 520px; margin: 0 auto; padding: 16px 12px 40px; }
+  /* This page scrolls */
+  html, body { overflow-y: auto !important; overflow-x: hidden; }
+  #content   { height: auto !important; min-height: 100vh; }
 
-.gps-banner { border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font-size: .875rem; font-weight: 600; }
-.gps-banner.inactive { background: #FEF3C7; color: #B45309; border: 1.5px solid #FDE68A; }
-.gps-banner.active   { background: #D1FAE5; color: #065F46; border: 1.5px solid #BBF7D0; }
-.gps-banner.error    { background: #FEE2E2; color: #991B1B; border: 1.5px solid #FCA5A5; }
+  /* ── Shell ───────────────────────────────────────── */
+  .courier-shell {
+    max-width: 560px; margin: 0 auto;
+    padding: 16px 14px calc(var(--tab-h, 64px) + 24px);
+  }
 
-.gps-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.gps-dot.pulse { animation: glow 1.5s infinite; background: #16A34A; }
-.gps-dot.idle  { background: #D97706; }
-.gps-dot.err   { background: #DC2626; }
-@keyframes glow { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.4)} }
+  /* ── Top bar ─────────────────────────────────────── */
+  .top-bar {
+    position: sticky; top: 0; left: 0; right: 0;
+    height: var(--top-h, 56px);
+    background: rgba(17,24,39,.98); border-bottom: 1px solid var(--rvc-border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; z-index: 200;
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  }
+  .top-left { display: flex; align-items: center; gap: 10px; }
+  .top-label { font-size: .68rem; font-weight: 700; color: var(--rvc-muted); text-transform: uppercase; letter-spacing: .07em; }
+  .top-job-name { font-size: .97rem; font-weight: 700; color: var(--rvc-text); font-family: 'Sora', sans-serif; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.map-box { height: 260px; border-radius: 14px; overflow: hidden; border: 1px solid #E5E7EB; margin-bottom: 16px; }
-#courier-map { width: 100%; height: 100%; }
+  /* Status chip */
+  .status-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 12px; border-radius: 20px; font-size: .72rem; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .chip-picking    { background: rgba(59,130,246,.18); color: #60A5FA; }
+  .chip-delivering { background: rgba(249,115,22,.18); color: var(--rvc-orange); }
 
-.c-card { background: #fff; border: 1px solid #E5E7EB; border-radius: 14px; margin-bottom: 14px; overflow: hidden; }
-.c-card-hdr { background: #0D1B3E; padding: 11px 18px; display: flex; align-items: center; gap: 10px; }
-.c-card-hdr span { color: #fff; font-weight: 700; font-size: .875rem; }
-.c-card-body { padding: 16px 18px; }
+  /* ── GPS status banner ───────────────────────────── */
+  .gps-banner {
+    border-radius: 14px; padding: 13px 16px;
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 14px; font-size: .84rem; font-weight: 600;
+    border: 1.5px solid;
+  }
+  .gps-banner.inactive { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.25); color: #FBBF24; }
+  .gps-banner.active   { background: rgba(16,185,129,.1);  border-color: rgba(16,185,129,.25); color: #34D399; }
+  .gps-banner.error    { background: rgba(239,68,68,.08);  border-color: rgba(239,68,68,.25);  color: #F87171; }
+  .gps-banner-text { flex: 1; }
+  .gps-banner-title  { line-height: 1.3; }
+  .gps-banner-detail { font-size: .73rem; opacity: .8; font-weight: 400; margin-top: 2px; }
 
-.addr-row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
-.addr-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: .75rem; flex-shrink: 0; margin-top: 2px; }
+  .gps-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .gps-dot.pulse { background: var(--rvc-green); animation: glow 1.5s infinite; }
+  .gps-dot.idle  { background: #FBBF24; }
+  .gps-dot.err   { background: var(--rvc-red); }
+  @keyframes glow { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.5)} }
 
-.stats-strip { display: flex; background: #F8FAFC; border: 1px solid #E5E7EB; border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
-.stat-item { flex: 1; text-align: center; padding: 12px 6px; }
-.stat-item:not(:last-child) { border-right: 1px solid #E5E7EB; }
-.stat-val { font-size: 1rem; font-weight: 800; color: #0D1B3E; }
-.stat-lbl { font-size: .65rem; color: #9CA3AF; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
+  /* ── Stats strip ─────────────────────────────────── */
+  .stats-strip {
+    display: flex; background: var(--rvc-card);
+    border: 1px solid var(--rvc-border); border-radius: 14px;
+    overflow: hidden; margin-bottom: 14px;
+  }
+  .stat-item { flex: 1; text-align: center; padding: 13px 6px; }
+  .stat-item:not(:last-child) { border-right: 1px solid var(--rvc-border); }
+  .stat-val { font-size: 1rem; font-weight: 800; color: var(--rvc-text); font-family: 'Sora', sans-serif; }
+  .stat-val.orange { color: var(--rvc-orange); }
+  .stat-lbl { font-size: .6rem; color: var(--rvc-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-top: 3px; }
 
-.btn-o { background: #F97316; color: #fff; border: none; border-radius: 12px; padding: 14px; font-weight: 700; font-size: .9rem; font-family: 'Sora', sans-serif; width: 100%; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; transition: all .2s; text-decoration: none; }
-.btn-o:hover { background: #EA6C0A; color: #fff; }
-.btn-stop { background: #DC2626; }
-.btn-stop:hover { background: #B91C1C; }
+  /* ── Map ─────────────────────────────────────────── */
+  .map-box { height: 260px; border-radius: 14px; overflow: hidden; border: 1px solid var(--rvc-border); margin-bottom: 14px; }
+  #courier-map { width: 100%; height: 100%; }
 
-.chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: .75rem; font-weight: 700; }
-.chip-picking    { background: #DBEAFE; color: #1D4ED8; }
-.chip-delivering { background: #D1FAE5; color: #065F46; }
+  /* Leaflet on voyager */
+  .leaflet-control-attribution { background: rgba(255,255,255,.85) !important; color: #9CA3AF !important; font-size: 9px !important; }
+  .leaflet-popup-content-wrapper { background: #fff !important; border-radius: 12px !important; border: 1px solid #E5E7EB !important; color: #111827 !important; box-shadow: 0 4px 16px rgba(0,0,0,.12) !important; }
+  .leaflet-popup-tip { background: #fff !important; }
+
+  /* ── GPS toggle button ───────────────────────────── */
+  .gps-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 14px; border-radius: 13px;
+    font-size: .92rem; font-weight: 700; font-family: 'Sora', sans-serif;
+    border: none; cursor: pointer; margin-bottom: 10px; transition: background .2s;
+  }
+  .gps-btn.start { background: var(--rvc-orange); color: #fff; box-shadow: 0 6px 20px rgba(249,115,22,.3); }
+  .gps-btn.start:hover { background: var(--rvc-orange-d); }
+  .gps-btn.stop  { background: var(--rvc-red); color: #fff; box-shadow: 0 6px 20px rgba(239,68,68,.25); }
+  .gps-btn.stop:hover  { background: #DC2626; }
+
+  /* ── Navigate button ─────────────────────────────── */
+  .nav-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 13px; border-radius: 13px;
+    font-size: .88rem; font-weight: 700; font-family: 'Sora', sans-serif;
+    background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.25);
+    color: #60A5FA; cursor: pointer; margin-bottom: 14px;
+    text-decoration: none; transition: background .15s;
+  }
+  .nav-btn:hover { background: rgba(59,130,246,.2); color: #93C5FD; text-decoration: none; }
+
+  /* ── Cards ───────────────────────────────────────── */
+  .c-card { background: var(--rvc-card); border: 1px solid var(--rvc-border); border-radius: 14px; margin-bottom: 12px; overflow: hidden; }
+  .c-card-hdr {
+    background: #0D1B3E; padding: 11px 16px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .c-card-hdr span { color: #fff; font-weight: 700; font-size: .875rem; font-family: 'Sora', sans-serif; }
+  .c-card-body { padding: 16px; }
+
+  /* Route stops */
+  .addr-row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+  .addr-row:last-child { margin-bottom: 0; }
+  .addr-dot {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 800; font-size: .72rem;
+    flex-shrink: 0; margin-top: 2px;
+  }
+  .addr-label { font-size: .65rem; color: var(--rvc-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+  .addr-name  { font-size: .9rem; font-weight: 700; color: var(--rvc-text); margin-top: 2px; }
+  .addr-str   { font-size: .8rem; color: var(--rvc-muted-l); margin-top: 2px; }
+  .addr-phone {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: .8rem; color: var(--rvc-orange); font-weight: 600;
+    margin-top: 4px; text-decoration: none;
+  }
+  .addr-phone:hover { color: var(--rvc-orange-d); }
+  .addr-dash { border-left: 2px dashed var(--rvc-border-l); height: 14px; margin-left: 13px; }
+
+  /* Photo CTA */
+  .photo-desc { font-size: .84rem; color: var(--rvc-muted-l); margin-bottom: 14px; line-height: 1.6; }
+  .photo-cta {
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    width: 100%; padding: 15px; border-radius: 13px;
+    background: var(--rvc-orange); color: #fff;
+    font-size: .95rem; font-weight: 700; font-family: 'Sora', sans-serif;
+    border: none; text-decoration: none;
+    box-shadow: 0 6px 20px rgba(249,115,22,.3);
+    transition: background .15s;
+    display: flex; /* override <a> */
+  }
+  .photo-cta:hover { background: var(--rvc-orange-d); color: #fff; text-decoration: none; }
+
+  /* ── No-job empty state ──────────────────────────── */
+  .no-job-screen {
+    display: flex; align-items: center; justify-content: center;
+    min-height: calc(100vh - var(--top-h, 56px) - var(--tab-h, 64px));
+    padding: 32px 24px;
+  }
+  .no-job-inner { text-align: center; max-width: 300px; }
+  .no-job-icon {
+    width: 72px; height: 72px; border-radius: 20px;
+    background: var(--rvc-card); border: 1px solid var(--rvc-border-l);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 18px; font-size: 28px; color: var(--rvc-muted);
+  }
+  .no-job-title { font-size: 1.05rem; font-weight: 800; color: var(--rvc-text); font-family: 'Sora', sans-serif; margin-bottom: 8px; }
+  .no-job-sub   { font-size: .84rem; color: var(--rvc-muted); line-height: 1.5; margin-bottom: 22px; }
+  .browse-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--rvc-orange); color: #fff;
+    font-weight: 700; font-size: .9rem; font-family: 'Sora', sans-serif;
+    padding: 13px 28px; border-radius: 13px;
+    text-decoration: none; transition: background .15s;
+    box-shadow: 0 6px 20px rgba(249,115,22,.3);
+  }
+  .browse-btn:hover { background: var(--rvc-orange-d); color: #fff; }
+
+  /* ── Desktop sidebar ────────────────────────────── */
+  .desktop-nav { display: none; position: fixed; left: 0; top: 0; bottom: 0; width: 64px; background: rgba(17,24,39,.98); border-right: 1px solid var(--rvc-border); flex-direction: column; align-items: center; padding: 16px 0; gap: 6px; z-index: 300; }
+  .dn-logo { width: 38px; height: 38px; background: var(--rvc-orange); border-radius: 11px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .dn-logo i { font-size: 16px; color: #fff; }
+  .desktop-nav a { width: 46px; height: 46px; border-radius: 13px; display: flex; align-items: center; justify-content: center; color: var(--rvc-muted); font-size: 19px; text-decoration: none; transition: background .15s, color .15s; }
+  .desktop-nav a:hover  { background: var(--rvc-card-l); color: var(--rvc-muted-l); }
+  .desktop-nav a.active { background: rgba(249,115,22,.15); color: var(--rvc-orange); }
+  .dn-spacer { flex: 1; }
+
+  @media (min-width: 768px) {
+    .desktop-nav  { display: flex; }
+    .top-bar      { left: 64px; }
+    .courier-shell { margin-left: 80px; }
+    .no-job-screen { margin-left: 64px; }
+  }
+  @media (min-width: 1024px) {
+    .courier-shell { max-width: 640px; }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
 
+<!-- Top bar -->
+<div class="top-bar">
+  {% if job %}
+  <div class="top-left">
+    <div>
+      <div class="top-label">Active Job</div>
+      <div class="top-job-name">{{ job.names }}</div>
+    </div>
+  </div>
+  <span class="status-chip {% if job.status == 'picking' %}chip-picking{% else %}chip-delivering{% endif %}">
+    <i class="fas fa-{% if job.status == 'picking' %}box{% else %}shipping-fast{% endif %}"></i>
+    {% if job.status == 'picking' %}Picking Up{% else %}Delivering{% endif %}
+  </span>
+  {% else %}
+  <div class="top-left">
+    <div>
+      <div class="top-label">My Job</div>
+      <div class="top-job-name">No active job</div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
 {% if not job %}
-<div style="display:flex;align-items:center;justify-content:center;min-height:85vh;padding:20px;">
-  <div style="text-align:center;max-width:300px;">
-    <div style="font-size:3rem;margin-bottom:16px;">🚛</div>
-    <h2 style="color:#0D1B3E;font-weight:800;margin-bottom:8px;">No Active Job</h2>
-    <p style="color:#6B7280;font-size:.875rem;margin-bottom:20px;">Browse available jobs to get started.</p>
-    <a href="{% url 'courier:available_jobs' %}" class="btn-o" style="max-width:240px;margin:0 auto;">
-      <i class="fas fa-search"></i> Browse Jobs
+<!-- ── No active job ───────────────────────────────── -->
+<div class="no-job-screen">
+  <div class="no-job-inner">
+    <div class="no-job-icon">
+      <i class="fas fa-box-open"></i>
+    </div>
+    <div class="no-job-title">No Active Job</div>
+    <div class="no-job-sub">
+      You have no delivery in progress. Browse the map to find and accept a job.
+    </div>
+    <a href="{% url 'courier:available_jobs' %}" class="browse-btn">
+      <i class="fas fa-search"></i> Browse Available Jobs
     </a>
   </div>
 </div>
 
 {% else %}
+<!-- ── Active job ──────────────────────────────────── -->
 <div class="courier-shell">
 
-  <!-- Header -->
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-    <div style="flex:1;">
-      <div style="font-size:.7rem;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.08em;">Active Job</div>
-      <div style="font-size:1.05rem;font-weight:800;color:#0D1B3E;margin-top:2px;">{{ job.names }}</div>
-    </div>
-    <span class="chip {% if job.status == 'picking' %}chip-picking{% else %}chip-delivering{% endif %}">
-      <i class="fas fa-{% if job.status == 'picking' %}truck{% else %}shipping-fast{% endif %}"></i>
-      {% if job.status == 'picking' %}Picking Up{% else %}Delivering{% endif %}
-    </span>
-  </div>
-
-  <!-- GPS Banner -->
+  <!-- GPS status banner -->
   <div class="gps-banner inactive" id="gps-banner">
     <div class="gps-dot idle" id="gps-dot"></div>
-    <div style="flex:1;">
-      <div id="gps-title">GPS inactive — tap Start to begin</div>
-      <div id="gps-detail" style="font-size:.75rem;opacity:.75;font-weight:400;margin-top:2px;">Your location will be sent to the platform every few seconds</div>
+    <div class="gps-banner-text">
+      <div class="gps-banner-title" id="gps-title">GPS inactive &mdash; tap Start to begin</div>
+      <div class="gps-banner-detail" id="gps-detail">Your live position will be sent to the platform every update</div>
     </div>
   </div>
 
-  <!-- Stats -->
+  <!-- Stats strip -->
   <div class="stats-strip">
-    <div class="stat-item"><div class="stat-val">{{ job.distance }} mi</div><div class="stat-lbl">Distance</div></div>
-    <div class="stat-item"><div class="stat-val">~{{ job.duration }}m</div><div class="stat-lbl">Est. Time</div></div>
-    <div class="stat-item"><div class="stat-val" style="color:#F97316;">${{ job.price }}</div><div class="stat-lbl">Earnings</div></div>
-    <div class="stat-item"><div class="stat-val" id="ping-count">0</div><div class="stat-lbl">GPS Pings</div></div>
+    <div class="stat-item">
+      <div class="stat-val">{{ job.distance }} mi</div>
+      <div class="stat-lbl">Distance</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val">~{{ job.duration }}m</div>
+      <div class="stat-lbl">Est. Time</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val orange">${{ job.price }}</div>
+      <div class="stat-lbl">Earnings</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val" id="ping-count">0</div>
+      <div class="stat-lbl">GPS Pings</div>
+    </div>
   </div>
 
-  <!-- Map -->
+  <!-- Live map -->
   <div class="map-box"><div id="courier-map"></div></div>
 
-  <!-- GPS Button -->
-  <button class="btn-o" id="gps-btn" onclick="toggleGPS()">
+  <!-- GPS toggle -->
+  <button class="gps-btn start" id="gps-btn" onclick="toggleGPS()">
     <i class="fas fa-location-arrow" id="gps-icon"></i>
     <span id="gps-btn-label">Start GPS Tracking</span>
   </button>
 
-  <!-- Route -->
+  <!-- Navigate button — opens Google Maps to current destination -->
+  <a id="nav-btn" href="#" target="_blank" rel="noopener" class="nav-btn">
+    <i class="fas fa-directions"></i>
+    <span id="nav-label">
+      Navigate to {% if job.status == 'picking' %}Pickup{% else %}Delivery{% endif %}
+    </span>
+  </a>
+
+  <!-- Route card -->
   <div class="c-card">
-    <div class="c-card-hdr"><i class="fas fa-route" style="color:#F97316;"></i><span>Route</span></div>
+    <div class="c-card-hdr">
+      <i class="fas fa-route" style="color:var(--rvc-orange);font-size:.9rem;"></i>
+      <span>Route</span>
+    </div>
     <div class="c-card-body">
+      <!-- Pickup -->
       <div class="addr-row">
         <div class="addr-dot" style="background:#2196F3;">P</div>
-        <div>
-          <div style="font-size:.7rem;color:#9CA3AF;font-weight:700;text-transform:uppercase;">Pickup</div>
-          <div style="font-weight:700;color:#0D1B3E;font-size:.9rem;">{{ job.pickup_name }}</div>
-          <div style="font-size:.8rem;color:#6B7280;">{{ job.pickup_address }}</div>
-          {% if job.pickup_phone %}<div style="font-size:.8rem;color:#F97316;font-weight:600;"><i class="fas fa-phone mr-1"></i>{{ job.pickup_phone }}</div>{% endif %}
+        <div style="flex:1;min-width:0;">
+          <div class="addr-label">Pickup</div>
+          <div class="addr-name">{{ job.pickup_name }}</div>
+          <div class="addr-str">{{ job.pickup_address }}</div>
+          {% if job.pickup_phone %}
+          <a href="tel:{{ job.pickup_phone }}" class="addr-phone">
+            <i class="fas fa-phone" style="font-size:.75rem;"></i>{{ job.pickup_phone }}
+          </a>
+          {% endif %}
         </div>
       </div>
-      <div style="border-left:2px dashed #E5E7EB;height:14px;margin-left:13px;"></div>
-      <div class="addr-row" style="margin-bottom:0;">
-        <div class="addr-dot" style="background:#F97316;">D</div>
-        <div>
-          <div style="font-size:.7rem;color:#9CA3AF;font-weight:700;text-transform:uppercase;">Delivery</div>
-          <div style="font-weight:700;color:#0D1B3E;font-size:.9rem;">{{ job.delivery_name }}</div>
-          <div style="font-size:.8rem;color:#6B7280;">{{ job.delivery_address }}</div>
-          {% if job.delivery_phone %}<div style="font-size:.8rem;color:#F97316;font-weight:600;"><i class="fas fa-phone mr-1"></i>{{ job.delivery_phone }}</div>{% endif %}
+      <div class="addr-dash"></div>
+      <!-- Delivery -->
+      <div class="addr-row">
+        <div class="addr-dot" style="background:var(--rvc-orange);">D</div>
+        <div style="flex:1;min-width:0;">
+          <div class="addr-label">Delivery</div>
+          <div class="addr-name">{{ job.delivery_name }}</div>
+          <div class="addr-str">{{ job.delivery_address }}</div>
+          {% if job.delivery_phone %}
+          <a href="tel:{{ job.delivery_phone }}" class="addr-phone">
+            <i class="fas fa-phone" style="font-size:.75rem;"></i>{{ job.delivery_phone }}
+          </a>
+          {% endif %}
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Photo action -->
+  <!-- Photo action card -->
   <div class="c-card">
     <div class="c-card-hdr">
-      <i class="fas fa-camera" style="color:#F97316;"></i>
+      <i class="fas fa-camera" style="color:var(--rvc-orange);font-size:.9rem;"></i>
       <span>{% if job.status == 'picking' %}Confirm Pickup{% else %}Confirm Delivery{% endif %}</span>
     </div>
     <div class="c-card-body">
-      <p style="font-size:.875rem;color:#6B7280;margin-bottom:14px;">
+      <p class="photo-desc">
         {% if job.status == 'picking' %}
-          Arrived at the pickup address? Take a photo of the parcel.
-          This <strong>automatically updates</strong> the job status to
-          <span style="color:#065F46;font-weight:700;">Delivering</span> and notifies the customer via WhatsApp.
+          Arrived at pickup? Take a photo of the parcel before loading.
+          This <strong style="color:var(--rvc-text);">automatically updates</strong> the job to
+          <span style="color:var(--rvc-green);font-weight:700;">Delivering</span>
+          and notifies the customer via WhatsApp.
         {% else %}
           Delivered the parcel? Take a proof-of-delivery photo.
-          This <strong>completes the job</strong> and sends the customer a
-          <span style="color:#F97316;font-weight:700;">confirmation link</span> via WhatsApp.
+          This <strong style="color:var(--rvc-text);">completes the job</strong>
+          and sends the customer a
+          <span style="color:var(--rvc-orange);font-weight:700;">confirmation link</span> via WhatsApp.
         {% endif %}
       </p>
-      <a href="{% url 'courier:current_job_take_photo' job.id %}" class="btn-o">
+      <a href="{% url 'courier:current_job_take_photo' job.id %}" class="photo-cta">
         <i class="fas fa-camera"></i>
         {% if job.status == 'picking' %}Take Pickup Photo{% else %}Take Delivery Photo{% endif %}
       </a>
@@ -153,107 +351,147 @@ body { font-family: 'Sora', sans-serif; background: #F1F5F9; }
   </div>
 
 </div>
+{% endif %}
 
-<!-- Leaflet + GPS -->
+{% include 'courier/bottom_tabs.html' %}
+
+<nav class="desktop-nav">
+  <div class="dn-logo"><i class="fas fa-truck"></i></div>
+  <a href="{% url 'courier:home' %}"           title="Home"><i class="fas fa-home"></i></a>
+  <a href="{% url 'courier:available_jobs' %}"  title="Jobs"><i class="fas fa-map-marked-alt"></i></a>
+  <a href="{% url 'courier:current_job' %}" class="active" title="My Job"><i class="fas fa-truck"></i></a>
+  <a href="{% url 'courier:archived_jobs' %}"   title="Earnings"><i class="fas fa-dollar-sign"></i></a>
+  <div class="dn-spacer"></div>
+  <a href="{% url 'courier:profile' %}"         title="Profile"><i class="fas fa-user-circle"></i></a>
+</nav>
+
+{% if job %}
 <script>
-var PLAT={{ job.pickup_lat|default:0 }},PLNG={{ job.pickup_lng|default:0 }};
-var DLAT={{ job.delivery_lat|default:0 }},DLNG={{ job.delivery_lng|default:0 }};
+var PLAT={{ job.pickup_lat|default:0 }},  PLNG={{ job.pickup_lng|default:0 }};
+var DLAT={{ job.delivery_lat|default:0 }}, DLNG={{ job.delivery_lng|default:0 }};
+var JOB_STATUS = "{{ job.status }}";
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// ── Map ───────────────────────────────────────────────────
-var map = L.map('courier-map').setView([(PLAT+DLAT)/2,(PLNG+DLNG)/2],11);
+// ── Map (voyager — matches rest of system) ────────
+var map = L.map('courier-map').setView([(PLAT+DLAT)/2, (PLNG+DLNG)/2], 11);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  {attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
+  {attribution:'&copy; <a href="https://openstreetmap.org">OSM</a> &copy; <a href="https://carto.com">CARTO</a>', maxZoom:19}
+).addTo(map);
 
-function dot(color,label){
+function dot(color, label) {
   return L.divIcon({className:'',
-    html:'<div style="background:'+color+';width:28px;height:28px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;">'+label+'</div>',
-    iconSize:[28,28],iconAnchor:[14,14]});
+    html: '<div style="background:'+color+';width:28px;height:28px;border-radius:50%;'
+        + 'border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.2);'
+        + 'display:flex;align-items:center;justify-content:center;'
+        + 'font-size:11px;font-weight:800;color:#fff;">'+label+'</div>',
+    iconSize:[28,28], iconAnchor:[14,14]});
 }
-L.marker([PLAT,PLNG],{icon:dot('#2196F3','P')}).addTo(map).bindPopup('<b>Pickup</b>');
-L.marker([DLAT,DLNG],{icon:dot('#F97316','D')}).addTo(map).bindPopup('<b>Delivery</b>');
+L.marker([PLAT,PLNG], {icon:dot('#2196F3','P')}).addTo(map).bindPopup('<b style="color:#111;">Pickup</b>');
+L.marker([DLAT,DLNG], {icon:dot('#F97316','D')}).addTo(map).bindPopup('<b style="color:#111;">Delivery</b>');
 
-// Draw road route via proxy
-fetch('/courier/api/osrm/?path='+encodeURIComponent('/route/v1/driving/'+PLNG+','+PLAT+';'+DLNG+','+DLAT)+'&query='+encodeURIComponent('overview=full&geometries=geojson'),{credentials:'same-origin'})
-  .then(r=>r.json()).then(d=>{
-    if(d.code==='Ok'&&d.routes.length){
-      L.polyline(d.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]),
-        {color:'#1565C0',weight:4,opacity:.8}).addTo(map);
+// OSRM real road route via proxy
+fetch('/courier/api/osrm/?path='
+    + encodeURIComponent('/route/v1/driving/'+PLNG+','+PLAT+';'+DLNG+','+DLAT)
+    + '&query=' + encodeURIComponent('overview=full&geometries=geojson'),
+  {credentials:'same-origin'})
+  .then(r => r.json())
+  .then(d => {
+    if (d.code === 'Ok' && d.routes.length) {
+      var lls = d.routes[0].geometry.coordinates.map(c => [c[1],c[0]]);
+      L.polyline(lls, {color:'#1565C0', weight:4, opacity:.8}).addTo(map);
+      map.fitBounds(L.latLngBounds(lls), {padding:[28,28]});
     }
-  }).catch(()=>{});
+  }).catch(function(){});
 
-// ── GPS Tracking ──────────────────────────────────────────
+// ── Google Maps navigate button ────────────────────
+// Points to the current destination (pickup if picking, delivery if delivering)
+(function() {
+  var destLat = (JOB_STATUS === 'picking') ? PLAT : DLAT;
+  var destLng = (JOB_STATUS === 'picking') ? PLNG : DLNG;
+  var label   = (JOB_STATUS === 'picking') ? 'Pickup+Location' : 'Delivery+Location';
+  var url     = 'https://www.google.com/maps/dir/?api=1&destination=' + destLat + ',' + destLng + '&travelmode=driving';
+  document.getElementById('nav-btn').href = url;
+})();
+
+// ── GPS Tracking ───────────────────────────────────
 var watchId=null, gpsOn=false, pings=0, courierMk=null;
 
-function toggleGPS(){ gpsOn ? stopGPS() : startGPS(); }
+function toggleGPS() { gpsOn ? stopGPS() : startGPS(); }
 
-function startGPS(){
-  if(!navigator.geolocation){ setStatus('error','GPS not supported','Your device does not support geolocation.'); return; }
-  setStatus('inactive','Requesting permission…','Allow location access when prompted.');
+function startGPS() {
+  if (!navigator.geolocation) {
+    setStatus('error', 'GPS not supported', 'Your device does not support geolocation.');
+    return;
+  }
+  setStatus('inactive', 'Requesting permission\u2026', 'Allow location access when prompted.');
   watchId = navigator.geolocation.watchPosition(onPos, onErr,
     {enableHighAccuracy:true, maximumAge:0, timeout:15000});
   gpsOn = true;
-  var btn=document.getElementById('gps-btn');
-  document.getElementById('gps-btn-label').textContent='Stop GPS Tracking';
-  document.getElementById('gps-icon').className='fas fa-stop-circle';
-  btn.classList.add('btn-stop');
+  document.getElementById('gps-btn-label').textContent = 'Stop GPS Tracking';
+  document.getElementById('gps-icon').className        = 'fas fa-stop-circle';
+  document.getElementById('gps-btn').className         = 'gps-btn stop';
 }
 
-function stopGPS(){
-  if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;}
-  gpsOn=false;
-  setStatus('inactive','GPS tracking stopped','Tap Start to resume sending your location.');
-  var btn=document.getElementById('gps-btn');
-  document.getElementById('gps-btn-label').textContent='Start GPS Tracking';
-  document.getElementById('gps-icon').className='fas fa-location-arrow';
-  btn.classList.remove('btn-stop');
+function stopGPS() {
+  if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+  gpsOn = false;
+  setStatus('inactive', 'GPS tracking stopped', 'Tap Start to resume sending your location.');
+  document.getElementById('gps-btn-label').textContent = 'Start GPS Tracking';
+  document.getElementById('gps-icon').className        = 'fas fa-location-arrow';
+  document.getElementById('gps-btn').className         = 'gps-btn start';
 }
 
-function onPos(pos){
-  var lat=pos.coords.latitude, lng=pos.coords.longitude, acc=Math.round(pos.coords.accuracy);
-  setStatus('active','Live — sending GPS every update','±'+acc+'m · '+lat.toFixed(5)+', '+lng.toFixed(5));
+function onPos(pos) {
+  var lat = pos.coords.latitude, lng = pos.coords.longitude;
+  var acc = Math.round(pos.coords.accuracy);
+  setStatus('active', 'Live \u2014 sending GPS every update',
+    '\u00b1' + acc + 'm \u00b7 ' + lat.toFixed(5) + ', ' + lng.toFixed(5));
 
-  // Update courier marker
-  if(!courierMk){
-    courierMk=L.marker([lat,lng],{icon:dot('#10B981','C'),zIndexOffset:20}).addTo(map).bindPopup('<b>You</b>');
+  if (!courierMk) {
+    courierMk = L.marker([lat,lng], {icon:dot('#10B981','C'), zIndexOffset:20})
+                 .addTo(map).bindPopup('<b style="color:#111;">You</b>');
   } else { courierMk.setLatLng([lat,lng]); }
   map.panTo([lat,lng]);
 
-  // Send to Django
-  fetch('/courier/api/courier-location/update/',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({lat:lat,lng:lng}),
-    credentials:'same-origin'
-  }).then(r=>r.json()).then(d=>{
-    if(d.success){
+  fetch('/courier/api/courier-location/update/', {
+    method:      'POST',
+    headers:     {'Content-Type':'application/json'},
+    body:        JSON.stringify({lat:lat, lng:lng}),
+    credentials: 'same-origin',
+  }).then(r => r.json()).then(d => {
+    if (d.success) {
       pings++;
-      document.getElementById('ping-count').textContent=pings;
-    } else if(d.error==='No active job'){
-      // Job was completed — reload to show no-job state
+      document.getElementById('ping-count').textContent = pings;
+    } else if (d.error === 'No active job') {
       stopGPS();
-      setTimeout(()=>window.location.href="{% url 'courier:job_complete' %}",1000);
+      setTimeout(function() {
+        window.location.href = "{% url 'courier:job_complete' %}";
+      }, 1000);
     }
-  }).catch(e=>console.warn('GPS send error:',e));
+  }).catch(function(e) { console.warn('GPS send error:', e); });
 }
 
-function onErr(e){
-  var msgs={1:'Permission denied. Enable location in browser settings.',2:'GPS unavailable. Move to open area.',3:'GPS timeout — retrying…'};
-  setStatus('error','GPS Error',msgs[e.code]||e.message);
+function onErr(e) {
+  var msgs = {
+    1: 'Permission denied. Enable location in browser settings.',
+    2: 'GPS unavailable. Move to an open area.',
+    3: 'GPS timeout \u2014 retrying\u2026',
+  };
+  setStatus('error', 'GPS Error', msgs[e.code] || e.message);
 }
 
-function setStatus(type,title,detail){
-  var b=document.getElementById('gps-banner');
-  var d=document.getElementById('gps-dot');
-  b.className='gps-banner '+(type==='active'?'active':type==='error'?'error':'inactive');
-  d.className='gps-dot '+(type==='active'?'pulse':type==='error'?'err':'idle');
-  document.getElementById('gps-title').textContent=title;
-  document.getElementById('gps-detail').textContent=detail||'';
+function setStatus(type, title, detail) {
+  var b = document.getElementById('gps-banner');
+  var d = document.getElementById('gps-dot');
+  b.className = 'gps-banner ' + (type === 'active' ? 'active' : type === 'error' ? 'error' : 'inactive');
+  d.className = 'gps-dot '    + (type === 'active' ? 'pulse'  : type === 'error' ? 'err'   : 'idle');
+  document.getElementById('gps-title').textContent  = title;
+  document.getElementById('gps-detail').textContent = detail || '';
 }
 
-// Auto-start GPS on page load
-window.addEventListener('load',()=>setTimeout(startGPS,600));
+// Auto-start GPS when page loads
+window.addEventListener('load', function() { setTimeout(startGPS, 600); });
 </script>
 {% endif %}
 {% endblock %}
