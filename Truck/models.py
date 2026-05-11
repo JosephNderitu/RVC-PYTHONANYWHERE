@@ -39,6 +39,23 @@ class Courier(models.Model):
     fcm_token = models.TextField(blank=True)
     is_available = models.BooleanField(default=False)
     is_on_shift = models.BooleanField(default=False)
+    # ── Courier profile ─────────────────────────────────────────────────
+    avatar = models.ImageField(
+        upload_to='courier/avatars/',
+        blank=True, null=True,
+        help_text="Courier profile photo — shown in the app and job pages."
+    )
+    vehicle_type = models.CharField(
+        max_length=50, blank=True,
+        choices=[
+            ('van',        'Van'),
+            ('truck',      'Truck'),
+            ('pickup',     'Pickup Truck'),
+            ('motorcycle', 'Motorcycle'),
+            ('car',        'Car'),
+        ],
+        help_text="Vehicle type used for deliveries."
+    )
 
     def __str__(self):
         return self.user.get_full_name()
