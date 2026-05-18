@@ -1,0 +1,207 @@
+{% extends 'base.html' %} {% load bootstrap4 %} {% block content %}
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-6">
+      {% if courier.verification_status == 'verified' %}
+      <div class="alert alert-success text-center">
+        <h5><b>✓ You are verified</b></h5>
+        <p>Your license has been approved. You can now accept jobs.</p>
+        <a href="/courier/" class="btn btn-warning">Go to Dashboard</a>
+      </div>
+
+      {% elif courier.verification_status == 'pending' %}
+      <div class="alert alert-info text-center">
+        <h5><b>Verification In Progress</b></h5>
+        <p>
+          Your documents are being reviewed. This usually takes under a minute.
+        </p>
+        <p class="text-muted small">Refresh this page to check your status.</p>
+        <a
+          href="/courier/verification/"
+          class="btn btn-outline-secondary btn-sm"
+          >Refresh</a
+        >
+      </div>
+
+      {% elif courier.verification_status == 'failed' %}
+      <div class="alert alert-danger">
+        <b>Verification Failed</b>
+        {% if courier.verification_notes %}
+        <p class="mb-0 mt-1 small">Reason: {{ courier.verification_notes }}</p>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% if courier.verification_status != 'verified' and courier.verification_status != 'pending' %}
+      <div class="card">
+        <div class="card-body">
+          <h4 class="text-center text-uppercase mb-4">
+            <b>Driver Verification</b>
+          </h4>
+          <p class="text-muted text-center mb-4">
+            Upload your driver's license to start accepting deliveries. A selfie
+            is optional but improves verification speed.
+          </p>
+
+          <form
+            method="POST"
+            action="/courier/api/verification/submit/"
+            enctype="multipart/form-data"
+            id="verification-form"
+          >
+            {% csrf_token %}
+
+            <div class="form-group">
+              <label><b>License Photo</b></label>
+              <div class="custom-file">
+                <input
+                  type="file"
+                  class="custom-file-input"
+                  id="license_photo"
+                  name="license_photo"
+                  accept="image/*"
+                  required
+                />
+                <label class="custom-file-label" for="license_photo">
+                  Choose license image...
+                </label>
+              </div>
+              <small class="form-text text-muted">
+                Front of your driver's license. Must be clear and well-lit.
+              </small>
+              <div id="license-preview" class="mt-2 d-none">
+                <img
+                  id="license-img"
+                  src="#"
+                  alt="License preview"
+                  class="img-fluid rounded"
+                  style="max-height: 180px"
+                />
+              </div>
+            </div>
+
+            <div class="form-group mt-4">
+              <label><b>Selfie Photo (Optional)</b></label>
+              <div class="custom-file">
+                <input
+                  type="file"
+                  class="custom-file-input"
+                  id="selfie_photo"
+                  name="selfie_photo"
+                  accept="image/*"
+                />
+                <label class="custom-file-label" for="selfie_photo">
+                  Choose selfie image...
+                </label>
+              </div>
+              <small class="form-text text-muted">
+                A clear photo of your face (optional). Speeds up verification by
+                enabling face matching.
+              </small>
+              <div id="selfie-preview" class="mt-2 d-none">
+                <img
+                  id="selfie-img"
+                  src="#"
+                  alt="Selfie preview"
+                  class="img-fluid rounded"
+                  style="max-height: 180px"
+                />
+              </div>
+            </div>
+
+            <div id="upload-error" class="alert alert-danger d-none mt-3"></div>
+
+            <button
+              type="submit"
+              class="btn btn-warning btn-block mt-4"
+              id="submit-btn"
+            >
+              Submit for Verification
+            </button>
+
+            {% if courier.verification_attempts > 0 %}
+            <p class="text-muted text-center small mt-2">
+              Attempt {{ courier.verification_attempts }} of 5
+            </p>
+            {% endif %}
+          </form>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+  function wireFileInput(inputId, labelId, previewWrapperId, previewImgId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.addEventListener("change", function () {
+      const file = this.files[0];
+      if (!file) return;
+      document.querySelector('label[for="' + inputId + '"]').textContent =
+        file.name;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        document.getElementById(previewImgId).src = e.target.result;
+        document.getElementById(previewWrapperId).classList.remove("d-none");
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  wireFileInput(
+    "license_photo",
+    "license_photo",
+    "license-preview",
+    "license-img",
+  );
+  wireFileInput("selfie_photo", "selfie_photo", "selfie-preview", "selfie-img");
+
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(";").shift();
+    return "";
+  }
+
+  document
+    .getElementById("verification-form")
+    .addEventListener("submit", function (e) {
+      e.preventDefault();
+      const btn = document.getElementById("submit-btn");
+      const errorBox = document.getElementById("upload-error");
+
+      btn.disabled = true;
+      btn.textContent = "Uploading...";
+      errorBox.classList.add("d-none");
+
+      const formData = new FormData(this);
+
+      fetch(this.action, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "X-CSRFToken": getCookie("csrftoken") },
+        body: formData,
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success) {
+            window.location.reload();
+          } else {
+            errorBox.textContent =
+              data.error || "Upload failed. Please try again.";
+            errorBox.classList.remove("d-none");
+            btn.disabled = false;
+            btn.textContent = "Submit for Verification";
+          }
+        })
+        .catch(() => {
+          errorBox.textContent =
+            "Network error. Please check your connection and try again.";
+          errorBox.classList.remove("d-none");
+          btn.disabled = false;
+          btn.textContent = "Submit for Verification";
+        });
+    });
+</script>
+{% endblock %}

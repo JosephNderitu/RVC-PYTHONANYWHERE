@@ -1,0 +1,126 @@
+backup"""
+Orchestrates the full driver verification pipeline.
+Called by Celery tasks — not directly from views.
+"""
+import logging
+from datetime import timezone as tz, datetime
+
+from django.db import transaction as db_transaction
+
+logger = logging.getLogger(__name__)
+
+
+def run_full_verification(courier_id: int) -> dict:
+    """
+    Full pipeline:
+      1. OCR → extract license data
+      2. Fraud checks
+      3. Face verification (selfie vs. license photo)
+      4. Persist result to Courier model
+
+    Returns a result dict for logging/chaining.
+    """
+    from Truck.models import Courier  # deferred to avoid circular import
+    from .ocr   import extract_license_text, parse_license_data
+    from .document_classifier import classify_document
+    from .fraud import run_fraud_checks
+    from .face  import verify_faces
+
+    try:
+        courier = Courier.objects.get(pk=courier_id)
+    except Courier.DoesNotExist:
+        logger.error("Verification attempted for non-existent courier id=%d", courier_id)
+        return {"success": False, "reason": "courier_not_found"}
+
+    courier.verification_attempts += 1
+    courier.save(update_fields=["verification_attempts"])
+
+    # ── 0. Document classification (lightweight) ───────────────────────────
+    if not courier.license_photo:
+        return _fail(courier, "no_license_photo", "No license photo uploaded.")
+
+    is_license, doc_conf, doc_reason = classify_document(courier.license_photo.path)
+    if not is_license:
+        return _fail(courier, "not_a_license", f"Uploaded file does not appear to be a Georgia driver's license. {doc_reason}")
+
+    # ── 1. License OCR ──────────────────────────────────────────────────────
+    lines = extract_license_text(courier.license_photo.path)
+    parsed = parse_license_data(lines)
+
+    # ── 2. Fraud checks ─────────────────────────────────────────────────────
+    fraud_passed, fraud_reasons = run_fraud_checks(
+        license_number=parsed["license_number"],
+        expiry=parsed["expiry_date"],
+        courier_id=courier_id,
+    )
+    if not fraud_passed:
+        return _fail(courier, "fraud_check_failed", "; ".join(fraud_reasons))
+
+    # ── 3. Face verification (optional but preferred) ─────────────────────────
+    face_result = None
+    face_verified = False
+    face_score = 0.0
+    face_error = ""
+    
+    if courier.selfie_photo:
+        face_result = verify_faces(
+            license_image_path=courier.license_photo.path,
+            selfie_image_path=courier.selfie_photo.path,
+        )
+        face_verified = face_result.verified if face_result else False
+        face_score = face_result.confidence if face_result else 0.0
+        face_error = face_result.error if face_result else ""
+    else:
+        logger.warning("Courier %d has no selfie; proceeding with OCR-based verification only.", courier_id)
+        face_error = "Selfie not provided; verification based on license OCR only."
+
+    # ── 4. Compute aggregate score ───────────────────────────────────────────
+    ocr_score   = 1.0 if (parsed["license_number"] and parsed["expiry_date"]) else 0.5
+    # If face verification done, weight it; otherwise rely on OCR + fraud checks
+    if face_result is not None:
+        total_score = round((ocr_score * 0.4) + (face_score * 0.6), 4)
+    else:
+        total_score = round(ocr_score * 1.0, 4)  # all weight on OCR when no face
+
+    # Verified if: fraud checks pass + OCR succeeds + (face verified OR no face provided)
+    final_status = "verified" if (fraud_passed and parsed["license_number"] and total_score >= 0.5 and (face_verified or not courier.selfie_photo)) else "failed"
+
+    # ── 5. Persist ───────────────────────────────────────────────────────────
+    with db_transaction.atomic():
+        courier.license_number      = parsed["license_number"]
+        courier.license_class       = parsed["license_class"]
+        courier.license_expiry      = parsed["expiry_date"]
+        courier.face_verified       = face_verified
+        courier.verification_score  = total_score
+        courier.verification_status = final_status
+        courier.is_verified         = (final_status == "verified")
+        courier.verified_at         = datetime.now(tz.utc) if courier.is_verified else None
+        courier.verification_notes  = face_error or ""
+        courier.save(update_fields=[
+            "license_number", "license_class", "license_expiry",
+            "face_verified", "verification_score", "verification_status",
+            "is_verified", "verified_at", "verification_notes",
+        ])
+
+    logger.info(
+        "Verification complete | courier=%d | status=%s | score=%.4f | face=%s",
+        courier_id, final_status, total_score, face_verified,
+    )
+    return {
+        "success":    courier.is_verified,
+        "status":     final_status,
+        "score":      total_score,
+        "face":       face_verified,
+        "license_no": parsed["license_number"],
+        "class":      parsed["license_class"],
+        "expiry":     str(parsed["expiry_date"]),
+    }
+
+
+def _fail(courier, code: str, reason: str) -> dict:
+    courier.verification_status = "failed"
+    courier.is_verified         = False
+    courier.verification_notes  = reason
+    courier.save(update_fields=["verification_status", "is_verified", "verification_notes"])
+    logger.warning("Verification failed for courier %d [%s]: %s", courier.pk, code, reason)
+    return {"success": False, "code": code, "reason": reason}
