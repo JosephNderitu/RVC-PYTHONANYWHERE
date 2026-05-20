@@ -334,3 +334,49 @@ class CourierZoneState(models.Model):
 
     def __str__(self):
         return f"{self.courier} / {self.zone} → {self.state}"
+    
+class DispatchLog(models.Model):
+    """
+    Records every step of the auto-assignment dispatch pipeline.
+    Used to generate pilot study data proving < 60s dispatch time.
+
+    Events:
+      notified       — FCM push sent to a courier
+      accepted       — courier accepted (job.status changed from processing)
+      timeout        — 90s expired, escalating to next courier
+      no_couriers    — no available couriers found
+      exhausted      — all 5 couriers tried, none accepted
+      already_accepted — job was accepted before task even ran
+
+    Key metric: sum(elapsed_seconds WHERE event='accepted') for pilot study
+    """
+
+    EVENT_CHOICES = [
+        ('notified',          'FCM Notified'),
+        ('accepted',          'Job Accepted'),
+        ('timeout',           'Timed Out (90s)'),
+        ('no_couriers',       'No Couriers Available'),
+        ('exhausted',         'All Attempts Exhausted'),
+        ('already_accepted',  'Already Accepted'),
+        ('fcm_failed',        'FCM Push Failed'),
+    ]
+
+    job             = models.ForeignKey('Job', on_delete=models.CASCADE,
+                          related_name='dispatch_logs')
+    courier         = models.ForeignKey('Courier', on_delete=models.SET_NULL,
+                          null=True, blank=True, related_name='dispatch_logs')
+    event           = models.CharField(max_length=30, choices=EVENT_CHOICES)
+    attempt_number  = models.IntegerField(default=1)
+    distance_km     = models.FloatField(null=True, blank=True,
+                          help_text="Distance from courier to pickup (km)")
+    elapsed_seconds = models.FloatField(null=True, blank=True,
+                          help_text="Seconds since dispatch started")
+    notes           = models.TextField(blank=True)
+    created_at      = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes  = [models.Index(fields=['job', 'created_at'])]
+
+    def __str__(self):
+        return f"Dispatch {self.job_id} | {self.event} | attempt {self.attempt_number}"

@@ -217,7 +217,7 @@
 {% endwith %}
 
 <!-- Map JavaScript -->
-<!-- Map JavaScript — replace existing script block in job.html -->
+<!-- Replace the existing <script> block in customer/job.html (tracking map) -->
 <script>
 var PLAT = {{ job.pickup_lat|default:0 }};
 var PLNG = {{ job.pickup_lng|default:0 }};
@@ -231,331 +231,352 @@ var POLL_ACTIVE = {% if job.status == 'picking' or job.status == 'delivering' %}
 (function () {
   "use strict";
 
-  // ── Icon factory ────────────────────────────────────────────────────────────
-  // Creates rich pin markers with icon, label and pulse animation
-  function makePin(opts) {
-    // opts: { bg, border, icon, label, pulse }
-    var pulse = opts.pulse
-      ? '<div style="position:absolute;inset:-6px;border-radius:50%;'
-        + 'border:2px solid '+opts.bg+';animation:rvc-ping 1.6s cubic-bezier(0,0,.2,1) infinite;'
-        + 'opacity:.5;"></div>'
-      : '';
-    return L.divIcon({
-      className: '',
-      html: '<div style="position:relative;width:44px;height:44px;">'
-          + pulse
-          + '<div style="'
-          + 'width:44px;height:44px;border-radius:50%;'
-          + 'background:'+opts.bg+';'
-          + 'border:3px solid '+(opts.border||'#fff')+';'
-          + 'box-shadow:0 4px 14px rgba(0,0,0,.35);'
-          + 'display:flex;flex-direction:column;'
-          + 'align-items:center;justify-content:center;gap:1px;">'
-          + '<span style="font-size:16px;line-height:1;">'+(opts.icon||'')+'</span>'
-          + '<span style="font-size:7px;font-weight:800;color:#fff;'
-          + 'font-family:Sora,sans-serif;text-transform:uppercase;'
-          + 'letter-spacing:.04em;line-height:1;">'+(opts.label||'')+'</span>'
-          + '</div></div>',
-      iconSize:    [44, 44],
-      iconAnchor:  [22, 22],
-      popupAnchor: [0, -26],
-    });
-  }
-
-  // Pulse keyframe — injected once
-  if (!document.getElementById('rvc-map-styles')) {
+  // ── Styles ───────────────────────────────────────────────────────────────────
+  if (!document.getElementById('rvc-cust-styles')) {
     var s = document.createElement('style');
-    s.id  = 'rvc-map-styles';
+    s.id  = 'rvc-cust-styles';
     s.textContent = [
-      '@keyframes rvc-ping{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.4);opacity:0}}',
+      '@keyframes rvc-ping{0%{transform:scale(1);opacity:.65}100%{transform:scale(2.8);opacity:0}}',
+
+      // Dark popups
       '.rvc-popup .leaflet-popup-content-wrapper{'
-        + 'background:#0D1B3E;border:1px solid rgba(249,115,22,.25);'
-        + 'border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.45);padding:0;}',
-      '.rvc-popup .leaflet-popup-content{margin:0;padding:12px 14px;}',
+        + 'background:#0D1B3E;border:1px solid rgba(249,115,22,.22);'
+        + 'border-radius:14px;box-shadow:0 10px 36px rgba(0,0,0,.5);padding:0;}',
+      '.rvc-popup .leaflet-popup-content{margin:0;padding:12px 14px;min-width:180px;}',
       '.rvc-popup .leaflet-popup-tip-container{display:none;}',
-      '.rvc-popup .leaflet-popup-close-button{color:rgba(255,255,255,.5)!important;top:6px!important;right:8px!important;}',
-      '.rvc-route-badge{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);'
-        + 'background:rgba(13,27,62,.92);border:1px solid rgba(249,115,22,.3);'
-        + 'border-radius:20px;padding:5px 14px;color:#fff;font-size:.75rem;'
-        + 'font-family:Sora,sans-serif;font-weight:600;z-index:1000;'
-        + 'display:flex;align-items:center;gap:6px;white-space:nowrap;'
-        + 'backdrop-filter:blur(8px);pointer-events:none;}',
-      '.rvc-route-badge i{color:#F97316;font-size:.7rem;}',
+      '.rvc-popup .leaflet-popup-close-button{color:rgba(255,255,255,.4)!important;'
+        + 'top:6px!important;right:8px!important;}',
+
+      // ── ETA CARD (the main customer-facing element) ──
+      '#rvc-eta-card{position:absolute;top:14px;left:50%;'
+        + 'transform:translateX(-50%);z-index:1000;'
+        + 'background:rgba(13,27,62,.96);'
+        + 'border:1.5px solid rgba(249,115,22,.35);'
+        + 'border-radius:18px;padding:12px 20px;'
+        + 'font-family:Sora,sans-serif;'
+        + 'backdrop-filter:blur(14px);'
+        + 'min-width:220px;text-align:center;'
+        + 'box-shadow:0 8px 32px rgba(0,0,0,.45);}',
+      '#rvc-eta-card .eta-phase{'
+        + 'font-size:.62rem;font-weight:800;text-transform:uppercase;'
+        + 'letter-spacing:.1em;color:rgba(255,255,255,.45);margin-bottom:4px;}',
+      '#rvc-eta-card .eta-time{'
+        + 'font-size:2rem;font-weight:800;color:#F97316;line-height:1;'
+        + 'letter-spacing:-.01em;}',
+      '#rvc-eta-card .eta-sub{'
+        + 'font-size:.72rem;color:rgba(255,255,255,.6);margin-top:4px;}',
+      '#rvc-eta-card .eta-dist{'
+        + 'font-size:.75rem;font-weight:700;color:#fff;margin-top:5px;}',
+      '#rvc-eta-card .eta-source{'
+        + 'font-size:.6rem;color:rgba(255,255,255,.3);margin-top:6px;'
+        + 'display:flex;align-items:center;justify-content:center;gap:4px;}',
+      '#rvc-eta-card .eta-dot{'
+        + 'width:5px;height:5px;border-radius:50%;background:#10B981;'
+        + 'animation:rvc-ping .9s ease-in-out infinite;}',
+
+      // Route badge
+      '#rvc-route-badge{position:absolute;bottom:16px;left:50%;'
+        + 'transform:translateX(-50%);z-index:900;'
+        + 'background:rgba(13,27,62,.9);border:1px solid rgba(249,115,22,.25);'
+        + 'border-radius:20px;padding:5px 14px;color:#fff;'
+        + 'font-family:Sora,sans-serif;font-size:.72rem;font-weight:600;'
+        + 'backdrop-filter:blur(8px);'
+        + 'display:none;align-items:center;gap:7px;white-space:nowrap;'
+        + 'pointer-events:none;}',
+
+      // Loader
+      '#map-loader.gone{display:none!important;}',
     ].join('');
     document.head.appendChild(s);
   }
 
-  // ── Popup builder ───────────────────────────────────────────────────────────
-  function popup(rows) {
-    // rows: [{label, value, color?}]
-    var html = rows.map(function (r) {
-      return '<div style="display:flex;justify-content:space-between;gap:16px;'
+  // ── Popup builder ─────────────────────────────────────────────────────────────
+  function popupRows(rows) {
+    return '<div>' + rows.map(function(r){
+      return '<div style="display:flex;justify-content:space-between;gap:14px;'
            + 'padding:3px 0;border-bottom:1px solid rgba(255,255,255,.06);">'
-           + '<span style="color:rgba(255,255,255,.55);font-size:.72rem;'
-           + 'font-family:Sora,sans-serif;white-space:nowrap;">' + r.label + '</span>'
-           + '<span style="color:' + (r.color || '#fff') + ';font-size:.77rem;'
-           + 'font-weight:700;font-family:Sora,sans-serif;text-align:right;">' + r.value + '</span>'
+           + '<span style="color:rgba(255,255,255,.5);font-size:.7rem;'
+           + 'font-family:Sora,sans-serif;">' + r.label + '</span>'
+           + '<span style="color:' + (r.color||'#fff') + ';font-size:.75rem;'
+           + 'font-weight:700;font-family:Sora,sans-serif;">' + r.value + '</span>'
            + '</div>';
-    }).join('');
-    return '<div style="min-width:170px;">' + html + '</div>';
+    }).join('') + '</div>';
   }
 
-  // ── Init map ─────────────────────────────────────────────────────────────────
-  var midLat = (PLAT + DLAT) / 2 || PLAT || 33.749;
-  var midLng = (PLNG + DLNG) / 2 || PLNG || -84.388;
-  var map = L.map('track-map').setView([midLat, midLng], 9);
+  // ── Pin factory ───────────────────────────────────────────────────────────────
+  function makePin(opts) {
+    var pulse = opts.pulse
+      ? '<div style="position:absolute;inset:-7px;border-radius:50%;'
+        + 'border:2px solid ' + opts.bg + ';'
+        + 'animation:rvc-ping 1.6s ease-out infinite;opacity:.5;"></div>'
+      : '';
+    return L.divIcon({
+      className:'',
+      html:'<div style="position:relative;width:44px;height:44px;">' + pulse
+         + '<div style="width:44px;height:44px;border-radius:50%;background:' + opts.bg + ';'
+         + 'border:3px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.3);'
+         + 'display:flex;flex-direction:column;align-items:center;'
+         + 'justify-content:center;gap:1px;">'
+         + '<span style="font-size:15px;line-height:1;">' + opts.emoji + '</span>'
+         + '<span style="font-size:6.5px;font-weight:800;color:#fff;'
+         + 'font-family:Sora,sans-serif;text-transform:uppercase;'
+         + 'letter-spacing:.05em;">' + opts.label + '</span>'
+         + '</div></div>',
+      iconSize:[44,44], iconAnchor:[22,22], popupAnchor:[0,-28],
+    });
+  }
 
-  L.tileLayer(
-    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    { attribution: '© OpenStreetMap contributors', maxZoom: 19 }
-  ).addTo(map);
+  // ── Helpers ───────────────────────────────────────────────────────────────────
+  function haversine(lat1,lng1,lat2,lng2){
+    var R=3958.8,r=Math.PI/180;
+    var dL=(lat2-lat1)*r, dG=(lng2-lng1)*r;
+    var a=Math.sin(dL/2)*Math.sin(dL/2)
+        +Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dG/2)*Math.sin(dG/2);
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
 
-  // ── Pickup marker (blue) ─────────────────────────────────────────────────────
-  var pickupIcon = makePin({ bg: '#1D4ED8', border: '#fff', icon: '📦', label: 'PICKUP' });
-  L.marker([PLAT, PLNG], { icon: pickupIcon, zIndexOffset: 10 })
-    .addTo(map)
-    .bindPopup(popup([
-      { label: 'Status',   value: 'Pickup Point',              color: '#60A5FA' },
-      { label: 'Address',  value: '{{ job.pickup_address|truncatechars:35|escapejs }}' },
-      { label: 'Contact',  value: '{{ job.pickup_name|escapejs }}' },
-      { label: 'Phone',    value: '{{ job.pickup_phone|escapejs }}', color: '#34D399' },
-    ]), { className: 'rvc-popup', maxWidth: 220 })
-    .openPopup();
+  function fmtDuration(minutes) {
+    if (!minutes || minutes < 1) return 'Arriving';
+    var h = Math.floor(minutes / 60), m = Math.round(minutes % 60);
+    return h > 0 ? h + 'h ' + m + 'm' : m + ' min';
+  }
 
-  // ── Delivery marker (orange) ──────────────────────────────────────────────────
-  var deliveryIcon = makePin({ bg: '#F97316', border: '#fff', icon: '🏁', label: 'DELIVERY' });
-  L.marker([DLAT, DLNG], { icon: deliveryIcon, zIndexOffset: 10 })
-    .addTo(map)
-    .bindPopup(popup([
-      { label: 'Status',   value: 'Delivery Point',            color: '#FB923C' },
-      { label: 'Address',  value: '{{ job.delivery_address|truncatechars:35|escapejs }}' },
-      { label: 'Contact',  value: '{{ job.delivery_name|escapejs }}' },
-      { label: 'Phone',    value: '{{ job.delivery_phone|escapejs }}', color: '#34D399' },
-      { label: 'Distance', value: '{{ job.distance|floatformat:1 }} mi' },
-      { label: 'Est. Cost','value': '${{ job.price|floatformat:2 }}', color: '#F97316' },
-    ]), { className: 'rvc-popup', maxWidth: 220 });
+  function fmtSeconds(seconds) {
+    return fmtDuration(seconds / 60);
+  }
+
+  // ── Init map ──────────────────────────────────────────────────────────────────
+  var map = L.map('track-map').setView([(PLAT+DLAT)/2,(PLNG+DLNG)/2], 9);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    {attribution:'&copy; <a href="https://openstreetmap.org">OSM</a>', maxZoom:19}).addTo(map);
+
+  // ── ETA Card ──────────────────────────────────────────────────────────────────
+  var etaCard = document.createElement('div');
+  etaCard.id  = 'rvc-eta-card';
+  etaCard.innerHTML =
+    '<div class="eta-phase">Locating courier...</div>'
+    + '<div class="eta-time" id="eta-time">—</div>'
+    + '<div class="eta-sub" id="eta-sub">Waiting for GPS signal</div>'
+    + '<div class="eta-dist" id="eta-dist"></div>'
+    + '<div class="eta-source">'
+    + '<div class="eta-dot"></div>'
+    + '<span id="eta-source-lbl">Live tracking</span>'
+    + '</div>';
+  document.getElementById('track-map').appendChild(etaCard);
+
+  function updateEtaCard(etaSeconds, remainingMiles, phase, courierName) {
+    var phaseEl  = etaCard.querySelector('.eta-phase');
+    var timeEl   = document.getElementById('eta-time');
+    var subEl    = document.getElementById('eta-sub');
+    var distEl   = document.getElementById('eta-dist');
+    var srcEl    = document.getElementById('eta-source-lbl');
+
+    if (etaSeconds != null && etaSeconds >= 0) {
+      var minutes = Math.round(etaSeconds / 60);
+      timeEl.textContent = fmtSeconds(etaSeconds);
+      timeEl.style.color = etaSeconds < 300 ? '#34D399' : '#F97316';  // green if < 5 min
+
+      phaseEl.textContent = phase === 'pickup'
+        ? 'Arriving at pickup'
+        : 'Arriving at delivery';
+      subEl.textContent = courierName
+        ? courierName + ' is on the way'
+        : 'Courier en route';
+      distEl.textContent = remainingMiles
+        ? remainingMiles.toFixed(1) + ' mi remaining'
+        : '';
+      srcEl.textContent = 'Live ETA · updates every 5s';
+    } else {
+      phaseEl.textContent = 'Locating courier...';
+      timeEl.textContent  = '—';
+      subEl.textContent   = 'Waiting for GPS signal';
+      distEl.textContent  = '';
+    }
+  }
 
   // ── Route badge ───────────────────────────────────────────────────────────────
   var badge = document.createElement('div');
-  badge.className = 'rvc-route-badge';
-  badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculating route...';
-  badge.style.display = 'none';
+  badge.id  = 'rvc-route-badge';
   document.getElementById('track-map').appendChild(badge);
 
   function showBadge(icon, text, color) {
-    badge.innerHTML = '<i class="fas fa-' + icon + '" style="color:' + (color || '#F97316') + ';"></i> ' + text;
+    badge.innerHTML = '<i class="fas fa-' + icon + '" style="color:'
+                    + (color||'#F97316') + ';font-size:.7rem;"></i> ' + text;
     badge.style.display = 'flex';
   }
 
   var loader = document.getElementById('map-loader');
 
-  // ── Step 1: Try OSRM ─────────────────────────────────────────────────────────
-  var routeLine = null;
+  // ── Static markers ────────────────────────────────────────────────────────────
+  L.marker([PLAT,PLNG], {icon:makePin({bg:'#1D4ED8',emoji:'📦',label:'PICKUP'}), zIndexOffset:10})
+    .addTo(map)
+    .bindPopup(popupRows([
+      {label:'Pickup',  value:'{{ job.pickup_address|truncatechars:35|escapejs }}'},
+      {label:'Contact', value:'{{ job.pickup_name|escapejs }}'},
+      {label:'Phone',   value:'{{ job.pickup_phone|escapejs }}', color:'#34D399'},
+    ]), {className:'rvc-popup', maxWidth:230});
 
-  function drawRoute(lls, color, dashed, sourceLabel) {
+  L.marker([DLAT,DLNG], {icon:makePin({bg:'#F97316',emoji:'🏁',label:'DELIVERY'}), zIndexOffset:10})
+    .addTo(map)
+    .bindPopup(popupRows([
+      {label:'Delivery', value:'{{ job.delivery_address|truncatechars:35|escapejs }}'},
+      {label:'Contact',  value:'{{ job.delivery_name|escapejs }}'},
+      {label:'Phone',    value:'{{ job.delivery_phone|escapejs }}', color:'#34D399'},
+      {label:'Distance', value:'{{ job.distance|floatformat:1 }} mi'},
+      {label:'Cost',     value:'${{ job.price|floatformat:2 }}',   color:'#F97316'},
+    ]), {className:'rvc-popup', maxWidth:230});
+
+  // ── Route drawing — OSRM → ORS → straight line ────────────────────────────────
+  var routeLine   = null;
+  var geodesicMi  = haversine(PLAT,PLNG,DLAT,DLNG);
+
+  function drawPolyline(lls,color,dashed){
     if (routeLine) map.removeLayer(routeLine);
-    routeLine = L.polyline(lls, {
-      color:     color || '#F97316',
-      weight:    5,
-      opacity:   0.88,
-      lineJoin:  'round',
-      lineCap:   'round',
-      dashArray: dashed ? '12 6' : null,
+    routeLine = L.polyline(lls,{
+      color:color||'#F97316', weight:5, opacity:.85,
+      lineJoin:'round', dashArray:dashed?'12 6':null,
     }).addTo(map);
-    map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+    map.fitBounds(routeLine.getBounds(),{padding:[50,50]});
   }
 
-  function haversineMiles(lat1, lng1, lat2, lng2) {
-    var R = 3958.8;
-    var dL = (lat2-lat1)*Math.PI/180, dG = (lng2-lng1)*Math.PI/180;
-    var a  = Math.sin(dL/2)*Math.sin(dL/2)
-           + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dG/2)*Math.sin(dG/2);
-    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-  }
-
-  var geodesicMi = haversineMiles(PLAT, PLNG, DLAT, DLNG);
-
-  function tryOSRM() {
-    badge.style.display = 'flex';
-    badge.innerHTML = '<i class="fas fa-spinner fa-spin" style="color:#F97316;"></i> Loading road route...';
-
-    var osrmPath  = '/route/v1/driving/'+PLNG+','+PLAT+';'+DLNG+','+DLAT;
-    var osrmQuery = 'overview=full&geometries=geojson&steps=false&alternatives=false';
-    var url = '/courier/api/osrm/?path=' + encodeURIComponent(osrmPath)
-            + '&query=' + encodeURIComponent(osrmQuery);
-
-    fetch(url, { credentials: 'same-origin' })
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
-        if (!d || d.code !== 'Ok' || !d.routes || !d.routes.length) throw new Error('no route');
-
-        var osrmMi = d.routes[0].distance / 1609.344;
-
-        // Cross-validate — reject if OSRM snapped to wrong location
-        if (osrmMi < geodesicMi * 0.85) {
-          console.warn('OSRM coverage miss (' + osrmMi.toFixed(1) + ' mi vs geodesic '
-            + geodesicMi.toFixed(1) + ' mi) — trying ORS');
-          throw new Error('coverage');
-        }
-
-        var mi  = osrmMi.toFixed(1);
-        var min = Math.round(d.routes[0].duration / 60);
-        var hrs = Math.floor(min/60), rem = min%60;
-        var dur = hrs > 0 ? hrs+'h '+rem+'m' : rem+' min';
-
-        var lls = d.routes[0].geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
-        drawRoute(lls, '#F97316', false, 'osrm');
-
-        routeLine.bindPopup(popup([
-          { label: 'Source',   value: 'OSRM Road Network',  color: '#34D399' },
-          { label: 'Distance', value: mi + ' mi' },
-          { label: 'Est. Time','value': dur },
-        ]), { className: 'rvc-popup', maxWidth: 200 });
-
-        showBadge('road', mi + ' mi · ' + dur + ' · Real road route', '#34D399');
-        if (loader) loader.classList.add('gone');
+  function tryOSRM(){
+    var url='/courier/api/osrm/?path='+encodeURIComponent(
+      '/route/v1/driving/'+PLNG+','+PLAT+';'+DLNG+','+DLAT)
+      +'&query='+encodeURIComponent('overview=full&geometries=geojson&steps=false');
+    fetch(url,{credentials:'same-origin'})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if (!d||d.code!=='Ok'||!d.routes||!d.routes.length) throw new Error('no route');
+        var mi=d.routes[0].distance/1609.344;
+        if (mi<geodesicMi*0.85) throw new Error('coverage');
+        var lls=d.routes[0].geometry.coordinates.map(function(c){return [c[1],c[0]];});
+        drawPolyline(lls,'#F97316',false);
+        showBadge('road',mi.toFixed(1)+' mi total route · via OSRM','#34D399');
+        if(loader) loader.classList.add('gone');
       })
-      .catch(function(err) {
-        console.warn('OSRM failed:', err.message, '— trying ORS');
-        tryORS();
-      });
+      .catch(function(){ tryORS(); });
   }
 
-  // ── Step 2: ORS fallback ──────────────────────────────────────────────────────
-  function tryORS() {
-    badge.innerHTML = '<i class="fas fa-spinner fa-spin" style="color:#F97316;"></i> Using global routing fallback...';
-
-    var url = '/courier/api/ors-route/'
-      + '?plat=' + PLAT + '&plng=' + PLNG
-      + '&dlat=' + DLAT + '&dlng=' + DLNG;
-
-    fetch(url, { credentials: 'same-origin' })
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
-        if (d.error || !d.geometry) throw new Error(d.error || 'no geometry');
-
-        var mi  = d.distance_miles.toFixed(1);
-        var min = Math.round(d.duration_min);
-        var hrs = Math.floor(min/60), rem = min%60;
-        var dur = hrs > 0 ? hrs+'h '+rem+'m' : rem+' min';
-
-        var lls = d.geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
-        drawRoute(lls, '#F97316', true, 'ors');   // dashed = fallback indicator
-
-        routeLine.bindPopup(popup([
-          { label: 'Source',   value: 'OpenRouteService',   color: '#60A5FA' },
-          { label: 'Distance', value: mi + ' mi' },
-          { label: 'Est. Time','value': dur },
-          { label: 'Note',     value: 'Global fallback route', color: '#FCD34D' },
-        ]), { className: 'rvc-popup', maxWidth: 200 });
-
-        showBadge('route', mi + ' mi · ' + dur + ' · ORS fallback route', '#60A5FA');
-        if (loader) loader.classList.add('gone');
+  function tryORS(){
+    fetch('/courier/api/ors-route/?plat='+PLAT+'&plng='+PLNG+'&dlat='+DLAT+'&dlng='+DLNG,
+      {credentials:'same-origin'})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if (d.error||!d.geometry) throw new Error(d.error||'no geo');
+        var lls=d.geometry.coordinates.map(function(c){return [c[1],c[0]];});
+        drawPolyline(lls,'#F97316',true);
+        showBadge('route',d.distance_miles.toFixed(1)+' mi · via ORS','#60A5FA');
+        if(loader) loader.classList.add('gone');
       })
-      .catch(function(err) {
-        console.warn('ORS failed:', err.message, '— straight-line fallback');
-        drawStraightLine();
-      });
+      .catch(function(){ drawStraightLine(); });
   }
 
-  // ── Step 3: Straight-line last resort ─────────────────────────────────────────
-  function drawStraightLine() {
-    drawRoute([[PLAT,PLNG],[DLAT,DLNG]], '#94A3B8', true, 'geodesic');
-    var mi = geodesicMi.toFixed(1);
-    routeLine.bindPopup(popup([
-      { label: 'Source',   value: 'Straight-line estimate', color: '#F59E0B' },
-      { label: 'Distance', value: mi + ' mi*',              color: '#F59E0B' },
-      { label: 'Note',     value: 'Routing unavailable',    color: '#F87171' },
-    ]), { className: 'rvc-popup', maxWidth: 200 });
-    showBadge('exclamation-triangle', mi + ' mi straight-line (estimate only)', '#F59E0B');
-    if (loader) loader.classList.add('gone');
+  function drawStraightLine(){
+    drawPolyline([[PLAT,PLNG],[DLAT,DLNG]],'#94A3B8',true);
+    showBadge('exclamation-triangle',geodesicMi.toFixed(1)+' mi estimate','#F59E0B');
+    if(loader) loader.classList.add('gone');
   }
 
-  // ── Boot routing chain ────────────────────────────────────────────────────────
-  if (PLAT && PLNG && DLAT && DLNG) {
-    tryOSRM();
-  } else {
-    if (loader) loader.classList.add('gone');
-  }
+  tryOSRM();
 
-  // ── Live courier tracking (polling) ──────────────────────────────────────────
-  if (!POLL_ACTIVE) return;
+  // ── Live courier tracking with ETA ────────────────────────────────────────────
+  if (!POLL_ACTIVE) {
+    updateEtaCard(null, null, null, null);
+    return;
+  }
 
   var courierMk    = null;
-  var courierTrail = [];     // last 5 positions for trail effect
+  var trailPts     = [];
   var trailLines   = [];
   var legendCourier = document.getElementById('legend-courier');
   var pollTimer;
+  var lastEtaSeconds = null;
 
-  function updateCourierTrail(lat, lng) {
-    // Keep last 5 positions
-    courierTrail.push([lat, lng]);
-    if (courierTrail.length > 5) courierTrail.shift();
+  // Client-side countdown between polls
+  var countdownTimer = null;
+  function startCountdown(etaSeconds){
+    if (countdownTimer) clearInterval(countdownTimer);
+    var remaining = etaSeconds;
+    countdownTimer = setInterval(function(){
+      remaining -= 1;
+      if (remaining < 0) remaining = 0;
+      document.getElementById('eta-time').textContent = fmtSeconds(remaining);
+      // Colour shift as courier gets closer
+      document.getElementById('eta-time').style.color =
+        remaining < 180 ? '#34D399' :   // green when < 3 min
+        remaining < 600 ? '#F97316' :   // orange when < 10 min
+        '#fff';
+    }, 1000);
+  }
 
-    // Remove old trail lines
-    trailLines.forEach(function(l) { map.removeLayer(l); });
-    trailLines = [];
+  function makeCourierIcon(){
+    return makePin({bg:'#10B981',emoji:'🚚',label:'COURIER',pulse:true});
+  }
 
-    // Draw fading trail
-    if (courierTrail.length > 1) {
-      for (var i = 1; i < courierTrail.length; i++) {
-        var opacity = 0.15 + (i / courierTrail.length) * 0.4;
-        var width   = 1 + (i / courierTrail.length) * 2;
-        trailLines.push(
-          L.polyline([courierTrail[i-1], courierTrail[i]], {
-            color: '#10B981', weight: width, opacity: opacity,
-          }).addTo(map)
-        );
-      }
+  function updateTrail(lat,lng){
+    trailPts.push([lat,lng]);
+    if (trailPts.length>5) trailPts.shift();
+    trailLines.forEach(function(l){map.removeLayer(l);}); trailLines=[];
+    for (var i=1;i<trailPts.length;i++){
+      var op=0.1+(i/trailPts.length)*0.4, wt=1+(i/trailPts.length)*2;
+      trailLines.push(L.polyline([trailPts[i-1],trailPts[i]],
+        {color:'#10B981',weight:wt,opacity:op}).addTo(map));
     }
   }
 
-  var courierIcon = makePin({
-    bg:     '#10B981',
-    border: '#fff',
-    icon:   '🚚',
-    label:  'COURIER',
-    pulse:  true,
-  });
-
-  function poll() {
-    fetch('/courier/api/courier-location/' + JOB_ID + '/', { credentials: 'same-origin' })
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
+  function poll(){
+    fetch('/courier/api/courier-location/'+JOB_ID+'/', {credentials:'same-origin'})
+      .then(function(r){return r.json();})
+      .then(function(d){
         if (!d.success) return;
 
-        if (!d.visible) {
-          if (courierMk) { map.removeLayer(courierMk); courierMk = null; }
-          trailLines.forEach(function(l) { map.removeLayer(l); });
-          trailLines = []; courierTrail = [];
+        if (!d.visible){
+          if (courierMk){map.removeLayer(courierMk);courierMk=null;}
+          trailLines.forEach(function(l){map.removeLayer(l);}); trailLines=[]; trailPts=[];
           if (legendCourier) legendCourier.style.setProperty('display','none','important');
-          if (d.status === 'completed' || d.status === 'cancel') clearInterval(pollTimer);
+          if (d.status==='completed'||d.status==='cancel'){
+            clearInterval(pollTimer);
+            if (countdownTimer) clearInterval(countdownTimer);
+            updateEtaCard(0, 0, d.target_type, d.courier_name);
+            document.getElementById('eta-time').textContent = '✓ Done';
+          }
           return;
         }
 
-        updateCourierTrail(d.lat, d.lng);
+        // ── Update ETA card with server-computed ETA ──────────────────────
+        if (d.eta_seconds != null){
+          lastEtaSeconds = d.eta_seconds;
+          updateEtaCard(d.eta_seconds, d.remaining_miles, d.target_type, d.courier_name);
+          startCountdown(d.eta_seconds);  // client-side 1s countdown between polls
+        }
 
-        if (!courierMk) {
-          courierMk = L.marker([d.lat, d.lng], { icon: courierIcon, zIndexOffset: 20 })
+        // ── Courier marker ────────────────────────────────────────────────
+        updateTrail(d.lat, d.lng);
+
+        if (!courierMk){
+          courierMk = L.marker([d.lat,d.lng],{icon:makeCourierIcon(),zIndexOffset:20})
             .addTo(map)
-            .bindPopup(popup([
-              { label: 'Status',  value: 'En Route',   color: '#34D399' },
-              { label: 'Courier', value: '{{ job.courier.user.get_full_name|default:"Courier"|escapejs }}' },
-              { label: 'Update',  value: 'Live GPS',   color: '#60A5FA' },
-            ]), { className: 'rvc-popup', maxWidth: 180 });
+            .bindPopup(popupRows([
+              {label:'Status',  value:'En Route',                 color:'#34D399'},
+              {label:'Courier', value:d.courier_name||'Courier'},
+              {label:'ETA',     value:d.eta_formatted||'Calculating...', color:'#F97316'},
+              {label:'Remaining',value:d.remaining_miles
+                ? d.remaining_miles.toFixed(1)+' mi' : '—'},
+            ]),{className:'rvc-popup',maxWidth:200});
           if (legendCourier) legendCourier.style.removeProperty('display');
         } else {
-          courierMk.setLatLng([d.lat, d.lng]);
-          // Update popup time
-          courierMk.setPopupContent(popup([
-            { label: 'Status',  value: 'En Route',   color: '#34D399' },
-            { label: 'Courier', value: '{{ job.courier.user.get_full_name|default:"Courier"|escapejs }}' },
-            { label: 'Speed',   value: (d.speed_kmh ? d.speed_kmh.toFixed(0)+' km/h' : 'Moving') },
-            { label: 'Update',  value: 'Just now',   color: '#60A5FA' },
+          courierMk.setLatLng([d.lat,d.lng]);
+          courierMk.setPopupContent(popupRows([
+            {label:'Status',   value:'En Route',                 color:'#34D399'},
+            {label:'Courier',  value:d.courier_name||'Courier'},
+            {label:'ETA',      value:d.eta_formatted||'—',       color:'#F97316'},
+            {label:'Remaining',value:d.remaining_miles
+              ? d.remaining_miles.toFixed(1)+' mi' : '—'},
+            {label:'Target',   value:d.target_type==='pickup'?'Heading to Pickup':'Heading to Delivery'},
           ]));
         }
       })
-      .catch(function() {});
+      .catch(function(){});
   }
 
   poll();

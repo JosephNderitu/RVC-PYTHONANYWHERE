@@ -293,6 +293,23 @@ def create_job_page(request):
                     )
                     creating_job.status = Job.PROCESSING_STATUS
                     creating_job.save()
+                    
+                    # ── Trigger nearest courier auto-assignment ───────────────────────────
+                    try:
+                        from Truck.tasks import auto_assign_job
+                        import time
+                        result = auto_assign_job.delay(str(job.id), [], time.time())
+                        import logging
+                        logging.getLogger(__name__).info(
+                            "auto_assign_job queued for job %s | task_id=%s",
+                            job.id, result.id
+                        )
+                    except Exception as exc:
+                        import logging
+                        logging.getLogger(__name__).warning(
+                            "Failed to queue auto_assign_job for job %s: %s", job.id, exc
+                        )
+                        # Non-fatal: job is still created, courier can manually browse and accept
 
                     job_created_time = creating_job.created_at.strftime('%Y-%m-%d %H:%M:%S')
                     email_body = render_to_string('emails/new_job_notification.html', {
