@@ -266,3 +266,10 @@ TWILIO_ACCOUNT_SID    = os.environ.get('TWILIO_ACCOUNT_SID', '')
 TWILIO_AUTH_TOKEN     = os.environ.get('TWILIO_AUTH_TOKEN', '')
 TWILIO_WHATSAPP_FROM  = os.environ.get('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886')
 SITE_URL              = os.environ.get('SITE_URL', 'http://localhost:8000')
+# ── Driver Verification ────────────────────────────────────────────────────────
+# Set True during development to skip InsightFace (faster, no model download needed)
+# Set False in production for full face matching
+SKIP_FACE_VERIFICATION = True    # ← change to False when ready for production
+ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImFiZmY3MDYwMzE0ODQ1ZTE5YjQ1OWM1MTAzOWNjZjAwIiwiaCI6Im11cm11cjY0In0='
+# Used for: real-time traffic speed overlay on courier maps
+TOMTOM_API_KEY = '' 

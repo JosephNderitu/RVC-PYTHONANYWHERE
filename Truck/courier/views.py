@@ -16,17 +16,32 @@ from django.utils.html import strip_tags
 from datetime import datetime
 from datetime import timedelta
 from django.utils import timezone
+from django.http import JsonResponse
+
+# ── Verification gate helper ──────────────────────────────────────────────────
+def _needs_verification(courier):
+    """
+    Returns True if the courier must complete verification before proceeding.
+    Checks safely — works even if migration hasn't run yet on a fresh clone.
+    """
+    if not hasattr(courier, 'is_verified'):
+        return False
+    return not courier.is_verified
+
 
 @login_required(login_url="/sign_in/?next=/courier/")
 def home(request):
     """
     Courier dashboard — proper landing page.
-    Shows online status, today's stats, active job card, quick actions.
-    No longer redirects to available_jobs.
+    Redirects to verification if courier is not yet verified.
     """
     courier = request.user.courier
-    today   = timezone.now().date()
 
+    # ── Verification gate ────────────────────────────────────────────────────
+    if _needs_verification(courier):
+        return redirect(reverse('courier:verification'))
+
+    today   = timezone.now().date()
     completed_jobs = Job.objects.filter(courier=courier, status=Job.COMPLETED_STATUS)
     today_jobs_qs  = completed_jobs.filter(delivered_at__date=today)
     week_start     = today - timedelta(days=7)
@@ -37,7 +52,7 @@ def home(request):
     week_earnings  = round(
         sum(j.price for j in completed_jobs.filter(delivered_at__date__gte=week_start)) * 0.8, 2
     )
-    total_jobs     = completed_jobs.count()
+    total_jobs = completed_jobs.count()
 
     active_job = Job.objects.filter(
         courier=courier,
@@ -57,7 +72,29 @@ def home(request):
 
 @login_required(login_url="/sign_in/?next=/courier/")
 def available_jobs_page(request):
+    """Redirects unverified couriers to complete verification first."""
+    courier = request.user.courier
+    if _needs_verification(courier):
+        return redirect(reverse('courier:verification'))
     return render(request, 'courier/available_jobs.html')
+
+
+@login_required(login_url="/sign_in/?next=/courier/")
+def verification_page(request):
+    """
+    Driver licence verification page.
+    Shows current verification status and upload form if not yet verified.
+    Verified couriers are redirected to the dashboard.
+    """
+    courier = request.user.courier
+
+    # Already verified — send them to the dashboard
+    if getattr(courier, 'is_verified', False):
+        return redirect(reverse('courier:home'))
+
+    return render(request, 'courier/verification.html', {
+        'courier': courier,
+    })
 
 
 @login_required(login_url="/sign_in/?next=/courier/")
@@ -72,18 +109,17 @@ def available_job_page(request, id):
         job.status  = Job.PICKING_STATUS
         job.save()
 
-        # ── Email notification (existing) ───────────────────────────────
         customer_email    = job.Customer.user.email
         customer_name     = job.Customer.user.get_full_name()
         courier_name      = job.courier.user.get_full_name()
         job_created_time  = job.created_at.strftime('%Y-%m-%d %H:%M:%S')
 
         email_body = render_to_string('emails/courier_on_the_way.html', {
-            'customer_name':   customer_name,
-            'job':             job,
-            'courier_name':    courier_name,
+            'customer_name':    customer_name,
+            'job':              job,
+            'courier_name':     courier_name,
             'job_created_time': job_created_time,
-            'current_year':    datetime.now().year,
+            'current_year':     datetime.now().year,
         })
         plain_message = strip_tags(email_body)
         send_mail(
@@ -94,10 +130,6 @@ def available_job_page(request, id):
             html_message=email_body,
         )
 
-        # ── WhatsApp notification (NEW) ──────────────────────────────────
-        # Sends WhatsApp to customer's phone number.
-        # Falls back to email silently if Twilio not configured or
-        # customer hasn't opted into the WhatsApp sandbox yet.
         try:
             from Truck.notifications import notify_job_accepted
             notify_job_accepted(job)
@@ -106,7 +138,6 @@ def available_job_page(request, id):
             logging.getLogger(__name__).warning(
                 "WhatsApp notification failed for job %s: %s", job.id, exc
             )
-            # Non-fatal — email was already sent above
 
         return redirect(reverse('courier:available_jobs'))
 
@@ -120,7 +151,7 @@ def current_job_page(request):
         status__in=[Job.PICKING_STATUS, Job.DELIVERING_STATUS],
     ).last()
     return render(request, "courier/current_job.html", {
-        "job": job,
+        "job":           job,
         "OSRM_BASE_URL": settings.OSRM_BASE_URL,
     })
 
@@ -155,10 +186,10 @@ def archived_jobs_page(request):
 
 @login_required(login_url="/sign_in/?next=/courier/")
 def profile_page(request):
-    completed_jobs  = Job.objects.filter(courier=request.user.courier, status=Job.COMPLETED_STATUS)
-    total_earnings  = round(sum(job.price for job in completed_jobs) * 0.8, 2)
-    total_jobs      = len(completed_jobs)
-    total_km        = round(sum(job.distance for job in completed_jobs), 2)
+    completed_jobs = Job.objects.filter(courier=request.user.courier, status=Job.COMPLETED_STATUS)
+    total_earnings = round(sum(job.price for job in completed_jobs) * 0.8, 2)
+    total_jobs     = len(completed_jobs)
+    total_km       = round(sum(job.distance for job in completed_jobs), 2)
 
     pending_payments = Transaction.objects.filter(
         job__courier=request.user.courier,
@@ -188,15 +219,9 @@ def payout_method_page(request):
 
     return render(request, 'courier/payout-method.html', {"payout_form": payout_form})
 
+
 @login_required(login_url="/sign_in/?next=/courier/")
 def settings_page(request):
-    """
-    Courier settings — handles three independent POST actions:
-      action=update_avatar   → saves new profile photo
-      action=update_email    → validates + changes user email
-      action=update_vehicle  → saves vehicle type
-    All failures redirect back with messages — no partial state.
-    """
     courier      = request.user.courier
     avatar_form  = forms.CourierAvatarForm(instance=courier)
     vehicle_form = forms.CourierVehicleForm(instance=courier)
@@ -205,11 +230,8 @@ def settings_page(request):
     if request.method == 'POST':
         action = request.POST.get('action', '')
 
-        # ── Avatar upload ─────────────────────────────────────────────
         if action == 'update_avatar':
-            avatar_form = forms.CourierAvatarForm(
-                request.POST, request.FILES, instance=courier
-            )
+            avatar_form = forms.CourierAvatarForm(request.POST, request.FILES, instance=courier)
             if avatar_form.is_valid():
                 avatar_form.save()
                 messages.success(request, "Profile photo updated.")
@@ -217,7 +239,6 @@ def settings_page(request):
             else:
                 messages.error(request, "Invalid file. Please upload a JPG or PNG image.")
 
-        # ── Email change ──────────────────────────────────────────────
         elif action == 'update_email':
             email_form = forms.CourierEmailForm(request.user, request.POST)
             if email_form.is_valid():
@@ -226,9 +247,7 @@ def settings_page(request):
                 request.user.save(update_fields=['email'])
                 messages.success(request, f"Email updated to {new_email}.")
                 return redirect(reverse('courier:settings'))
-            # form errors rendered in template via email_form
 
-        # ── Vehicle type ──────────────────────────────────────────────
         elif action == 'update_vehicle':
             vehicle_form = forms.CourierVehicleForm(request.POST, instance=courier)
             if vehicle_form.is_valid():
@@ -241,4 +260,22 @@ def settings_page(request):
         'email_form':   email_form,
         'vehicle_form': vehicle_form,
         'courier':      courier,
+    })
+
+@login_required(login_url="/sign_in/?next=/courier/")
+def verification_status_api(request):
+    """
+    Simple JSON status check — used by the polling JS on the verification page.
+    Plain Django view (not DRF) — always works with session auth.
+    """
+    courier = getattr(request.user, 'courier', None)
+    if courier is None:
+        return JsonResponse({'error': 'Courier profile not found'}, status=404)
+
+    return JsonResponse({
+        'verification_status':   getattr(courier, 'verification_status', 'unverified'),
+        'is_verified':           getattr(courier, 'is_verified', False),
+        'verification_score':    getattr(courier, 'verification_score', 0.0),
+        'verification_notes':    getattr(courier, 'verification_notes', ''),
+        'verification_attempts': getattr(courier, 'verification_attempts', 0),
     })

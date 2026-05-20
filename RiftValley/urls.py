@@ -11,6 +11,7 @@ from Truck import views
 from django.contrib.auth import views as auth_views
 from Truck.customer import views as customer_views
 from Truck.courier import views as courier_views, apis as courier_apis
+from Truck.driver_verification import api as verification_api 
 
 
 customer_urlpatterns = [
@@ -38,12 +39,23 @@ courier_urlpatterns = [
     path('payout_method/', courier_views.payout_method_page, name="payout_method"),
     path('settings/', courier_views.settings_page, name='settings'),
     
+    # ── Driver Verification ──────────────────────────────────────────────────
+    path('verification/', courier_views.verification_page, name='verification'),
+    
     path('api/jobs/current/<id>/update/', courier_apis.current_job_update_api, name="current_job_update_api"),
     path('api/fcm-token/update/', courier_apis.fcm_token_update_api, name="fcm_token_update_api"),
     # ✅ AFTER — proxy registered, browser calls /courier/api/osrm/ → Django → osrm:5000
     path('api/courier-location/update/',       courier_apis.courier_location_update_api, name="courier_location_update_api"),
     path('api/courier-location/<str:job_id>/', courier_apis.courier_location_api,        name="courier_location_api"),
     path('api/osrm/',                          courier_apis.osrm_proxy,                  name="osrm_proxy"),  # ← THIS
+    path('api/ors-route/',      courier_apis.ors_route_proxy, name='ors_route_proxy'),
+    path('api/traffic-status/', courier_apis.traffic_status,  name='traffic_status'),
+    path('api/online-status/', courier_apis.online_status_api, name='online_status_api'),
+    
+    # ── Verification APIs ────────────────────────────────────────────────────
+    path('api/verification/submit/', verification_api.submit_verification_documents, name='verification_submit'),
+    # NEW — plain Django view, no DRF auth issues
+    path('api/verification/status/', courier_views.verification_status_api, name='verification_status'),
 ]
 
 

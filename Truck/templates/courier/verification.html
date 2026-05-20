@@ -1,207 +1,735 @@
-{% extends 'base.html' %} {% load bootstrap4 %} {% block content %}
-<div class="container mt-5">
-  <div class="row justify-content-center">
-    <div class="col-lg-6">
-      {% if courier.verification_status == 'verified' %}
-      <div class="alert alert-success text-center">
-        <h5><b>✓ You are verified</b></h5>
-        <p>Your license has been approved. You can now accept jobs.</p>
-        <a href="/courier/" class="btn btn-warning">Go to Dashboard</a>
-      </div>
+{% extends 'courier/base.html' %}
+{% load static %}
 
-      {% elif courier.verification_status == 'pending' %}
-      <div class="alert alert-info text-center">
-        <h5><b>Verification In Progress</b></h5>
-        <p>
-          Your documents are being reviewed. This usually takes under a minute.
-        </p>
-        <p class="text-muted small">Refresh this page to check your status.</p>
-        <a
-          href="/courier/verification/"
-          class="btn btn-outline-secondary btn-sm"
-          >Refresh</a
-        >
-      </div>
+{% block title %}Driver Verification | RVC Courier{% endblock %}
 
-      {% elif courier.verification_status == 'failed' %}
-      <div class="alert alert-danger">
-        <b>Verification Failed</b>
-        {% if courier.verification_notes %}
-        <p class="mb-0 mt-1 small">Reason: {{ courier.verification_notes }}</p>
+{% block head %}
+<style>
+  html, body { overflow-y: auto !important; overflow-x: hidden; }
+  #content   { height: auto !important; min-height: 100vh; }
+
+  /* ── Top bar ────────────────────────────────────── */
+  .top-bar {
+    position: sticky; top: 0; left: 0; right: 0;
+    height: var(--top-h, 56px);
+    background: rgba(17,24,39,.98); border-bottom: 1px solid var(--rvc-border);
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 18px; z-index: 200;
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  }
+  .top-title { font-size: .95rem; font-weight: 700; color: var(--rvc-text); font-family: 'Sora', sans-serif; }
+
+  /* ── Page wrapper ───────────────────────────────── */
+  .page-wrap { max-width: 520px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  /* ── Status banners ─────────────────────────────── */
+  .status-banner {
+    border-radius: 16px; padding: 20px 18px;
+    display: flex; align-items: flex-start; gap: 14px;
+    margin-bottom: 16px; border: 1.5px solid;
+  }
+  .status-banner.verified  { background: rgba(16,185,129,.1); border-color: rgba(16,185,129,.3); }
+  .status-banner.pending   { background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.25); }
+  .status-banner.failed    { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.25); }
+  .status-icon { font-size: 1.6rem; flex-shrink: 0; margin-top: 2px; }
+  .status-icon.verified { color: var(--rvc-green); }
+  .status-icon.pending  { color: #60A5FA; }
+  .status-icon.failed   { color: var(--rvc-red); }
+  .status-title { font-size: 1rem; font-weight: 800; color: var(--rvc-text); font-family: 'Sora', sans-serif; margin-bottom: 4px; }
+  .status-sub   { font-size: .82rem; color: var(--rvc-muted-l); line-height: 1.55; }
+
+  /* Pending spinner */
+  .pending-spinner {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 3px solid rgba(59,130,246,.25);
+    border-top-color: #60A5FA;
+    animation: spin .7s linear infinite;
+    flex-shrink: 0; margin-top: 4px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Hero ───────────────────────────────────────── */
+  .hero-card {
+    background: linear-gradient(135deg, #0D1B3E 0%, #1a3a6e 100%);
+    border: 1px solid var(--rvc-border-l); border-radius: 20px;
+    padding: 24px 20px; text-align: center; margin-bottom: 16px;
+    position: relative; overflow: hidden;
+  }
+  .hero-card::before {
+    content: ''; position: absolute; top: -30px; right: -30px;
+    width: 120px; height: 120px; border-radius: 50%;
+    background: rgba(249,115,22,.06);
+  }
+  .hero-icon { font-size: 2.8rem; color: var(--rvc-orange); margin-bottom: 10px; }
+  .hero-title { font-size: 1.05rem; font-weight: 800; color: var(--rvc-text); font-family: 'Sora', sans-serif; margin-bottom: 6px; }
+  .hero-sub   { font-size: .82rem; color: var(--rvc-muted-l); line-height: 1.6; margin-bottom: 0; }
+
+  /* Steps strip */
+  .steps-strip { display: flex; gap: 0; margin-bottom: 14px; }
+  .step-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .step-num  {
+    width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--rvc-border-l);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .72rem; font-weight: 800; color: var(--rvc-muted); font-family: 'Sora', sans-serif;
+  }
+  .step-num.active  { border-color: var(--rvc-orange); color: var(--rvc-orange); background: rgba(249,115,22,.1); }
+  .step-num.done    { border-color: var(--rvc-green);  color: var(--rvc-green);  background: rgba(16,185,129,.1); }
+  .step-label { font-size: .6rem; color: var(--rvc-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; text-align: center; }
+  .step-line  { flex: 1; height: 1px; background: var(--rvc-border); margin-top: 14px; }
+
+  /* ── Cards ───────────────────────────────────────── */
+  .rcard { background: var(--rvc-card); border: 1px solid var(--rvc-border); border-radius: 16px; overflow: hidden; margin-bottom: 12px; }
+  .rcard-hdr {
+    background: #0D1B3E; padding: 12px 16px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+  }
+  .rcard-hdr span { color: #fff; font-weight: 700; font-size: .88rem; font-family: 'Sora', sans-serif; }
+  .rcard-hdr .badge {
+    margin-left: auto; padding: 3px 10px; border-radius: 20px;
+    font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  }
+  .badge-required { background: rgba(249,115,22,.2); color: var(--rvc-orange); }
+  .badge-optional { background: rgba(100,116,139,.2); color: var(--rvc-muted-l); }
+  .rcard-body { padding: 16px; }
+
+  /* ── Upload zones ────────────────────────────────── */
+  .upload-zone {
+    border: 2px dashed var(--rvc-border-l); border-radius: 14px;
+    padding: 24px 16px; text-align: center; cursor: pointer;
+    transition: border-color .2s, background .2s; position: relative;
+    background: var(--rvc-card-l);
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--rvc-orange); background: rgba(249,115,22,.05);
+  }
+  .upload-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .uz-icon  { font-size: 2rem; color: var(--rvc-muted); margin-bottom: 8px; }
+  .uz-title { font-size: .88rem; font-weight: 700; color: var(--rvc-text); margin-bottom: 3px; }
+  .uz-sub   { font-size: .75rem; color: var(--rvc-muted); line-height: 1.45; }
+
+  /* Image preview */
+  .img-preview { display: none; margin-top: 12px; border-radius: 12px; overflow: hidden; position: relative; }
+  .img-preview img { width: 100%; max-height: 200px; object-fit: cover; display: block; }
+  .img-preview-clear {
+    position: absolute; top: 8px; right: 8px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: rgba(0,0,0,.6); color: #fff; border: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; cursor: pointer;
+  }
+
+  /* Selfie buttons */
+  .selfie-actions { display: flex; gap: 10px; margin-bottom: 12px; }
+  .selfie-btn {
+    flex: 1; padding: 12px 10px; border-radius: 12px;
+    font-size: .82rem; font-weight: 700; font-family: 'Sora', sans-serif;
+    border: 1px solid var(--rvc-border-l); background: var(--rvc-card-l);
+    color: var(--rvc-muted-l); cursor: pointer; display: flex;
+    align-items: center; justify-content: center; gap: 8px;
+    transition: all .15s;
+  }
+  .selfie-btn:hover { border-color: var(--rvc-orange); color: var(--rvc-orange); background: rgba(249,115,22,.06); }
+  .selfie-btn i { font-size: 1rem; }
+
+  /* ── Camera modal ────────────────────────────────── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 900;
+    background: rgba(0,0,0,.85); align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--rvc-card); border: 1px solid var(--rvc-border-l);
+    border-radius: 20px; padding: 20px; width: 100%; max-width: 400px;
+    position: relative;
+  }
+  .modal-title { font-size: .97rem; font-weight: 700; color: var(--rvc-text); font-family: 'Sora', sans-serif; margin-bottom: 14px; }
+  .modal-close {
+    position: absolute; top: 16px; right: 16px;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--rvc-card-l); border: 1px solid var(--rvc-border-l);
+    color: var(--rvc-muted); font-size: 12px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .camera-stream {
+    width: 100%; border-radius: 12px; background: #000;
+    aspect-ratio: 4/3; object-fit: cover; display: block; margin-bottom: 12px;
+  }
+  .camera-canvas { display: none; }
+  .capture-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 14px; background: var(--rvc-orange); color: #fff;
+    border: none; border-radius: 13px; font-size: .92rem; font-weight: 700;
+    font-family: 'Sora', sans-serif; cursor: pointer; margin-bottom: 10px;
+    transition: background .15s;
+  }
+  .capture-btn:hover { background: var(--rvc-orange-d); }
+  .retake-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 11px; background: transparent;
+    border: 1px solid var(--rvc-border-l); border-radius: 12px;
+    color: var(--rvc-muted-l); font-size: .85rem; font-weight: 600;
+    font-family: 'Sora', sans-serif; cursor: pointer; transition: background .15s;
+  }
+  .retake-btn:hover { background: var(--rvc-card-l); }
+
+  /* Camera error */
+  .cam-error {
+    display: none; background: rgba(239,68,68,.08);
+    border: 1px solid rgba(239,68,68,.25); border-radius: 12px;
+    padding: 12px 14px; font-size: .82rem; color: var(--rvc-red);
+    margin-bottom: 12px;
+  }
+
+  /* ── Submit button ───────────────────────────────── */
+  .submit-btn {
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    width: 100%; padding: 16px; background: var(--rvc-orange); color: #fff;
+    border: none; border-radius: 14px; font-size: .97rem; font-weight: 700;
+    font-family: 'Sora', sans-serif; cursor: pointer; margin-top: 6px;
+    transition: background .15s; box-shadow: 0 6px 20px rgba(249,115,22,.3);
+  }
+  .submit-btn:hover    { background: var(--rvc-orange-d); }
+  .submit-btn:disabled { opacity: .65; cursor: not-allowed; }
+
+  /* Attempts counter */
+  .attempts-bar { text-align: center; font-size: .76rem; color: var(--rvc-muted); margin-top: 10px; }
+  .attempts-bar span { color: var(--rvc-orange); font-weight: 700; }
+
+  /* ── Info row ────────────────────────────────────── */
+  .info-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; }
+  .info-row:not(:last-child) { border-bottom: 1px solid var(--rvc-border); }
+  .info-row i { color: var(--rvc-orange); font-size: .85rem; margin-top: 2px; flex-shrink: 0; }
+  .info-row p { font-size: .8rem; color: var(--rvc-muted-l); margin: 0; line-height: 1.5; }
+
+  /* ── Verified card ───────────────────────────────── */
+  .verified-card {
+    background: rgba(16,185,129,.08); border: 1.5px solid rgba(16,185,129,.3);
+    border-radius: 18px; padding: 28px 20px; text-align: center; margin-bottom: 16px;
+  }
+  .verified-badge { font-size: 3rem; color: var(--rvc-green); margin-bottom: 10px; }
+  .verified-title { font-size: 1.1rem; font-weight: 800; color: var(--rvc-text); font-family: 'Sora', sans-serif; margin-bottom: 6px; }
+  .verified-sub   { font-size: .82rem; color: var(--rvc-muted-l); margin-bottom: 18px; }
+
+  .detail-strip { display: flex; gap: 0; background: var(--rvc-card); border: 1px solid var(--rvc-border); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+  .dstat { flex: 1; text-align: center; padding: 12px 6px; }
+  .dstat:not(:last-child) { border-right: 1px solid var(--rvc-border); }
+  .dstat-val { font-size: .92rem; font-weight: 800; color: var(--rvc-text); font-family: 'Sora', sans-serif; }
+  .dstat-lbl { font-size: .6rem; color: var(--rvc-muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 3px; font-weight: 600; }
+
+  .go-btn {
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    width: 100%; padding: 15px; background: var(--rvc-orange); color: #fff;
+    border: none; border-radius: 14px; font-size: .97rem; font-weight: 700;
+    font-family: 'Sora', sans-serif; text-decoration: none;
+    box-shadow: 0 6px 20px rgba(249,115,22,.3); transition: background .15s;
+  }
+  .go-btn:hover { background: var(--rvc-orange-d); color: #fff; }
+
+  /* Desktop layout */
+  @media (min-width: 768px) {
+    .top-bar   { left: 64px; }
+    .page-wrap { margin-left: 80px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Top bar -->
+<div class="top-bar">
+  <i class="fas fa-id-card" style="color:var(--rvc-orange);font-size:.95rem;"></i>
+  <span class="top-title">Driver Verification</span>
+</div>
+
+<div class="page-wrap">
+
+  {% if courier.verification_status == 'verified' %}
+  <!-- ═══════════════════ VERIFIED STATE ═══════════════════ -->
+  <div class="verified-card">
+    <div class="verified-badge"><i class="fas fa-check-circle"></i></div>
+    <div class="verified-title">You Are Verified</div>
+    <div class="verified-sub">Your driver's licence has been approved. You can now accept jobs.</div>
+  </div>
+
+  {% if courier.license_class or courier.license_expiry or courier.verification_score %}
+  <div class="detail-strip">
+    {% if courier.license_class %}
+    <div class="dstat"><div class="dstat-val">Class {{ courier.license_class }}</div><div class="dstat-lbl">Licence Class</div></div>
+    {% endif %}
+    {% if courier.license_expiry %}
+    <div class="dstat"><div class="dstat-val">{{ courier.license_expiry|date:"M Y" }}</div><div class="dstat-lbl">Expires</div></div>
+    {% endif %}
+    {% if courier.verification_score %}
+    <div class="dstat"><div class="dstat-val">{{ courier.verification_score|floatformat:0 }}%</div><div class="dstat-lbl">Score</div></div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <a href="{% url 'courier:home' %}" class="go-btn">
+    <i class="fas fa-truck"></i> Go to Dashboard
+  </a>
+
+  {% elif courier.verification_status == 'pending' %}
+  <!-- ═══════════════════ PENDING STATE ═══════════════════ -->
+  <div class="status-banner pending">
+    <div class="pending-spinner"></div>
+    <div>
+      <div class="status-title">Verification In Progress</div>
+      <div class="status-sub">Your documents are being reviewed by our AI system. This usually takes under 2 minutes. This page will update automatically.</div>
+    </div>
+  </div>
+
+  <div class="rcard">
+    <div class="rcard-body">
+      <div class="info-row">
+        <i class="fas fa-robot"></i>
+        <p><strong style="color:var(--rvc-text);">What happens now?</strong> Our system reads your licence using OCR, checks for fraud, and matches your face to the selfie if provided.</p>
+      </div>
+      <div class="info-row">
+        <i class="fas fa-clock"></i>
+        <p>Typical wait time is <strong style="color:var(--rvc-text);">30 seconds to 2 minutes</strong> depending on server load.</p>
+      </div>
+      <div class="info-row">
+        <i class="fas fa-bell"></i>
+        <p>You can close this page — we will notify you when your status changes. Come back to check anytime.</p>
+      </div>
+    </div>
+  </div>
+
+  <a href="{% url 'courier:verification' %}" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;background:var(--rvc-card);border:1px solid var(--rvc-border-l);border-radius:13px;color:var(--rvc-muted-l);font-size:.88rem;font-weight:700;font-family:'Sora',sans-serif;text-decoration:none;transition:background .15s;">
+    <i class="fas fa-sync-alt"></i> Refresh Status
+  </a>
+
+  {% else %}
+  <!-- ═══════════════════ UPLOAD FORM STATE (unverified / failed) ═══════════ -->
+
+  {% if courier.verification_status == 'failed' %}
+  <div class="status-banner failed" style="margin-bottom:14px;">
+    <i class="fas fa-exclamation-circle status-icon failed"></i>
+    <div>
+      <div class="status-title">Verification Failed</div>
+      <div class="status-sub">
+        {% if courier.verification_notes %}{{ courier.verification_notes }}{% else %}Your documents could not be verified. Please try again with clearer photos.{% endif %}
+        {% if courier.verification_attempts < 5 %}
+        You have <strong style="color:var(--rvc-text);">{{ 5|add:"-"|add:courier.verification_attempts }} attempt{{ 5|add:"-"|add:courier.verification_attempts|pluralize }}</strong> remaining.
+        {% else %}
+        You have reached the maximum of 5 attempts. Please contact support.
         {% endif %}
       </div>
-      {% endif %}
-      {% if courier.verification_status != 'verified' and courier.verification_status != 'pending' %}
-      <div class="card">
-        <div class="card-body">
-          <h4 class="text-center text-uppercase mb-4">
-            <b>Driver Verification</b>
-          </h4>
-          <p class="text-muted text-center mb-4">
-            Upload your driver's license to start accepting deliveries. A selfie
-            is optional but improves verification speed.
-          </p>
+    </div>
+  </div>
+  {% endif %}
 
-          <form
-            method="POST"
-            action="/courier/api/verification/submit/"
-            enctype="multipart/form-data"
-            id="verification-form"
-          >
-            {% csrf_token %}
+  <!-- Hero -->
+  <div class="hero-card">
+    <div class="hero-icon"><i class="fas fa-id-card"></i></div>
+    <div class="hero-title">Verify Your Driver's Licence</div>
+    <div class="hero-sub">Upload a clear photo of your Georgia driver's licence to start accepting deliveries. A selfie improves verification accuracy.</div>
+  </div>
 
-            <div class="form-group">
-              <label><b>License Photo</b></label>
-              <div class="custom-file">
-                <input
-                  type="file"
-                  class="custom-file-input"
-                  id="license_photo"
-                  name="license_photo"
-                  accept="image/*"
-                  required
-                />
-                <label class="custom-file-label" for="license_photo">
-                  Choose license image...
-                </label>
-              </div>
-              <small class="form-text text-muted">
-                Front of your driver's license. Must be clear and well-lit.
-              </small>
-              <div id="license-preview" class="mt-2 d-none">
-                <img
-                  id="license-img"
-                  src="#"
-                  alt="License preview"
-                  class="img-fluid rounded"
-                  style="max-height: 180px"
-                />
-              </div>
-            </div>
+  <!-- Steps -->
+  <div class="steps-strip" style="padding:0 4px;margin-bottom:16px;">
+    <div class="step-item">
+      <div class="step-num active">1</div>
+      <div class="step-label">Licence<br>Photo</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-label">Selfie<br>(Optional)</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-label">AI<br>Review</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step-item">
+      <div class="step-num">4</div>
+      <div class="step-label">Start<br>Earning</div>
+    </div>
+  </div>
 
-            <div class="form-group mt-4">
-              <label><b>Selfie Photo (Optional)</b></label>
-              <div class="custom-file">
-                <input
-                  type="file"
-                  class="custom-file-input"
-                  id="selfie_photo"
-                  name="selfie_photo"
-                  accept="image/*"
-                />
-                <label class="custom-file-label" for="selfie_photo">
-                  Choose selfie image...
-                </label>
-              </div>
-              <small class="form-text text-muted">
-                A clear photo of your face (optional). Speeds up verification by
-                enabling face matching.
-              </small>
-              <div id="selfie-preview" class="mt-2 d-none">
-                <img
-                  id="selfie-img"
-                  src="#"
-                  alt="Selfie preview"
-                  class="img-fluid rounded"
-                  style="max-height: 180px"
-                />
-              </div>
-            </div>
+  {% if courier.verification_attempts < 5 %}
+  <form id="verification-form" enctype="multipart/form-data">
+    {% csrf_token %}
 
-            <div id="upload-error" class="alert alert-danger d-none mt-3"></div>
-
-            <button
-              type="submit"
-              class="btn btn-warning btn-block mt-4"
-              id="submit-btn"
-            >
-              Submit for Verification
-            </button>
-
-            {% if courier.verification_attempts > 0 %}
-            <p class="text-muted text-center small mt-2">
-              Attempt {{ courier.verification_attempts }} of 5
-            </p>
-            {% endif %}
-          </form>
+    <!-- STEP 1: Licence Photo -->
+    <div class="rcard">
+      <div class="rcard-hdr">
+        <i class="fas fa-id-card" style="color:var(--rvc-orange);font-size:.9rem;"></i>
+        <span>Licence Photo</span>
+        <span class="badge badge-required">Required</span>
+      </div>
+      <div class="rcard-body">
+        <div class="upload-zone" id="license-zone">
+          <input type="file" id="license_photo" name="license_photo" accept="image/*" required>
+          <div class="uz-icon"><i class="fas fa-camera"></i></div>
+          <div class="uz-title">Tap to upload or drag &amp; drop</div>
+          <div class="uz-sub">Front of your Georgia driver's licence. Must be clear, well-lit, and all text readable. JPEG or PNG.</div>
+        </div>
+        <div class="img-preview" id="license-preview">
+          <img id="license-img" src="" alt="Licence preview">
+          <button type="button" class="img-preview-clear" onclick="clearPhoto('license')">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
       </div>
-      {% endif %}
+    </div>
+
+    <!-- STEP 2: Selfie -->
+    <div class="rcard">
+      <div class="rcard-hdr">
+        <i class="fas fa-user-circle" style="color:var(--rvc-orange);font-size:.9rem;"></i>
+        <span>Selfie Photo</span>
+        <span class="badge badge-optional">Optional</span>
+      </div>
+      <div class="rcard-body">
+        <div class="selfie-actions">
+          <button type="button" class="selfie-btn" onclick="openCamera()">
+            <i class="fas fa-camera"></i> Use Camera
+          </button>
+          <button type="button" class="selfie-btn" onclick="document.getElementById('selfie_file').click()">
+            <i class="fas fa-image"></i> Upload File
+          </button>
+        </div>
+        <!-- Hidden file input for selfie upload -->
+        <input type="file" id="selfie_file" accept="image/*" style="display:none" onchange="handleSelfieFile(this)">
+        <!-- Hidden input that actually gets submitted -->
+        <input type="file" id="selfie_photo" name="selfie_photo" style="display:none" accept="image/*">
+        <div class="img-preview" id="selfie-preview">
+          <img id="selfie-img" src="" alt="Selfie preview">
+          <button type="button" class="img-preview-clear" onclick="clearPhoto('selfie')">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div style="font-size:.76rem;color:var(--rvc-muted);margin-top:8px;">
+          <i class="fas fa-shield-alt" style="margin-right:4px;color:var(--rvc-orange);"></i>
+          Selfie enables face matching against your licence for faster, more accurate verification.
+        </div>
+      </div>
+    </div>
+
+    <!-- Tips card -->
+    <div class="rcard" style="margin-bottom:14px;">
+      <div class="rcard-hdr">
+        <i class="fas fa-lightbulb" style="color:var(--rvc-orange);font-size:.9rem;"></i>
+        <span>Tips for Best Results</span>
+      </div>
+      <div class="rcard-body">
+        <div class="info-row"><i class="fas fa-sun"></i><p>Take the licence photo in good lighting with no glare on the card surface.</p></div>
+        <div class="info-row"><i class="fas fa-expand-arrows-alt"></i><p>Ensure all four corners of the licence are visible in the frame.</p></div>
+        <div class="info-row"><i class="fas fa-user"></i><p>For the selfie — look directly at the camera in good lighting with no sunglasses.</p></div>
+        <div class="info-row" style="border:none;"><i class="fas fa-mobile-alt"></i><p>Hold the camera steady when taking both photos to avoid blur.</p></div>
+      </div>
+    </div>
+
+    <!-- Error box -->
+    <div id="upload-error" style="display:none;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:12px;padding:13px 14px;font-size:.84rem;color:var(--rvc-red);margin-bottom:14px;">
+      <i class="fas fa-exclamation-circle" style="margin-right:6px;"></i>
+      <span id="error-text"></span>
+    </div>
+
+    <button type="submit" class="submit-btn" id="submit-btn">
+      <i class="fas fa-paper-plane"></i>
+      Submit for Verification
+    </button>
+
+    {% if courier.verification_attempts > 0 %}
+    <div class="attempts-bar">
+      Attempt <span>{{ courier.verification_attempts }}</span> of 5 used
+    </div>
+    {% endif %}
+
+  </form>
+  {% else %}
+  <!-- Max attempts reached -->
+  <div class="rcard">
+    <div class="rcard-body" style="text-align:center;padding:28px 20px;">
+      <i class="fas fa-ban" style="font-size:2.5rem;color:var(--rvc-red);margin-bottom:14px;display:block;"></i>
+      <div style="font-size:.97rem;font-weight:800;color:var(--rvc-text);margin-bottom:6px;">Maximum Attempts Reached</div>
+      <div style="font-size:.82rem;color:var(--rvc-muted-l);margin-bottom:18px;line-height:1.6;">You have used all 5 verification attempts. Please contact support to reset your account.</div>
+      <a href="mailto:support@rvcarriers.com" style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;background:var(--rvc-orange);color:#fff;border-radius:12px;font-weight:700;font-size:.88rem;text-decoration:none;">
+        <i class="fas fa-envelope"></i> Contact Support
+      </a>
+    </div>
+  </div>
+  {% endif %}
+
+  {% endif %}
+
+</div>
+
+<!-- ═══════════════════ CAMERA MODAL ═══════════════════ -->
+<div class="modal-overlay" id="camera-modal">
+  <div class="modal-box">
+    <div class="modal-title"><i class="fas fa-camera" style="color:var(--rvc-orange);margin-right:8px;"></i>Take Selfie</div>
+    <button class="modal-close" onclick="closeCamera()"><i class="fas fa-times"></i></button>
+
+    <div class="cam-error" id="cam-error">
+      <i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>
+      <span id="cam-error-text">Camera access denied. Please use the Upload File option instead.</span>
+    </div>
+
+    <video class="camera-stream" id="camera-video" autoplay playsinline muted></video>
+    <canvas class="camera-canvas" id="camera-canvas"></canvas>
+
+    <div id="cam-captured-preview" style="display:none;margin-bottom:12px;">
+      <img id="cam-captured-img" src="" alt="Captured" style="width:100%;border-radius:12px;max-height:240px;object-fit:cover;">
+    </div>
+
+    <div id="cam-controls-live">
+      <button class="capture-btn" onclick="capturePhoto()">
+        <i class="fas fa-circle" style="font-size:1rem;"></i> Capture Photo
+      </button>
+    </div>
+    <div id="cam-controls-captured" style="display:none;">
+      <button class="capture-btn" onclick="useCapturedPhoto()">
+        <i class="fas fa-check"></i> Use This Photo
+      </button>
+      <button class="retake-btn" onclick="retakePhoto()">
+        <i class="fas fa-redo"></i> Retake
+      </button>
     </div>
   </div>
 </div>
 
 <script>
-  function wireFileInput(inputId, labelId, previewWrapperId, previewImgId) {
-    const input = document.getElementById(inputId);
-    if (!input) return;
-    input.addEventListener("change", function () {
-      const file = this.files[0];
-      if (!file) return;
-      document.querySelector('label[for="' + inputId + '"]').textContent =
-        file.name;
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        document.getElementById(previewImgId).src = e.target.result;
-        document.getElementById(previewWrapperId).classList.remove("d-none");
-      };
-      reader.readAsDataURL(file);
+// ── Photo upload & preview ────────────────────────────
+function handleFileSelect(inputId, previewWrapperId, imgId) {
+  var input = document.getElementById(inputId);
+  if (!input || !input.files || !input.files[0]) return;
+  var file = input.files[0];
+  if (file.size > 10 * 1024 * 1024) {
+    showError('Image is too large. Please use a file under 10MB.');
+    input.value = '';
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById(imgId).src = e.target.result;
+    var wrap = document.getElementById(previewWrapperId);
+    wrap.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+document.getElementById('license_photo').addEventListener('change', function() {
+  handleFileSelect('license_photo', 'license-preview', 'license-img');
+});
+
+function handleSelfieFile(input) {
+  if (!input.files || !input.files[0]) return;
+  var file = input.files[0];
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById('selfie-img').src = e.target.result;
+    document.getElementById('selfie-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+  // Copy the file to the real selfie_photo input
+  var dt = new DataTransfer();
+  dt.items.add(file);
+  document.getElementById('selfie_photo').files = dt.files;
+}
+
+function clearPhoto(type) {
+  if (type === 'license') {
+    document.getElementById('license_photo').value = '';
+    document.getElementById('license-preview').style.display = 'none';
+  } else {
+    document.getElementById('selfie_photo').value = '';
+    document.getElementById('selfie_file').value = '';
+    document.getElementById('selfie-preview').style.display = 'none';
+    capturedBlob = null;
+  }
+}
+
+// ── Drag & drop ───────────────────────────────────────
+(function() {
+  var zone = document.getElementById('license-zone');
+  if (!zone) return;
+  ['dragenter','dragover'].forEach(function(ev) {
+    zone.addEventListener(ev, function(e) { e.preventDefault(); zone.classList.add('dragover'); });
+  });
+  ['dragleave','drop'].forEach(function(ev) {
+    zone.addEventListener(ev, function(e) { e.preventDefault(); zone.classList.remove('dragover'); });
+  });
+  zone.addEventListener('drop', function(e) {
+    var files = e.dataTransfer.files;
+    if (files.length) {
+      document.getElementById('license_photo').files = files;
+      handleFileSelect('license_photo', 'license-preview', 'license-img');
+    }
+  });
+})();
+
+// ── Camera ────────────────────────────────────────────
+var stream = null, capturedBlob = null;
+
+function openCamera() {
+  var modal = document.getElementById('camera-modal');
+  modal.classList.add('open');
+  document.getElementById('cam-error').style.display = 'none';
+  document.getElementById('cam-controls-live').style.display = 'block';
+  document.getElementById('cam-controls-captured').style.display = 'none';
+  document.getElementById('cam-captured-preview').style.display = 'none';
+  capturedBlob = null;
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showCamError('Camera not supported on this device. Please use the Upload File option.');
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+    .then(function(s) {
+      stream = s;
+      var video = document.getElementById('camera-video');
+      video.srcObject = s;
+      video.style.display = 'block';
+    })
+    .catch(function(err) {
+      showCamError('Camera access denied. Please allow camera access or use the Upload File option.');
     });
-  }
+}
 
-  wireFileInput(
-    "license_photo",
-    "license_photo",
-    "license-preview",
-    "license-img",
-  );
-  wireFileInput("selfie_photo", "selfie_photo", "selfie-preview", "selfie-img");
+function closeCamera() {
+  if (stream) { stream.getTracks().forEach(function(t) { t.stop(); }); stream = null; }
+  document.getElementById('camera-video').srcObject = null;
+  document.getElementById('camera-modal').classList.remove('open');
+}
 
-  function getCookie(name) {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(";").shift();
-    return "";
-  }
+function capturePhoto() {
+  var video = document.getElementById('camera-video');
+  var canvas = document.getElementById('camera-canvas');
+  canvas.width  = video.videoWidth  || 640;
+  canvas.height = video.videoHeight || 480;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  canvas.toBlob(function(blob) {
+    capturedBlob = blob;
+    var url = URL.createObjectURL(blob);
+    document.getElementById('cam-captured-img').src = url;
+    document.getElementById('cam-captured-preview').style.display = 'block';
+    document.getElementById('camera-video').style.display = 'none';
+    document.getElementById('cam-controls-live').style.display = 'none';
+    document.getElementById('cam-controls-captured').style.display = 'block';
+  }, 'image/jpeg', 0.92);
+}
 
-  document
-    .getElementById("verification-form")
-    .addEventListener("submit", function (e) {
-      e.preventDefault();
-      const btn = document.getElementById("submit-btn");
-      const errorBox = document.getElementById("upload-error");
+function retakePhoto() {
+  capturedBlob = null;
+  document.getElementById('cam-captured-preview').style.display = 'none';
+  document.getElementById('camera-video').style.display = 'block';
+  document.getElementById('cam-controls-live').style.display = 'block';
+  document.getElementById('cam-controls-captured').style.display = 'none';
+}
 
-      btn.disabled = true;
-      btn.textContent = "Uploading...";
-      errorBox.classList.add("d-none");
+function useCapturedPhoto() {
+  if (!capturedBlob) return;
+  var file = new File([capturedBlob], 'selfie.jpg', { type: 'image/jpeg' });
+  var dt = new DataTransfer();
+  dt.items.add(file);
+  document.getElementById('selfie_photo').files = dt.files;
 
-      const formData = new FormData(this);
+  var url = document.getElementById('cam-captured-img').src;
+  document.getElementById('selfie-img').src = url;
+  document.getElementById('selfie-preview').style.display = 'block';
+  closeCamera();
+}
 
-      fetch(this.action, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "X-CSRFToken": getCookie("csrftoken") },
-        body: formData,
+function showCamError(msg) {
+  document.getElementById('cam-error-text').textContent = msg;
+  document.getElementById('cam-error').style.display = 'block';
+  document.getElementById('camera-video').style.display = 'none';
+}
+
+// ── Error display ─────────────────────────────────────
+function showError(msg) {
+  var box = document.getElementById('upload-error');
+  document.getElementById('error-text').textContent = msg;
+  box.style.display = 'block';
+}
+function hideError() {
+  document.getElementById('upload-error').style.display = 'none';
+}
+
+// ── Form submission ───────────────────────────────────
+var form = document.getElementById('verification-form');
+if (form) {
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    hideError();
+
+    var btn = document.getElementById('submit-btn');
+    var licenseInput = document.getElementById('license_photo');
+
+    if (!licenseInput.files || !licenseInput.files[0]) {
+      showError('Please upload your licence photo before submitting.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+
+    var formData = new FormData();
+    formData.append('license_photo', licenseInput.files[0]);
+    var selfieInput = document.getElementById('selfie_photo');
+    if (selfieInput.files && selfieInput.files[0]) {
+      formData.append('selfie_photo', selfieInput.files[0]);
+    }
+
+    // Get CSRF token
+    var csrfToken = document.cookie.split(';')
+      .map(function(c) { return c.trim(); })
+      .filter(function(c) { return c.startsWith('csrftoken='); })
+      .map(function(c) { return c.split('=')[1]; })[0] || '';
+
+    fetch("{% url 'courier:verification_submit' %}", {
+      method:      'POST',
+      credentials: 'same-origin',
+      headers:     { 'X-CSRFToken': csrfToken },
+      body:        formData,
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        // Reload — page will now show pending state
+        window.location.reload();
+      } else {
+        showError(data.error || 'Upload failed. Please try again.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit for Verification';
+      }
+    })
+    .catch(function() {
+      showError('Network error. Check your connection and try again.');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit for Verification';
+    });
+  });
+}
+
+// ── Auto-poll when pending ────────────────────────────
+{% if courier.verification_status == 'pending' %}
+(function poll() {
+  setTimeout(function() {
+    fetch("{% url 'courier:verification_status' %}", { credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.verification_status && data.verification_status !== 'pending') {
+          // Status changed — reload to show new state
+          window.location.reload();
+        } else {
+          poll(); // check again in 5s
+        }
       })
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.success) {
-            window.location.reload();
-          } else {
-            errorBox.textContent =
-              data.error || "Upload failed. Please try again.";
-            errorBox.classList.remove("d-none");
-            btn.disabled = false;
-            btn.textContent = "Submit for Verification";
-          }
-        })
-        .catch(() => {
-          errorBox.textContent =
-            "Network error. Please check your connection and try again.";
-          errorBox.classList.remove("d-none");
-          btn.disabled = false;
-          btn.textContent = "Submit for Verification";
-        });
-    });
+      .catch(function() { poll(); }); // retry on network error
+  }, 5000);
+})();
+{% endif %}
 </script>
+
 {% endblock %}
