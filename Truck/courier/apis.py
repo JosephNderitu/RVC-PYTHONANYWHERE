@@ -209,38 +209,89 @@ def courier_location_update_api(request):
 
 
 # ── Customer polls courier location ───────────────────────────────────────────
+@login_required
 def courier_location_api(request, job_id):
     """
-    GET — returns courier lat/lng only while job is picking/delivering.
-    Returns visible:false for completed/cancelled — coordinates never
-    exposed after a job closes (privacy requirement).
+    GET /courier/api/courier-location/<job_id>/
+
+    Returns courier position + live ETA for the customer tracking map.
+    Calls OSRM (or falls back to geodesic) from courier position to
+    the next stop (pickup if picking, delivery if delivering).
+
+    Response includes:
+      lat, lng           — courier GPS position
+      eta_seconds        — seconds until courier reaches next stop
+      remaining_miles    — road distance remaining to next stop
+      eta_formatted      — human-readable: "12 min" or "1h 5m"
+      target_type        — "pickup" or "delivery"
+      status             — job status
     """
-    auth_error = _json_auth_check(request)
-    if auth_error:
-        return auth_error
+    from Truck.models import Job
+    from django.http  import JsonResponse
 
     try:
-        job = Job.objects.select_related('courier').get(
-            id=job_id,
-            Customer=request.user.customer,
-        )
+        job = Job.objects.select_related('courier__user').get(pk=job_id)
     except Job.DoesNotExist:
-        return JsonResponse({"success": False, "error": "Job not found"}, status=404)
+        return JsonResponse({'success': False, 'error': 'Job not found'})
 
+    # ── Status check ──────────────────────────────────────────────────────
     if job.status in (Job.COMPLETED_STATUS, Job.CANCELED_STATUS):
-        return JsonResponse({"success": True, "visible": False, "status": job.status})
+        return JsonResponse({'success': True, 'visible': False, 'status': job.status})
 
     if not job.courier or not job.courier.location:
-        return JsonResponse({"success": True, "visible": False, "status": job.status})
+        return JsonResponse({'success': True, 'visible': False, 'status': job.status})
+
+    courier_lat = job.courier.location.y   # PostGIS Point: y=lat, x=lng
+    courier_lng = job.courier.location.x
+
+    # ── Determine next stop ───────────────────────────────────────────────
+    if job.status == Job.PICKING_STATUS and job.pickup_location:
+        target_lat  = job.pickup_location.y
+        target_lng  = job.pickup_location.x
+        target_type = 'pickup'
+    elif job.status == Job.DELIVERING_STATUS and job.delivery_location:
+        target_lat  = job.delivery_location.y
+        target_lng  = job.delivery_location.x
+        target_type = 'delivery'
+    else:
+        target_lat = target_lng = target_type = None
+
+    eta_seconds     = None
+    remaining_miles = None
+    eta_formatted   = None
+
+    # ── Compute ETA via OSRM → ORS → geodesic ────────────────────────────
+    if target_lat and target_lng:
+        try:
+            from Truck.distance_engine import compute_distance
+            result = compute_distance(
+                courier_lat, courier_lng,
+                target_lat,  target_lng,
+                apply_traffic=True,
+            )
+            if not result.get('error'):
+                remaining_miles = result['distance_miles']
+                eta_minutes     = result['duration_min']
+                eta_seconds     = int(eta_minutes * 60)
+                # Human-readable
+                h, m = divmod(int(eta_minutes), 60)
+                eta_formatted = (f"{h}h {m}m" if h > 0 else f"{m} min")
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("ETA compute error: %s", exc)
 
     return JsonResponse({
-        "success": True,
-        "visible": True,
-        "lat":     job.courier.lat,
-        "lng":     job.courier.lng,
-        "status":  job.status,
+        'success':         True,
+        'visible':         True,
+        'lat':             courier_lat,
+        'lng':             courier_lng,
+        'status':          job.status,
+        'eta_seconds':     eta_seconds,
+        'remaining_miles': round(remaining_miles, 1) if remaining_miles else None,
+        'eta_formatted':   eta_formatted,
+        'target_type':     target_type,
+        'courier_name':    job.courier.user.get_full_name(),
     })
-
 
 # ── OSRM proxy ────────────────────────────────────────────────────────────────
 def osrm_proxy(request):

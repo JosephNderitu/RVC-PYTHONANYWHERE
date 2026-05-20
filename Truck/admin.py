@@ -7,10 +7,7 @@ from django.contrib import admin, messages
 from django.conf import settings
 from django.core.mail import send_mail
 from paypalrestsdk import configure, Payout
-from .models import (
-    Transaction, Courier, Customer, Category, Job,
-    DeliveryZone, CourierLocationHistory, GeofenceEvent,
-)
+from .models import *
 
 configure({
     "mode": settings.PAYPAL_MODE,
@@ -413,3 +410,22 @@ class GeofenceEventAdmin(admin.ModelAdmin):
     list_filter = ['event_type', 'zone', 'triggered_at']
     search_fields = ['courier__user__first_name', 'courier__user__last_name']
     readonly_fields = ['triggered_at']
+    
+@admin.register(DispatchLog)
+class DispatchLogAdmin(admin.ModelAdmin):
+    list_display  = ['job', 'courier', 'event', 'attempt_number',
+                     'distance_km_display', 'elapsed_display', 'created_at']
+    list_filter   = ['event', 'created_at']
+    search_fields = ['job__names', 'courier__user__first_name', 'notes']
+    readonly_fields = ['created_at']
+
+    def distance_km_display(self, obj):
+        return f"{obj.distance_km:.2f} km" if obj.distance_km else '—'
+    distance_km_display.short_description = 'Distance'
+
+    def elapsed_display(self, obj):
+        if not obj.elapsed_seconds:
+            return '—'
+        s = obj.elapsed_seconds
+        return f"{int(s//60)}m {int(s%60)}s" if s >= 60 else f"{s:.1f}s"
+    elapsed_display.short_description = 'Elapsed'
