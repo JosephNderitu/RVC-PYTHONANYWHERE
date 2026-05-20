@@ -285,6 +285,18 @@
       <div class="pstat"><div class="pstat-val" id="jp-dist">—</div><div class="pstat-lbl">Miles</div></div>
       <div class="pstat"><div class="pstat-val" id="jp-dur">—</div><div class="pstat-lbl">Min Est.</div></div>
     </div>
+    <!-- Add near the top of the job panel, after the price -->
+    <span id="jp-tier"
+      style="display:none;padding:2px 10px;border-radius:10px;color:#fff;
+      font-size:.65rem;font-weight:800;font-family:'Sora',sans-serif;
+      text-transform:uppercase;letter-spacing:.05em;">
+    </span>
+
+    <span id="jp-from-you"
+      style="display:none;background:rgba(16,185,129,.15);color:#34D399;
+      padding:2px 10px;border-radius:10px;font-size:.72rem;font-weight:700;
+      font-family:'Sora',sans-serif;margin-left:6px;">
+    </span>
     <div class="route-card">
       <div class="route-stop">
         <div class="stop-dot" style="background:var(--rvc-green);"></div>
@@ -323,135 +335,456 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-var ATLANTA  = [33.7490, -84.3880];
-var VOYAGER  = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-var ATTR     = '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> &copy; <a href="https://carto.com">CARTO</a>';
+(function () {
+  "use strict";
 
-var map = L.map('map', {zoomControl:false, attributionControl:true}).setView(ATLANTA, 11);
-L.tileLayer(VOYAGER, {attribution:ATTR, maxZoom:19}).addTo(map);
-L.control.zoom({position:'bottomright'}).addTo(map);
+  // ── Constants ────────────────────────────────────────────────────────────────
+  var ATLANTA     = [33.7490, -84.3880];
+  var VOYAGER     = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+  var ATTR        = '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> &copy; <a href="https://carto.com">CARTO</a>';
+  var DEFAULT_IMG = "{% static 'images/avatar.png' %}";
 
-var isPanelOpen=false, isMini=false;
-var defaultThumb = "{% static 'images/avatar.png' %}";
+  // Price tier colours — matches RVC brand palette
+  var TIERS = [
+    { max: 150,  bg: '#2563EB', shadow: 'rgba(37,99,235,.5)',  label: 'LOCAL'    },
+    { max: 400,  bg: '#F97316', shadow: 'rgba(249,115,22,.5)', label: 'REGIONAL' },
+    { max: 9999, bg: '#DC2626', shadow: 'rgba(220,38,38,.5)',  label: 'LONG HAUL'},
+  ];
 
-// ── Courier location marker ───────────────────────
-var courierMk = null;
-if (navigator.geolocation) {
-  navigator.geolocation.getCurrentPosition(function(p) {
-    var ll = [p.coords.latitude, p.coords.longitude];
-    courierMk = L.circleMarker(ll, {
-      radius:10, fillColor:'#0D1B3E', color:'#fff',
-      weight:2, fillOpacity:1,
-    }).addTo(map);
-    courierMk.bindTooltip('You', {permanent:true, direction:'top', offset:[0,-12],
-      className:'courier-tip'});
-    map.setView(ll, 12);
-  });
-}
-
-// ── Job marker ────────────────────────────────────
-function makeMarker() {
-  return L.divIcon({
-    className: '',
-    html: '<div style="background:#F97316;width:42px;height:42px;border-radius:50%;'
-        + 'display:flex;align-items:center;justify-content:center;'
-        + 'box-shadow:0 4px 16px rgba(249,115,22,.45);border:3px solid #fff;">'
-        + '<i class="fas fa-box" style="color:#fff;font-size:15px;"></i></div>',
-    iconSize:[42,42], iconAnchor:[21,21], popupAnchor:[0,-26],
-  });
-}
-
-// ── Load jobs from API ─────────────────────────────
-fetch("{% url 'courier:available_jobs_api' %}", {credentials:'same-origin'})
-  .then(r => r.json())
-  .then(data => {
-    document.getElementById('map-loading').style.display = 'none';
-    if (!data.success || !data.jobs?.length) {
-      document.getElementById('no-jobs').style.display = 'block';
-      return;
+  function tier(price) {
+    for (var i = 0; i < TIERS.length; i++) {
+      if (price <= TIERS[i].max) return TIERS[i];
     }
-    var badge = document.getElementById('job-count-badge');
-    badge.textContent = data.jobs.length + ' job' + (data.jobs.length === 1 ? '' : 's');
-    badge.style.display = 'block';
+    return TIERS[TIERS.length - 1];
+  }
+
+  // ── Inject styles once ────────────────────────────────────────────────────────
+  if (!document.getElementById('rvc-aj-styles')) {
+    var s = document.createElement('style');
+    s.id  = 'rvc-aj-styles';
+    s.textContent = [
+      // Pulse animation
+      '@keyframes rvc-ping{0%{transform:scale(1);opacity:.65}100%{transform:scale(2.6);opacity:0}}',
+      '@keyframes rvc-slow-ping{0%{transform:scale(1);opacity:.4}100%{transform:scale(2.2);opacity:0}}',
+
+      // Dark popup theme
+      '.rvc-popup .leaflet-popup-content-wrapper{'
+        + 'background:#0D1B3E;border:1px solid rgba(249,115,22,.22);'
+        + 'border-radius:14px;box-shadow:0 10px 36px rgba(0,0,0,.5);padding:0;}',
+      '.rvc-popup .leaflet-popup-content{margin:0;padding:12px 14px;min-width:190px;}',
+      '.rvc-popup .leaflet-popup-tip-container{display:none;}',
+      '.rvc-popup .leaflet-popup-close-button{color:rgba(255,255,255,.45)!important;'
+        + 'top:6px!important;right:8px!important;font-size:16px!important;}',
+
+      // Courier tooltip
+      '.rvc-you-tip{background:#10B981!important;color:#fff!important;border:none!important;'
+        + 'font-family:Sora,sans-serif!important;font-size:.7rem!important;'
+        + 'font-weight:800!important;padding:3px 8px!important;border-radius:8px!important;'
+        + 'box-shadow:0 2px 8px rgba(16,185,129,.4)!important;}',
+      '.rvc-you-tip::before{display:none!important;}',
+
+      // Map info bar
+      '#rvc-map-bar{position:absolute;top:14px;left:50%;transform:translateX(-50%);'
+        + 'z-index:1000;background:rgba(13,27,62,.9);border:1px solid rgba(249,115,22,.25);'
+        + 'border-radius:20px;padding:6px 16px;display:flex;align-items:center;gap:10px;'
+        + 'font-family:Sora,sans-serif;font-size:.75rem;color:#fff;'
+        + 'backdrop-filter:blur(10px);pointer-events:none;}',
+      '#rvc-map-bar .bar-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}',
+      '#rvc-map-bar .bar-sep{width:1px;height:14px;background:rgba(255,255,255,.15);}',
+
+      // Map legend bottom left
+      '#rvc-legend{position:absolute;bottom:80px;left:12px;z-index:900;'
+        + 'background:rgba(13,27,62,.88);border:1px solid rgba(255,255,255,.08);'
+        + 'border-radius:12px;padding:10px 12px;font-family:Sora,sans-serif;'
+        + 'font-size:.68rem;backdrop-filter:blur(8px);}',
+      '#rvc-legend .leg-row{display:flex;align-items:center;gap:7px;margin-bottom:6px;color:rgba(255,255,255,.75);}',
+      '#rvc-legend .leg-row:last-child{margin-bottom:0;}',
+      '#rvc-legend .leg-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}',
+    ].join('');
+    document.head.appendChild(s);
+  }
+
+  // ── Popup row builder ─────────────────────────────────────────────────────────
+  function popupRows(rows) {
+    return '<div>' + rows.map(function (r) {
+      return '<div style="display:flex;justify-content:space-between;gap:14px;'
+           + 'padding:3px 0;border-bottom:1px solid rgba(255,255,255,.06);">'
+           + '<span style="color:rgba(255,255,255,.5);font-size:.7rem;'
+           + 'font-family:Sora,sans-serif;white-space:nowrap;">' + r.label + '</span>'
+           + '<span style="color:' + (r.color || '#fff') + ';font-size:.75rem;'
+           + 'font-weight:700;font-family:Sora,sans-serif;text-align:right;'
+           + 'max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'
+           + r.value + '</span>'
+           + '</div>';
+    }).join('') + '</div>';
+  }
+
+  // ── Haversine distance (miles) ────────────────────────────────────────────────
+  function haversine(lat1, lng1, lat2, lng2) {
+    var R = 3958.8, toR = Math.PI / 180;
+    var dLat = (lat2 - lat1) * toR, dLng = (lng2 - lng1) * toR;
+    var a = Math.sin(dLat/2)*Math.sin(dLat/2)
+          + Math.cos(lat1*toR)*Math.cos(lat2*toR)*Math.sin(dLng/2)*Math.sin(dLng/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function esc(s) {
+    return String(s || '')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Init map ──────────────────────────────────────────────────────────────────
+  var map = L.map('map', { zoomControl: false, attributionControl: true })
+    .setView(ATLANTA, 11);
+  L.tileLayer(VOYAGER, { attribution: ATTR, maxZoom: 19 }).addTo(map);
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+  // ── Info bar (top centre) ─────────────────────────────────────────────────────
+  var bar = document.createElement('div');
+  bar.id  = 'rvc-map-bar';
+  bar.innerHTML = '<div class="bar-dot" style="background:#F97316;"></div>'
+                + '<span id="bar-jobs">Loading jobs...</span>'
+                + '<div class="bar-sep"></div>'
+                + '<span id="bar-loc" style="color:rgba(255,255,255,.55);">Locating you...</span>';
+  document.getElementById('map').appendChild(bar);
+
+  // ── Legend (bottom left) ──────────────────────────────────────────────────────
+  var legend = document.createElement('div');
+  legend.id  = 'rvc-legend';
+  legend.innerHTML = TIERS.map(function (t) {
+    return '<div class="leg-row"><div class="leg-dot" style="background:' + t.bg + ';"></div>'
+         + t.label + ' (&lt;$' + (t.max < 9999 ? t.max : '400+') + ')</div>';
+  }).join('') + '<div class="leg-row">'
+    + '<div class="leg-dot" style="background:#10B981;"></div>Your location</div>';
+  document.getElementById('map').appendChild(legend);
+
+  // ── State ────────────────────────────────────────────────────────────────────
+  var courierLat   = null, courierLng = null;
+  var courierMk    = null;
+  var isPanelOpen  = false, isMini = false;
+  var allJobs      = [];
+  var jobMarkers   = [];
+
+  // ── Courier "YOU" marker ──────────────────────────────────────────────────────
+  function makeCourierIcon() {
+    return L.divIcon({
+      className: '',
+      html: '<div style="position:relative;width:48px;height:48px;">'
+          + '<div style="position:absolute;inset:-8px;border-radius:50%;'
+          + 'border:2px solid #10B981;animation:rvc-slow-ping 2s ease-out infinite;"></div>'
+          + '<div style="position:absolute;inset:-4px;border-radius:50%;'
+          + 'border:2px solid #10B981;animation:rvc-slow-ping 2s ease-out infinite;animation-delay:.5s;"></div>'
+          + '<div style="width:48px;height:48px;border-radius:50%;background:#10B981;'
+          + 'border:3px solid #fff;box-shadow:0 4px 16px rgba(16,185,129,.55);'
+          + 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;">'
+          + '<span style="font-size:18px;line-height:1;">🚚</span>'
+          + '<span style="font-size:6.5px;font-weight:800;color:#fff;'
+          + 'font-family:Sora,sans-serif;letter-spacing:.05em;">YOU</span>'
+          + '</div></div>',
+      iconSize:    [48, 48],
+      iconAnchor:  [24, 24],
+      popupAnchor: [0, -30],
+    });
+  }
+
+  // ── Job pin marker ────────────────────────────────────────────────────────────
+  function makeJobIcon(job, distFromCourier) {
+    var t      = tier(parseFloat(job.price) || 0);
+    var price  = '$' + job.price;
+    var dist   = distFromCourier != null ? distFromCourier.toFixed(1) + 'mi' : '';
+
+    return L.divIcon({
+      className: '',
+      html: '<div style="position:relative;width:52px;">'
+          // Price badge above pin
+          + '<div style="background:' + t.bg + ';color:#fff;font-size:7.5px;font-weight:800;'
+          + 'font-family:Sora,sans-serif;padding:2px 6px;border-radius:8px;'
+          + 'text-align:center;margin-bottom:3px;box-shadow:0 2px 6px ' + t.shadow + ';'
+          + 'white-space:nowrap;">' + price + '</div>'
+          // Circle pin with box icon
+          + '<div style="width:42px;height:42px;border-radius:50%;background:' + t.bg + ';'
+          + 'border:3px solid #fff;box-shadow:0 4px 14px ' + t.shadow + ';'
+          + 'display:flex;flex-direction:column;align-items:center;justify-content:center;'
+          + 'gap:1px;margin:0 auto;">'
+          + '<span style="font-size:14px;line-height:1;">📦</span>'
+          + (dist ? '<span style="font-size:6px;font-weight:800;color:rgba(255,255,255,.9);'
+            + 'font-family:Sora,sans-serif;">' + dist + '</span>' : '')
+          + '</div>'
+          + '</div>',
+      iconSize:    [52, 62],
+      iconAnchor:  [26, 56],
+      popupAnchor: [0, -60],
+    });
+  }
+
+  // ── Build job popup ───────────────────────────────────────────────────────────
+  function buildPopup(job, distFromCourier) {
+    var t    = tier(parseFloat(job.price) || 0);
+    var rows = [
+      { label: 'Job',      value: esc(job.names),           color: '#fff'     },
+      { label: 'Price',    value: '$' + job.price,          color: '#F97316'  },
+      { label: 'Distance', value: job.distance + ' mi',     color: '#fff'     },
+      { label: 'Est. Time','value': '~' + job.duration + ' min' },
+      { label: 'Size',     value: esc(job.size || 'Standard') },
+      { label: 'Pickup',   value: esc((job.pickup_address  || '').split(',')[0]) },
+    ];
+    if (distFromCourier != null) {
+      rows.splice(2, 0, {
+        label: 'From You', value: distFromCourier.toFixed(1) + ' mi away',
+        color: '#34D399',
+      });
+    }
+
+    var header = '<div style="background:' + t.bg + ';margin:-12px -14px 10px;'
+               + 'padding:8px 14px;border-radius:10px 10px 0 0;'
+               + 'display:flex;justify-content:space-between;align-items:center;">'
+               + '<span style="font-size:.72rem;font-weight:800;color:#fff;'
+               + 'font-family:Sora,sans-serif;text-transform:uppercase;letter-spacing:.06em;">'
+               + t.label + '</span>'
+               + '<span style="font-size:.72rem;color:rgba(255,255,255,.7);'
+               + 'font-family:Sora,sans-serif;">Tap for details</span>'
+               + '</div>';
+
+    return header + popupRows(rows);
+  }
+
+  // ── Render all job markers ────────────────────────────────────────────────────
+  function renderMarkers(jobs) {
+    // Remove old markers
+    jobMarkers.forEach(function (m) { map.removeLayer(m); });
+    jobMarkers = [];
 
     var bounds = L.latLngBounds();
-    data.jobs.filter(j => j.pickup_lat && j.pickup_lng).forEach(job => {
-      var ll = [job.pickup_lat, job.pickup_lng];
-      var mk = L.marker(ll, {icon: makeMarker()}).addTo(map);
-      mk.bindPopup(popup(job), {maxWidth:240, closeButton:false});
-      mk.on('click', () => { mk.openPopup(); showPanel(job); });
-      bounds.extend(ll);
+    if (courierLat) bounds.extend([courierLat, courierLng]);
+
+    jobs.filter(function (j) { return j.pickup_lat && j.pickup_lng; })
+      .forEach(function (job) {
+        var distFromCourier = (courierLat != null)
+          ? haversine(courierLat, courierLng, job.pickup_lat, job.pickup_lng)
+          : null;
+
+        var mk = L.marker([job.pickup_lat, job.pickup_lng], {
+          icon: makeJobIcon(job, distFromCourier),
+          zIndexOffset: 5,
+        }).addTo(map);
+
+        mk.bindPopup(buildPopup(job, distFromCourier), {
+          className:  'rvc-popup',
+          maxWidth:   240,
+          closeButton: true,
+        });
+
+        mk.on('click', function () {
+          mk.openPopup();
+          showPanel(job, distFromCourier);
+        });
+
+        jobMarkers.push(mk);
+        bounds.extend([job.pickup_lat, job.pickup_lng]);
+      });
+
+    if (bounds.isValid()) map.fitBounds(bounds, { padding: [70, 70], maxZoom: 13 });
+  }
+
+  // ── Load jobs from API ────────────────────────────────────────────────────────
+  fetch("{% url 'courier:available_jobs_api' %}", { credentials: 'same-origin' })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var loadEl = document.getElementById('map-loading');
+      if (loadEl) loadEl.style.display = 'none';
+
+      if (!data.success || !data.jobs || !data.jobs.length) {
+        var noEl = document.getElementById('no-jobs');
+        if (noEl) noEl.style.display = 'block';
+        document.getElementById('bar-jobs').textContent = 'No jobs available';
+        return;
+      }
+
+      allJobs = data.jobs;
+
+      var badge = document.getElementById('job-count-badge');
+      if (badge) {
+        badge.textContent = allJobs.length + ' job' + (allJobs.length === 1 ? '' : 's') + ' available';
+        badge.style.display = 'block';
+      }
+      document.getElementById('bar-jobs').textContent =
+        allJobs.length + ' job' + (allJobs.length === 1 ? '' : 's') + ' near you';
+
+      renderMarkers(allJobs);
+    })
+    .catch(function () {
+      var loadEl = document.getElementById('map-loading');
+      if (loadEl) loadEl.style.display = 'none';
+      var noEl = document.getElementById('no-jobs');
+      if (noEl) noEl.style.display = 'block';
+      document.getElementById('bar-jobs').textContent = 'Failed to load jobs';
     });
-    if (bounds.isValid()) map.fitBounds(bounds, {padding:[70,70], maxZoom:14});
-  })
-  .catch(() => {
-    document.getElementById('map-loading').style.display = 'none';
-    document.getElementById('no-jobs').style.display = 'block';
-  });
 
-function popup(job) {
-  return '<div class="map-popup">'
-    + '<div class="popup-name">' + esc(job.names) + '</div>'
-    + '<div class="popup-row">'
-    + '<span class="popup-dist">' + job.distance + ' mi &middot; ~' + job.duration + ' min</span>'
-    + '<span class="popup-price">$' + job.price + '</span>'
-    + '</div>'
-    + '<div class="popup-tap">Tap to view details</div>'
-    + '</div>';
-}
+  // ── Courier GPS location ──────────────────────────────────────────────────────
+  function initCourierLocation() {
+    if (!navigator.geolocation) {
+      document.getElementById('bar-loc').textContent = 'GPS unavailable';
+      return;
+    }
 
-// ── Panel ─────────────────────────────────────────
-function showPanel(job) {
-  var img = document.getElementById('jp-thumb');
-  img.src = job.photo || defaultThumb;
-  img.onerror = () => { img.src = defaultThumb; };
+    navigator.geolocation.getCurrentPosition(
+      function (p) {
+        courierLat = p.coords.latitude;
+        courierLng = p.coords.longitude;
 
-  document.getElementById('jp-name').textContent    = job.names;
-  document.getElementById('jp-meta').textContent    = (job.size||'') + (job.quantity ? ' · ' + job.quantity + ' item(s)' : '');
-  document.getElementById('jp-price').textContent   = '$' + job.price;
-  document.getElementById('jp-dist').textContent    = job.distance + ' mi';
-  document.getElementById('jp-dur').textContent     = job.duration;
-  document.getElementById('jp-pickup').textContent  = job.pickup_address  || 'Not specified';
-  document.getElementById('jp-delivery').textContent= job.delivery_address|| 'Not specified';
-  document.getElementById('jp-cname').textContent   = job.customer_name   || 'Customer';
-  document.getElementById('jp-cphone').textContent  = job.customer_phone  || '';
+        // Courier marker
+        if (courierMk) map.removeLayer(courierMk);
+        courierMk = L.marker([courierLat, courierLng], {
+          icon:         makeCourierIcon(),
+          zIndexOffset: 100,
+        }).addTo(map);
 
-  var av = document.getElementById('jp-avatar');
-  av.src = job.customer_avatar || defaultThumb;
-  av.onerror = () => { av.src = defaultThumb; };
+        courierMk.bindPopup(
+          popupRows([
+            { label: 'Status', value: 'Online',           color: '#34D399' },
+            { label: 'GPS',    value: 'Live location',     color: '#60A5FA' },
+            { label: 'Acc',    value: Math.round(p.coords.accuracy) + ' m' },
+          ]),
+          { className: 'rvc-popup', maxWidth: 180 }
+        );
 
-  document.getElementById('jp-link').href = '/courier/jobs/available/' + job.id + '/';
+        // Accuracy circle (subtle)
+        if (p.coords.accuracy < 500) {
+          L.circle([courierLat, courierLng], {
+            radius:      p.coords.accuracy,
+            color:       '#10B981',
+            fillColor:   '#10B981',
+            fillOpacity: 0.06,
+            weight:      1,
+            opacity:     0.25,
+          }).addTo(map);
+        }
 
+        document.getElementById('bar-loc').textContent = 'GPS active';
+        document.getElementById('bar-loc').style.color = '#34D399';
+
+        // Re-render markers now that we have courier position (adds "X mi away")
+        if (allJobs.length) renderMarkers(allJobs);
+
+        // Post courier position to backend
+        fetch("{% url 'courier:online_status_api' %}", {
+          method:      'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken':  getCsrf(),
+          },
+          body: JSON.stringify({ is_available: true }),
+        }).catch(function () {});
+      },
+      function (err) {
+        var msgs = { 1: 'Location denied', 2: 'GPS unavailable', 3: 'GPS timeout' };
+        document.getElementById('bar-loc').textContent = msgs[err.code] || 'GPS error';
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
+  }
+
+  initCourierLocation();
+
+  // ── Panel ─────────────────────────────────────────────────────────────────────
+  function showPanel(job, distFromCourier) {
+    var t = tier(parseFloat(job.price) || 0);
+
+    var img = document.getElementById('jp-thumb');
+    if (img) { img.src = job.photo || DEFAULT_IMG; img.onerror = function () { img.src = DEFAULT_IMG; }; }
+
+    setText('jp-name',     job.names);
+    setText('jp-meta',     (job.size || '') + (job.quantity ? ' · ' + job.quantity + ' item(s)' : ''));
+    setText('jp-price',    '$' + job.price);
+    setText('jp-dist',     job.distance + ' mi');
+    setText('jp-dur',      '~' + job.duration + ' min');
+    setText('jp-pickup',   job.pickup_address   || 'Not specified');
+    setText('jp-delivery', job.delivery_address || 'Not specified');
+    setText('jp-cname',    job.customer_name    || 'Customer');
+    setText('jp-cphone',   job.customer_phone   || '');
+
+    // "From you" distance badge
+    var fromYouEl = document.getElementById('jp-from-you');
+    if (fromYouEl) {
+      if (distFromCourier != null) {
+        fromYouEl.textContent = distFromCourier.toFixed(1) + ' mi from you';
+        fromYouEl.style.display = 'inline-block';
+      } else {
+        fromYouEl.style.display = 'none';
+      }
+    }
+
+    // Tier badge colour
+    var tierEl = document.getElementById('jp-tier');
+    if (tierEl) {
+      tierEl.textContent   = t.label;
+      tierEl.style.background = t.bg;
+      tierEl.style.display    = 'inline-block';
+    }
+
+    var av = document.getElementById('jp-avatar');
+    if (av) { av.src = job.customer_avatar || DEFAULT_IMG; av.onerror = function () { av.src = DEFAULT_IMG; }; }
+
+    var link = document.getElementById('jp-link');
+    if (link) link.href = '/courier/jobs/available/' + job.id + '/';
+
+    var panel = document.getElementById('job-panel');
+    if (panel) { panel.classList.remove('mini'); panel.classList.add('open'); }
+    isPanelOpen = true; isMini = false;
+  }
+
+  function setText(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = val;
+  }
+
+  function toggleMini() {
+    if (!isPanelOpen) return;
+    var panel = document.getElementById('job-panel');
+    if (!panel) return;
+    if (isMini) {
+      panel.classList.remove('mini'); panel.classList.add('open'); isMini = false;
+    } else {
+      panel.classList.remove('open'); panel.classList.add('mini'); isMini = true;
+    }
+  }
+
+  function closePanel() {
+    var panel = document.getElementById('job-panel');
+    if (panel) panel.classList.remove('open', 'mini');
+    isPanelOpen = false; isMini = false;
+    map.closePopup();
+  }
+
+  // Expose to HTML onclick attributes
+  window.toggleMini = toggleMini;
+  window.closePanel = closePanel;
+
+  map.on('click', function () { closePanel(); });
+
+  // ── Touch drag to dismiss panel ───────────────────────────────────────────────
   var panel = document.getElementById('job-panel');
-  panel.classList.remove('mini'); panel.classList.add('open');
-  isPanelOpen = true; isMini = false;
-}
+  if (panel) {
+    var _sy = 0, _st = 0;
+    panel.addEventListener('touchstart', function (e) {
+      _sy = e.touches[0].clientY; _st = Date.now();
+    }, { passive: true });
+    panel.addEventListener('touchend', function (e) {
+      var dy = e.changedTouches[0].clientY - _sy;
+      var dt = Date.now() - _st;
+      if (dy > 60 && dt < 400) { isMini ? closePanel() : toggleMini(); }
+      if (dy < -60 && dt < 400 && isMini) { toggleMini(); }
+    }, { passive: true });
+  }
 
-function toggleMini() {
-  if (!isPanelOpen) return;
-  var panel = document.getElementById('job-panel');
-  if (isMini) { panel.classList.remove('mini'); panel.classList.add('open'); isMini = false; }
-  else { panel.classList.remove('open'); panel.classList.add('mini'); isMini = true; }
-}
+  // ── CSRF helper ───────────────────────────────────────────────────────────────
+  function getCsrf() {
+    var c = document.cookie.split(';').find(function (x) { return x.trim().startsWith('csrftoken='); });
+    return c ? c.trim().split('=')[1] : '';
+  }
 
-function closePanel() {
-  document.getElementById('job-panel').classList.remove('open','mini');
-  isPanelOpen = false; isMini = false; map.closePopup();
-}
-
-map.on('click', () => closePanel());
-
-// ── Touch drag to dismiss ─────────────────────────
-(function(){
-  var p=document.getElementById('job-panel'), sy=0, st=0;
-  p.addEventListener('touchstart', e=>{sy=e.touches[0].clientY;st=Date.now();},{passive:true});
-  p.addEventListener('touchend', e=>{
-    var dy=e.changedTouches[0].clientY-sy, dt=Date.now()-st;
-    if(dy>60&&dt<400){ !isMini?toggleMini():closePanel(); }
-    if(dy<-60&&dt<400&&isMini){ toggleMini(); }
-  },{passive:true});
 })();
-
-function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 </script>
 {% endblock %}

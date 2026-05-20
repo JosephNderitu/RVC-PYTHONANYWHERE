@@ -33,6 +33,7 @@ numpy==1.26.4
 oauthlib==3.2.2
 osmnx==1.9.3
 packaging==24.1
+setuptools>=68.0.0
 paypalrestsdk==1.13.3
 pillow==10.4.0
 prompt_toolkit==3.0.52
@@ -64,3 +65,10 @@ urllib3==2.2.2
 vine==5.1.0
 wcwidth==0.6.0
 whitenoise==6.7.0
+
+# ── Driver Verification ML packages ──────────────────────────────────────────
+paddlepaddle==2.6.2
+paddleocr==2.7.3
+insightface==0.7.3
+onnxruntime==1.17.3
+opencv-python-headless==4.9.0.80

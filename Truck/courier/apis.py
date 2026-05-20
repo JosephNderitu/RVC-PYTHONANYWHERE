@@ -6,6 +6,10 @@ from django.utils import timezone
 from django.contrib.gis.geos import Point
 from Truck.models import Job, Courier, CourierLocationHistory
 
+import requests as req
+from django.views.decorators.http import require_GET, require_POST
+from django.contrib.auth.decorators import login_required
+from django.conf import settings
 
 def _json_auth_check(request):
     """Returns a JsonResponse 401 if not authenticated, else None."""
@@ -263,3 +267,195 @@ def osrm_proxy(request):
         return JsonResponse(resp.json(), safe=False)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=502)
+ 
+ 
+# ═══════════════════════════════════════════════════════════════════════════════
+#   ORS ROUTING PROXY
+#   Keeps the ORS API key server-side — never exposed to the browser.
+#   Returns full GeoJSON route geometry for drawing on Leaflet.
+#
+#   Frontend calls: GET /courier/api/ors-route/?
+#                      plat=38.2066&plng=-84.8736&dlat=33.7536&dlng=-84.3857
+# ═══════════════════════════════════════════════════════════════════════════════
+ 
+@login_required
+def ors_route_proxy(request):
+    """
+    Proxies OpenRouteService routing requests.
+    Returns GeoJSON geometry + distance + duration for Leaflet route drawing.
+    Used as fallback when OSRM cannot route (coordinate outside coverage).
+    """
+    try:
+        plat = float(request.GET.get('plat', 0))
+        plng = float(request.GET.get('plng', 0))
+        dlat = float(request.GET.get('dlat', 0))
+        dlng = float(request.GET.get('dlng', 0))
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'Invalid coordinates'}, status=400)
+ 
+    if not all([plat, plng, dlat, dlng]):
+        return JsonResponse({'error': 'Missing coordinates'}, status=400)
+ 
+    ors_key = getattr(settings, 'ORS_API_KEY', None)
+    if not ors_key:
+        return JsonResponse({
+            'error': 'ORS not configured',
+            'hint':  'Add ORS_API_KEY to settings.py — free at openrouteservice.org'
+        }, status=503)
+ 
+    try:
+        resp = req.post(
+            'https://api.openrouteservice.org/v2/directions/driving-car/geojson',
+            json={
+                'coordinates': [[plng, plat], [dlng, dlat]],
+                'units':       'mi',
+                'instructions': False,
+            },
+            headers={
+                'Authorization': ors_key,
+                'Content-Type':  'application/json',
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+ 
+        feature   = data['features'][0]
+        summary   = feature['properties']['summary']
+        geometry  = feature['geometry']          # GeoJSON LineString
+ 
+        return JsonResponse({
+            'code':       'Ok',
+            'source':     'ors',
+            'distance_miles': round(summary['distance'], 2),
+            'duration_min':   round(summary['duration'] / 60, 1),
+            'geometry':       geometry,          # {type, coordinates} for Leaflet
+        })
+ 
+    except req.exceptions.Timeout:
+        return JsonResponse({'error': 'ORS timeout — try again'}, status=504)
+    except req.exceptions.HTTPError as e:
+        return JsonResponse({'error': f'ORS error: {e.response.status_code}'}, status=502)
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=500)
+ 
+ 
+# ═══════════════════════════════════════════════════════════════════════════════
+#   TRAFFIC STATUS ENDPOINT
+#   Returns current traffic level + multiplier (no API key needed).
+#   Also fetches TomTom live traffic if TT_API_KEY is configured.
+#
+#   Frontend calls: GET /courier/api/traffic-status/
+#                      ?lat=33.749&lng=-84.388
+# ═══════════════════════════════════════════════════════════════════════════════
+ 
+@login_required
+def traffic_status(request):
+    """
+    Returns current traffic level for a coordinate.
+ 
+    Without TomTom key: returns time-of-day heuristic (always works, free).
+    With TomTom key:    augments with real-time speed/flow data.
+ 
+    TomTom free tier: 2,500 requests/day, no credit card.
+    Register at: https://developer.tomtom.com/
+    Add to settings.py: TOMTOM_API_KEY = 'your_free_key'
+    """
+    from Truck.distance_engine import _traffic_multiplier
+ 
+    multiplier = _traffic_multiplier()
+    level = (
+        'heavy'    if multiplier >= 1.40 else
+        'moderate' if multiplier >= 1.20 else
+        'light'    if multiplier <= 0.95 else
+        'normal'
+    )
+ 
+    colour = {
+        'heavy':    '#DC2626',   # red
+        'moderate': '#D97706',   # amber
+        'normal':   '#16A34A',   # green
+        'light':    '#2563EB',   # blue
+    }[level]
+ 
+    result = {
+        'source':      'heuristic',
+        'level':       level,
+        'multiplier':  multiplier,
+        'colour':      colour,
+        'description': {
+            'heavy':    'Heavy traffic — significant delays expected',
+            'moderate': 'Moderate traffic — some delays',
+            'normal':   'Normal traffic flow',
+            'light':    'Light traffic — faster than usual',
+        }[level],
+        'real_time': False,
+    }
+ 
+    # ── Optional: TomTom live traffic ────────────────────────────────────────
+    tt_key = getattr(settings, 'TOMTOM_API_KEY', None)
+    if tt_key:
+        try:
+            lat = float(request.GET.get('lat', 33.749))
+            lng = float(request.GET.get('lng', -84.388))
+ 
+            # TomTom Traffic Flow — returns current speed vs free-flow speed
+            tt_resp = req.get(
+                f'https://api.tomtom.com/traffic/services/4/flowSegmentData/relative0/10/json',
+                params={
+                    'key':   tt_key,
+                    'point': f'{lat},{lng}',
+                },
+                timeout=5,
+            )
+            if tt_resp.status_code == 200:
+                tt_data = tt_resp.json()
+                flow = tt_data.get('flowSegmentData', {})
+                current_speed  = flow.get('currentSpeed', 0)
+                freeflow_speed = flow.get('freeFlowSpeed', 1)
+ 
+                if freeflow_speed > 0:
+                    ratio = current_speed / freeflow_speed
+                    if ratio < 0.4:
+                        tt_level = 'heavy'
+                    elif ratio < 0.7:
+                        tt_level = 'moderate'
+                    elif ratio > 1.05:
+                        tt_level = 'light'
+                    else:
+                        tt_level = 'normal'
+ 
+                    result.update({
+                        'source':        'tomtom',
+                        'level':         tt_level,
+                        'colour':        colour,
+                        'real_time':     True,
+                        'current_speed': current_speed,
+                        'freeflow_speed': freeflow_speed,
+                        'speed_ratio':   round(ratio, 2),
+                    })
+        except Exception as exc:
+            # TomTom failed — heuristic result already set, just log
+            import logging
+            logging.getLogger(__name__).debug("TomTom traffic failed: %s", exc)
+ 
+    return JsonResponse(result)
+
+@login_required
+@require_POST
+def online_status_api(request):
+    """
+    POST /courier/api/online-status/
+    Body: {"is_available": true}
+    Toggles courier online/offline status.
+    Called by the available_jobs map when GPS locks.
+    """
+    try:
+        data        = json.loads(request.body)
+        is_available = bool(data.get('is_available', False))
+        courier     = request.user.courier
+        courier.is_available = is_available
+        courier.save(update_fields=['is_available'])
+        return JsonResponse({'success': True, 'is_available': is_available})
+    except Exception as exc:
+        return JsonResponse({'success': False, 'error': str(exc)}, status=400)

@@ -49,6 +49,7 @@ services:
     command: python -m celery -A RiftValley worker --loglevel=info
     volumes:
       - .:/app
+      - paddleocr_models:/root/.paddleocr 
     working_dir: /app
     environment:
       - DATABASE_URL=postgis://rvc_user:rvc_pass_2026@db:5432/rvc_spatial
@@ -82,21 +83,32 @@ services:
       - "5000:5000"
     command: >
       sh -c "
-        if [ ! -f /data/georgia-latest.osrm.ebg ]; then
-          echo 'Preprocessing Georgia OSM data...' &&
-          osrm-extract -p /opt/car.lua /data/georgia-latest.osm.pbf &&
-          osrm-partition /data/georgia-latest.osrm &&
-          osrm-customize /data/georgia-latest.osrm
+        if [ ! -f /data/southeast.osrm.ebg ]; then
+          if [ ! -f /data/southeast.osm.pbf ]; then
+            echo '=================================================='
+            echo 'ERROR: /data/southeast.osm.pbf not found!'
+            echo 'Run prepare_osrm_data.ps1 first to download and'
+            echo 'merge the southeastern US road network data.'
+            echo '=================================================='
+            exit 1
+          fi
+          echo 'Processing southeastern US road network...'
+          echo 'This takes 10-20 minutes on first run. Please wait.'
+          osrm-extract -p /opt/car.lua /data/southeast.osm.pbf &&
+          osrm-partition /data/southeast.osrm &&
+          osrm-customize /data/southeast.osrm &&
+          echo 'OSRM processing complete.'
         fi &&
-        echo 'Starting OSRM server...' &&
-        osrm-routed --algorithm mld --max-table-size 10000 /data/georgia-latest.osrm
+        echo 'Starting OSRM server (southeastern US coverage)...' &&
+        osrm-routed --algorithm mld --max-table-size 10000 /data/southeast.osrm
       "
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- 'http://localhost:5000/route/v1/driving/-84.388,33.749;-81.0998,32.0835?overview=false' | grep -q 'Ok' && exit 0 || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
-      start_period: 45s
+      start_period: 60s
 
 volumes:
   postgis_data:
+  paddleocr_models:

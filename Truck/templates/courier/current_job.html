@@ -367,131 +367,443 @@
 
 {% if job %}
 <script>
-var PLAT={{ job.pickup_lat|default:0 }},  PLNG={{ job.pickup_lng|default:0 }};
-var DLAT={{ job.delivery_lat|default:0 }}, DLNG={{ job.delivery_lng|default:0 }};
+var PLAT       = {{ job.pickup_lat|default:0 }};
+var PLNG       = {{ job.pickup_lng|default:0 }};
+var DLAT       = {{ job.delivery_lat|default:0 }};
+var DLNG       = {{ job.delivery_lng|default:0 }};
 var JOB_STATUS = "{{ job.status }}";
+var JOB_ID     = "{{ job.id }}";
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// ── Map (voyager — matches rest of system) ────────
-var map = L.map('courier-map').setView([(PLAT+DLAT)/2, (PLNG+DLNG)/2], 11);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  {attribution:'&copy; <a href="https://openstreetmap.org">OSM</a> &copy; <a href="https://carto.com">CARTO</a>', maxZoom:19}
-).addTo(map);
+(function () {
+  "use strict";
 
-function dot(color, label) {
-  return L.divIcon({className:'',
-    html: '<div style="background:'+color+';width:28px;height:28px;border-radius:50%;'
-        + 'border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.2);'
-        + 'display:flex;align-items:center;justify-content:center;'
-        + 'font-size:11px;font-weight:800;color:#fff;">'+label+'</div>',
-    iconSize:[28,28], iconAnchor:[14,14]});
-}
-L.marker([PLAT,PLNG], {icon:dot('#2196F3','P')}).addTo(map).bindPopup('<b style="color:#111;">Pickup</b>');
-L.marker([DLAT,DLNG], {icon:dot('#F97316','D')}).addTo(map).bindPopup('<b style="color:#111;">Delivery</b>');
+  // ── Inject styles ─────────────────────────────────────────────────────────────
+  if (!document.getElementById('rvc-cj-styles')) {
+    var s = document.createElement('style');
+    s.id  = 'rvc-cj-styles';
+    s.textContent = [
+      '@keyframes rvc-ping{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.8);opacity:0}}',
+      '@keyframes rvc-pulse{0%,100%{opacity:1}50%{opacity:.5}}',
 
-// OSRM real road route via proxy
-fetch('/courier/api/osrm/?path='
-    + encodeURIComponent('/route/v1/driving/'+PLNG+','+PLAT+';'+DLNG+','+DLAT)
-    + '&query=' + encodeURIComponent('overview=full&geometries=geojson'),
-  {credentials:'same-origin'})
-  .then(r => r.json())
-  .then(d => {
-    if (d.code === 'Ok' && d.routes.length) {
-      var lls = d.routes[0].geometry.coordinates.map(c => [c[1],c[0]]);
-      L.polyline(lls, {color:'#1565C0', weight:4, opacity:.8}).addTo(map);
-      map.fitBounds(L.latLngBounds(lls), {padding:[28,28]});
-    }
-  }).catch(function(){});
+      // Dark popup theme
+      '.rvc-popup .leaflet-popup-content-wrapper{'
+        + 'background:#0D1B3E;border:1px solid rgba(249,115,22,.22);'
+        + 'border-radius:14px;box-shadow:0 10px 36px rgba(0,0,0,.5);padding:0;}',
+      '.rvc-popup .leaflet-popup-content{margin:0;padding:12px 14px;min-width:175px;}',
+      '.rvc-popup .leaflet-popup-tip-container{display:none;}',
+      '.rvc-popup .leaflet-popup-close-button{color:rgba(255,255,255,.45)!important;'
+        + 'top:6px!important;right:8px!important;}',
 
-// ── Google Maps navigate button ────────────────────
-// Points to the current destination (pickup if picking, delivery if delivering)
-(function() {
-  var destLat = (JOB_STATUS === 'picking') ? PLAT : DLAT;
-  var destLng = (JOB_STATUS === 'picking') ? PLNG : DLNG;
-  var label   = (JOB_STATUS === 'picking') ? 'Pickup+Location' : 'Delivery+Location';
-  var url     = 'https://www.google.com/maps/dir/?api=1&destination=' + destLat + ',' + destLng + '&travelmode=driving';
-  document.getElementById('nav-btn').href = url;
-})();
+      // Route source badge
+      '#rvc-route-badge{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);'
+        + 'z-index:900;background:rgba(13,27,62,.92);border:1px solid rgba(249,115,22,.28);'
+        + 'border-radius:20px;padding:5px 14px;color:#fff;font-size:.73rem;'
+        + 'font-family:Sora,sans-serif;font-weight:600;backdrop-filter:blur(8px);'
+        + 'display:flex;align-items:center;gap:7px;pointer-events:none;white-space:nowrap;}',
 
-// ── GPS Tracking ───────────────────────────────────
-var watchId=null, gpsOn=false, pings=0, courierMk=null;
+      // GPS status bar improvements
+      '.gps-banner.active  { border-left:3px solid #10B981; }',
+      '.gps-banner.error   { border-left:3px solid #DC2626; }',
+      '.gps-banner.inactive{ border-left:3px solid #6B7280; }',
 
-function toggleGPS() { gpsOn ? stopGPS() : startGPS(); }
+      // Ping count badge
+      '#ping-count{display:inline-flex;align-items:center;justify-content:center;'
+        + 'min-width:24px;height:24px;padding:0 6px;border-radius:12px;'
+        + 'background:rgba(249,115,22,.2);color:#F97316;font-size:.72rem;'
+        + 'font-weight:800;font-family:Sora,sans-serif;}',
 
-function startGPS() {
-  if (!navigator.geolocation) {
-    setStatus('error', 'GPS not supported', 'Your device does not support geolocation.');
-    return;
+      // ETA strip
+      '#rvc-eta{position:absolute;top:14px;right:14px;z-index:900;'
+        + 'background:rgba(13,27,62,.92);border:1px solid rgba(249,115,22,.25);'
+        + 'border-radius:12px;padding:8px 12px;font-family:Sora,sans-serif;'
+        + 'backdrop-filter:blur(8px);min-width:110px;text-align:center;}',
+      '#rvc-eta .eta-val{font-size:1.1rem;font-weight:800;color:#F97316;line-height:1;}',
+      '#rvc-eta .eta-lbl{font-size:.62rem;color:rgba(255,255,255,.5);'
+        + 'text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}',
+      '#rvc-eta .eta-dist{font-size:.75rem;font-weight:700;color:#fff;margin-top:3px;}',
+    ].join('');
+    document.head.appendChild(s);
   }
-  setStatus('inactive', 'Requesting permission\u2026', 'Allow location access when prompted.');
-  watchId = navigator.geolocation.watchPosition(onPos, onErr,
-    {enableHighAccuracy:true, maximumAge:0, timeout:15000});
-  gpsOn = true;
-  document.getElementById('gps-btn-label').textContent = 'Stop GPS Tracking';
-  document.getElementById('gps-icon').className        = 'fas fa-stop-circle';
-  document.getElementById('gps-btn').className         = 'gps-btn stop';
-}
 
-function stopGPS() {
-  if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-  gpsOn = false;
-  setStatus('inactive', 'GPS tracking stopped', 'Tap Start to resume sending your location.');
-  document.getElementById('gps-btn-label').textContent = 'Start GPS Tracking';
-  document.getElementById('gps-icon').className        = 'fas fa-location-arrow';
-  document.getElementById('gps-btn').className         = 'gps-btn start';
-}
+  // ── Popup row builder ─────────────────────────────────────────────────────────
+  function popupRows(rows) {
+    return '<div>' + rows.map(function (r) {
+      return '<div style="display:flex;justify-content:space-between;gap:14px;'
+           + 'padding:3px 0;border-bottom:1px solid rgba(255,255,255,.06);">'
+           + '<span style="color:rgba(255,255,255,.5);font-size:.7rem;'
+           + 'font-family:Sora,sans-serif;white-space:nowrap;">' + r.label + '</span>'
+           + '<span style="color:' + (r.color || '#fff') + ';font-size:.75rem;'
+           + 'font-weight:700;font-family:Sora,sans-serif;text-align:right;">'
+           + r.value + '</span></div>';
+    }).join('') + '</div>';
+  }
 
-function onPos(pos) {
-  var lat = pos.coords.latitude, lng = pos.coords.longitude;
-  var acc = Math.round(pos.coords.accuracy);
-  setStatus('active', 'Live \u2014 sending GPS every update',
-    '\u00b1' + acc + 'm \u00b7 ' + lat.toFixed(5) + ', ' + lng.toFixed(5));
+  // ── Pin icon factory ──────────────────────────────────────────────────────────
+  function makePin(opts) {
+    var pulse = opts.pulse
+      ? '<div style="position:absolute;inset:-7px;border-radius:50%;'
+        + 'border:2px solid ' + opts.bg + ';'
+        + 'animation:rvc-ping 1.5s cubic-bezier(0,0,.2,1) infinite;opacity:.5;"></div>'
+      : '';
+    return L.divIcon({
+      className: '',
+      html: '<div style="position:relative;width:46px;height:46px;">' + pulse
+          + '<div style="width:46px;height:46px;border-radius:50%;background:' + opts.bg + ';'
+          + 'border:3px solid ' + (opts.border || '#fff') + ';'
+          + 'box-shadow:0 4px 16px rgba(0,0,0,.3);'
+          + 'display:flex;flex-direction:column;align-items:center;'
+          + 'justify-content:center;gap:1px;">'
+          + '<span style="font-size:16px;line-height:1;">' + opts.emoji + '</span>'
+          + '<span style="font-size:6.5px;font-weight:800;color:#fff;'
+          + 'font-family:Sora,sans-serif;text-transform:uppercase;'
+          + 'letter-spacing:.05em;line-height:1;">' + opts.label + '</span>'
+          + '</div></div>',
+      iconSize:    [46, 46],
+      iconAnchor:  [23, 23],
+      popupAnchor: [0, -28],
+    });
+  }
 
-  if (!courierMk) {
-    courierMk = L.marker([lat,lng], {icon:dot('#10B981','C'), zIndexOffset:20})
-                 .addTo(map).bindPopup('<b style="color:#111;">You</b>');
-  } else { courierMk.setLatLng([lat,lng]); }
-  map.panTo([lat,lng]);
+  // ── Haversine distance (miles) ────────────────────────────────────────────────
+  function haversineMiles(lat1, lng1, lat2, lng2) {
+    var R = 3958.8, r = Math.PI / 180;
+    var dL = (lat2-lat1)*r, dG = (lng2-lng1)*r;
+    var a  = Math.sin(dL/2)*Math.sin(dL/2)
+           + Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dG/2)*Math.sin(dG/2);
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
 
-  fetch('/courier/api/courier-location/update/', {
-    method:      'POST',
-    headers:     {'Content-Type':'application/json'},
-    body:        JSON.stringify({lat:lat, lng:lng}),
-    credentials: 'same-origin',
-  }).then(r => r.json()).then(d => {
-    if (d.success) {
-      pings++;
-      document.getElementById('ping-count').textContent = pings;
-    } else if (d.error === 'No active job') {
-      stopGPS();
-      setTimeout(function() {
-        window.location.href = "{% url 'courier:job_complete' %}";
-      }, 1000);
+  function fmtDur(minutes) {
+    var h = Math.floor(minutes/60), m = Math.round(minutes%60);
+    return h > 0 ? h+'h '+m+'m' : m+' min';
+  }
+
+  // ── Init map ──────────────────────────────────────────────────────────────────
+  var midLat = (PLAT + DLAT) / 2 || PLAT || 33.749;
+  var midLng = (PLNG + DLNG) / 2 || PLNG || -84.388;
+
+  var map = L.map('courier-map', { zoomControl: false }).setView([midLat, midLng], 11);
+  L.tileLayer(
+    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    { attribution: '&copy; <a href="https://openstreetmap.org">OSM</a>', maxZoom: 19 }
+  ).addTo(map);
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+  // ── ETA strip (top right) ─────────────────────────────────────────────────────
+  var etaEl = document.createElement('div');
+  etaEl.id  = 'rvc-eta';
+  etaEl.innerHTML = '<div class="eta-val">—</div>'
+                  + '<div class="eta-lbl">Est. time</div>'
+                  + '<div class="eta-dist" id="eta-dist">—</div>';
+  document.getElementById('courier-map').appendChild(etaEl);
+
+  function updateETA(miles, minutes) {
+    etaEl.querySelector('.eta-val').textContent  = fmtDur(minutes);
+    document.getElementById('eta-dist').textContent = miles.toFixed(1) + ' mi';
+  }
+
+  // ── Route source badge ────────────────────────────────────────────────────────
+  var badge = document.createElement('div');
+  badge.id  = 'rvc-route-badge';
+  badge.style.display = 'none';
+  document.getElementById('courier-map').appendChild(badge);
+
+  function showBadge(icon, text, color) {
+    badge.innerHTML = '<i class="fas fa-' + icon + '" style="color:'
+                    + (color || '#F97316') + ';font-size:.7rem;"></i> ' + text;
+    badge.style.display = 'flex';
+  }
+
+  // ── Pickup marker ─────────────────────────────────────────────────────────────
+  var pickupMk = L.marker([PLAT, PLNG], {
+    icon: makePin({ bg:'#1D4ED8', emoji:'📦', label:'PICKUP', pulse: JOB_STATUS==='picking' }),
+    zIndexOffset: 10,
+  }).addTo(map);
+
+  pickupMk.bindPopup(popupRows([
+    { label:'Status',  value: JOB_STATUS==='picking' ? 'Next stop' : 'Collected',
+      color: JOB_STATUS==='picking' ? '#60A5FA' : '#34D399' },
+    { label:'Address', value:'{{ job.pickup_address|truncatechars:38|escapejs }}' },
+    { label:'Contact', value:'{{ job.pickup_name|escapejs }}' },
+    { label:'Phone',   value:'{{ job.pickup_phone|escapejs }}', color:'#34D399' },
+  ]), { className:'rvc-popup', maxWidth:230 });
+
+  // ── Delivery marker ───────────────────────────────────────────────────────────
+  var deliveryMk = L.marker([DLAT, DLNG], {
+    icon: makePin({ bg:'#F97316', emoji:'🏁', label:'DELIVERY', pulse: JOB_STATUS==='delivering' }),
+    zIndexOffset: 10,
+  }).addTo(map);
+
+  deliveryMk.bindPopup(popupRows([
+    { label:'Status',   value: JOB_STATUS==='delivering' ? 'En route' : 'Pending',
+      color: JOB_STATUS==='delivering' ? '#F97316' : '#94A3B8' },
+    { label:'Address',  value:'{{ job.delivery_address|truncatechars:38|escapejs }}' },
+    { label:'Contact',  value:'{{ job.delivery_name|escapejs }}'  },
+    { label:'Phone',    value:'{{ job.delivery_phone|escapejs }}', color:'#34D399' },
+    { label:'Distance', value:'{{ job.distance|floatformat:1 }} mi' },
+    { label:'Est. Cost','value':'${{ job.price|floatformat:2 }}',  color:'#F97316' },
+  ]), { className:'rvc-popup', maxWidth:230 });
+
+  // ── Route: OSRM → ORS → straight line ────────────────────────────────────────
+  var routeLine = null;
+
+  function drawPolyline(lls, color, dashed) {
+    if (routeLine) map.removeLayer(routeLine);
+    routeLine = L.polyline(lls, {
+      color:     color || '#F97316',
+      weight:    5,
+      opacity:   0.85,
+      lineJoin:  'round',
+      lineCap:   'round',
+      dashArray: dashed ? '12 6' : null,
+    }).addTo(map);
+    map.fitBounds(routeLine.getBounds(), { padding:[50,50] });
+  }
+
+  var geodesicMi = haversineMiles(PLAT, PLNG, DLAT, DLNG);
+
+  // Step 1 — OSRM
+  function tryOSRM() {
+    var path  = '/route/v1/driving/'+PLNG+','+PLAT+';'+DLNG+','+DLAT;
+    var query = 'overview=full&geometries=geojson&steps=false';
+    var url   = '/courier/api/osrm/?path='+encodeURIComponent(path)
+              + '&query='+encodeURIComponent(query);
+
+    fetch(url, { credentials:'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (!d || d.code!=='Ok' || !d.routes || !d.routes.length) throw new Error('no route');
+        var mi  = d.routes[0].distance / 1609.344;
+        var min = d.routes[0].duration / 60;
+        if (mi < geodesicMi * 0.85) throw new Error('coverage miss');
+
+        var lls = d.routes[0].geometry.coordinates.map(function(c){ return [c[1],c[0]]; });
+        drawPolyline(lls, '#F97316', false);
+        updateETA(mi, Math.round(min));
+        showBadge('road', mi.toFixed(1)+' mi · '+fmtDur(Math.round(min))+' · OSRM road route', '#34D399');
+      })
+      .catch(function(err){
+        console.warn('OSRM:', err.message, '→ trying ORS');
+        tryORS();
+      });
+  }
+
+  // Step 2 — ORS fallback
+  function tryORS() {
+    var url = '/courier/api/ors-route/'
+            + '?plat='+PLAT+'&plng='+PLNG
+            + '&dlat='+DLAT+'&dlng='+DLNG;
+
+    fetch(url, { credentials:'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d.error || !d.geometry) throw new Error(d.error||'no geometry');
+
+        var mi  = d.distance_miles;
+        var min = Math.round(d.duration_min);
+        var lls = d.geometry.coordinates.map(function(c){ return [c[1],c[0]]; });
+        drawPolyline(lls, '#F97316', true);
+        updateETA(mi, min);
+        showBadge('route', mi.toFixed(1)+' mi · '+fmtDur(min)+' · ORS fallback', '#60A5FA');
+      })
+      .catch(function(err){
+        console.warn('ORS:', err.message, '→ straight line');
+        drawStraightLine();
+      });
+  }
+
+  // Step 3 — straight-line last resort
+  function drawStraightLine() {
+    drawPolyline([[PLAT,PLNG],[DLAT,DLNG]], '#94A3B8', true);
+    var mi  = geodesicMi;
+    var min = Math.round((mi / 62) * 60);
+    updateETA(mi, min);
+    showBadge('exclamation-triangle', mi.toFixed(1)+' mi straight-line (estimate)', '#F59E0B');
+  }
+
+  tryOSRM();
+
+  // ── Navigate button — smart destination ───────────────────────────────────────
+  (function () {
+    var destLat = JOB_STATUS === 'picking' ? PLAT : DLAT;
+    var destLng = JOB_STATUS === 'picking' ? PLNG : DLNG;
+    var label   = JOB_STATUS === 'picking' ? 'Pickup+Location' : 'Delivery+Location';
+    var url     = 'https://www.google.com/maps/dir/?api=1'
+                + '&destination=' + destLat + ',' + destLng
+                + '&travelmode=driving';
+    var btn = document.getElementById('nav-btn');
+    if (btn) btn.href = url;
+  })();
+
+  // ── GPS Tracking ──────────────────────────────────────────────────────────────
+  var watchId   = null;
+  var gpsOn     = false;
+  var pings     = 0;
+  var courierMk = null;
+  var trailPts  = [];
+  var trailLines = [];
+
+  // Courier marker with pulse
+  function makeCourierIcon() {
+    return makePin({ bg:'#10B981', emoji:'🚚', label:'YOU', pulse:true });
+  }
+
+  // Fading GPS trail (last 6 positions)
+  function updateTrail(lat, lng) {
+    trailPts.push([lat, lng]);
+    if (trailPts.length > 6) trailPts.shift();
+    trailLines.forEach(function(l){ map.removeLayer(l); });
+    trailLines = [];
+    for (var i = 1; i < trailPts.length; i++) {
+      var op = 0.1 + (i / trailPts.length) * 0.45;
+      var wt = 1 + (i / trailPts.length) * 3;
+      trailLines.push(
+        L.polyline([trailPts[i-1], trailPts[i]], {
+          color:'#10B981', weight:wt, opacity:op,
+        }).addTo(map)
+      );
     }
-  }).catch(function(e) { console.warn('GPS send error:', e); });
-}
+  }
 
-function onErr(e) {
-  var msgs = {
-    1: 'Permission denied. Enable location in browser settings.',
-    2: 'GPS unavailable. Move to an open area.',
-    3: 'GPS timeout \u2014 retrying\u2026',
-  };
-  setStatus('error', 'GPS Error', msgs[e.code] || e.message);
-}
+  function toggleGPS() { gpsOn ? stopGPS() : startGPS(); }
+  window.toggleGPS = toggleGPS;
 
-function setStatus(type, title, detail) {
-  var b = document.getElementById('gps-banner');
-  var d = document.getElementById('gps-dot');
-  b.className = 'gps-banner ' + (type === 'active' ? 'active' : type === 'error' ? 'error' : 'inactive');
-  d.className = 'gps-dot '    + (type === 'active' ? 'pulse'  : type === 'error' ? 'err'   : 'idle');
-  document.getElementById('gps-title').textContent  = title;
-  document.getElementById('gps-detail').textContent = detail || '';
-}
+  function startGPS() {
+    if (!navigator.geolocation) {
+      setStatus('error', 'GPS not supported', 'Your device does not support geolocation.');
+      return;
+    }
+    setStatus('inactive', 'Requesting GPS permission…', 'Allow location access when prompted.');
+    watchId = navigator.geolocation.watchPosition(
+      onPos, onErr,
+      { enableHighAccuracy:true, maximumAge:0, timeout:15000 }
+    );
+    gpsOn = true;
+    setGPSBtn('stop');
+  }
 
-// Auto-start GPS when page loads
-window.addEventListener('load', function() { setTimeout(startGPS, 600); });
+  function stopGPS() {
+    if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+    gpsOn = false;
+    setStatus('inactive', 'GPS tracking paused', 'Tap Start GPS to resume sending your location.');
+    setGPSBtn('start');
+  }
+
+  function setGPSBtn(mode) {
+    var lbl  = document.getElementById('gps-btn-label');
+    var icon = document.getElementById('gps-icon');
+    var btn  = document.getElementById('gps-btn');
+    if (!lbl || !icon || !btn) return;
+    if (mode === 'stop') {
+      lbl.textContent  = 'Stop GPS Tracking';
+      icon.className   = 'fas fa-stop-circle';
+      btn.className    = 'gps-btn stop';
+    } else {
+      lbl.textContent  = 'Start GPS Tracking';
+      icon.className   = 'fas fa-location-arrow';
+      btn.className    = 'gps-btn start';
+    }
+  }
+
+  function onPos(pos) {
+    var lat = pos.coords.latitude;
+    var lng = pos.coords.longitude;
+    var acc = Math.round(pos.coords.accuracy);
+
+    // Dynamic ETA from current position to next stop
+    var destLat = JOB_STATUS === 'picking' ? PLAT : DLAT;
+    var destLng = JOB_STATUS === 'picking' ? PLNG : DLNG;
+    var distToNext = haversineMiles(lat, lng, destLat, destLng);
+    var etaMin = Math.round((distToNext / 45) * 60);   // ~45mph average
+    updateETA(distToNext, etaMin);
+
+    var nextStop = JOB_STATUS === 'picking' ? 'to Pickup' : 'to Delivery';
+    setStatus('active',
+      'Live GPS — updating every second',
+      '±' + acc + 'm · ' + distToNext.toFixed(1) + ' mi ' + nextStop
+    );
+
+    // Update/create courier marker
+    if (!courierMk) {
+      courierMk = L.marker([lat, lng], {
+        icon: makeCourierIcon(), zIndexOffset: 20,
+      }).addTo(map);
+      courierMk.bindPopup(popupRows([
+        { label:'Status', value:'En Route',         color:'#34D399' },
+        { label:'GPS',    value:'Live · ±'+acc+'m', color:'#60A5FA' },
+        { label:'Next',   value:nextStop },
+      ]), { className:'rvc-popup', maxWidth:180 });
+    } else {
+      courierMk.setLatLng([lat, lng]);
+      courierMk.setPopupContent(popupRows([
+        { label:'Status',  value:'En Route',              color:'#34D399' },
+        { label:'GPS',     value:'Live · ±'+acc+'m',      color:'#60A5FA' },
+        { label:'Next',    value:distToNext.toFixed(1)+' mi '+nextStop },
+        { label:'Updates', value:pings+' sent',           color:'#F97316' },
+      ]));
+    }
+
+    updateTrail(lat, lng);
+    map.panTo([lat, lng]);
+
+    // Send to backend
+    fetch('/courier/api/courier-location/update/', {
+      method:      'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken':  getCsrf(),
+      },
+      body: JSON.stringify({ lat:lat, lng:lng }),
+    })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d.success) {
+          pings++;
+          var pc = document.getElementById('ping-count');
+          if (pc) pc.textContent = pings;
+        } else if (d.error === 'No active job') {
+          stopGPS();
+          setTimeout(function(){
+            window.location.href = "{% url 'courier:job_complete' %}";
+          }, 1200);
+        }
+      })
+      .catch(function(e){ console.warn('GPS send error:', e); });
+  }
+
+  function onErr(e) {
+    var msgs = {
+      1: 'Permission denied — enable location in browser settings.',
+      2: 'GPS signal unavailable — move to an open area.',
+      3: 'GPS request timed out — retrying…',
+    };
+    setStatus('error', 'GPS Error', msgs[e.code] || e.message || 'Unknown error');
+  }
+
+  function setStatus(type, title, detail) {
+    var b = document.getElementById('gps-banner');
+    var d = document.getElementById('gps-dot');
+    if (!b || !d) return;
+    b.className = 'gps-banner ' + type;
+    d.className = 'gps-dot '   + (type==='active'?'pulse':type==='error'?'err':'idle');
+    var t  = document.getElementById('gps-title');
+    var dt = document.getElementById('gps-detail');
+    if (t)  t.textContent  = title;
+    if (dt) dt.textContent = detail || '';
+  }
+
+  function getCsrf() {
+    var c = document.cookie.split(';').find(function(x){ return x.trim().startsWith('csrftoken='); });
+    return c ? c.trim().split('=')[1] : '';
+  }
+
+  // Auto-start GPS on page load
+  window.addEventListener('load', function(){ setTimeout(startGPS, 600); });
+
+})();
 </script>
 {% endif %}
 {% endblock %}

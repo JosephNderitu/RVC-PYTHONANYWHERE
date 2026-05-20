@@ -56,6 +56,45 @@ class Courier(models.Model):
         ],
         help_text="Vehicle type used for deliveries."
     )
+     # ── Driver Licence Verification ──────────────────────────────────────────
+    VERIFICATION_UNVERIFIED = 'unverified'
+    VERIFICATION_PENDING    = 'pending'
+    VERIFICATION_VERIFIED   = 'verified'
+    VERIFICATION_FAILED     = 'failed'
+    VERIFICATION_CHOICES    = [
+        ('unverified', 'Unverified'),
+        ('pending',    'Pending Review'),
+        ('verified',   'Verified'),
+        ('failed',     'Failed — resubmit'),
+    ]
+ 
+    verification_status   = models.CharField(
+        max_length=20,
+        choices=VERIFICATION_CHOICES,
+        default='unverified',
+        help_text="Current driver licence verification status.",
+    )
+    is_verified           = models.BooleanField(default=False)
+    face_verified         = models.BooleanField(default=False)
+ 
+    license_photo         = models.ImageField(
+        upload_to='courier/licenses/',
+        blank=True, null=True,
+        help_text="Front of the courier's driver's licence.",
+    )
+    selfie_photo          = models.ImageField(
+        upload_to='courier/selfies/',
+        blank=True, null=True,
+        help_text="Selfie used for face matching against the licence photo.",
+    )
+ 
+    license_number        = models.CharField(max_length=50, blank=True)
+    license_class         = models.CharField(max_length=10, blank=True)
+    license_expiry        = models.DateField(null=True, blank=True)
+    verification_score    = models.FloatField(default=0.0)
+    verification_notes    = models.TextField(blank=True)
+    verification_attempts = models.IntegerField(default=0)
+    verified_at           = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.user.get_full_name()

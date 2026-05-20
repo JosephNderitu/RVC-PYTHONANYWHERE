@@ -270,6 +270,14 @@
             <div class="rs-item"><div class="rs-val" id="rs-dur">—</div><div class="rs-lbl">Est. Time</div></div>
             <div class="rs-item"><div class="rs-val" id="rs-price" style="color:#F97316;">—</div><div class="rs-lbl">Price</div></div>
           </div>
+          <!-- Inside route-summary div, after rs-price: -->
+        <div style="margin-top:8px;">
+          <span id="traffic-badge"
+            style="display:none;align-items:center;padding:4px 12px;
+                  border-radius:20px;color:#fff;font-size:0.75rem;
+                  font-weight:700;font-family:'Sora',sans-serif;">
+          </span>
+        </div>
           <p class="text-xs text-gray-400 mt-2 text-center">
             <i class="fas fa-route mr-1"></i>Route calculated via OSRM real road network
           </p>
@@ -348,24 +356,68 @@
 <!-- Map + Autocomplete JavaScript -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+// ══════════════════════════════════════════════════════════════════
+//  RVC Create Job — Map, Routing & Traffic
+//  Routing chain: OSRM (self-hosted) → ORS (free fallback) → Straight line
+//  Traffic:       TomTom real-time (if configured) OR time-of-day heuristic
+// ══════════════════════════════════════════════════════════════════
+
 var STEP     = parseInt('{{ step|default:1 }}', 10);
 var USA_CTR  = [33.749, -84.388];
 var TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-var TILE_OPT = { attribution:'© OpenStreetMap', maxZoom:19 };
+var TILE_OPT = { attribution: '© OpenStreetMap', maxZoom: 19 };
 
 var INIT_PLAT = parseFloat('{{ job.pickup_lat|default:"0" }}')   || null;
 var INIT_PLNG = parseFloat('{{ job.pickup_lng|default:"0" }}')   || null;
 var INIT_DLAT = parseFloat('{{ job.delivery_lat|default:"0" }}') || null;
 var INIT_DLNG = parseFloat('{{ job.delivery_lng|default:"0" }}') || null;
 
-var maps   = { pickup:{instance:null,marker:null,ready:false}, delivery:{instance:null,marker:null,ready:false} };
-var acTmrs = {};
+var maps = {
+  pickup:   { instance: null, marker: null, ready: false },
+  delivery: { instance: null, marker: null, ready: false }
+};
+var acTmrs                    = {};
+var routeLine                 = null;
+var fallbackLine              = null;
+var pickupMarkerOnDeliveryMap = null;
+var trafficBanner             = null;
 
+// ── Pricing matches distance_engine.py ──────────────────────────
+var BASE_FARE = 50.00;
+var RATE_MILE = 2.50;
+var FUEL_PCT  = 0.08;
+var MIN_FARE  = 75.00;
+
+function computePrice(miles) {
+  var mileageCost   = miles * RATE_MILE;
+  var fuelSurcharge = mileageCost * FUEL_PCT;
+  return Math.max(BASE_FARE + mileageCost + fuelSurcharge, MIN_FARE).toFixed(2);
+}
+
+// ── Haversine straight-line ──────────────────────────────────────
+function haversineMiles(lat1, lng1, lat2, lng2) {
+  var R    = 3958.8;
+  var dLat = (lat2 - lat1) * Math.PI / 180;
+  var dLng = (lng2 - lng1) * Math.PI / 180;
+  var a    = Math.sin(dLat/2)*Math.sin(dLat/2)
+           + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)
+           * Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function estimateDuration(miles) {
+  return Math.max(15, Math.round((miles / (miles > 50 ? 62 : 45)) * 60));
+}
+
+// ── Map helpers ──────────────────────────────────────────────────
 function mkIcon(color) {
   return L.divIcon({
-    className:'',
-    html:'<div style="background:'+color+';width:22px;height:22px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25);"></div>',
-    iconSize:[22,22], iconAnchor:[11,11]
+    className: '',
+    html: '<div style="background:' + color + ';width:22px;height:22px;'
+        + 'border-radius:50%;border:2.5px solid #fff;'
+        + 'box-shadow:0 2px 6px rgba(0,0,0,.25);"></div>',
+    iconSize:   [22, 22],
+    iconAnchor: [11, 11]
   });
 }
 
@@ -373,186 +425,379 @@ function buildMap(type) {
   var st = maps[type];
   if (st.ready) { st.instance.invalidateSize(true); return; }
   st.ready = true;
-  var iLat = type==='pickup' ? INIT_PLAT : INIT_DLAT;
-  var iLng = type==='pickup' ? INIT_PLNG : INIT_DLNG;
-  var ctr  = (iLat&&iLng) ? [iLat,iLng] : USA_CTR;
-  var zoom = (iLat&&iLng) ? 14 : 11;
-  var map  = L.map(type+'-map').setView(ctr, zoom);
+  var iLat = type === 'pickup' ? INIT_PLAT : INIT_DLAT;
+  var iLng = type === 'pickup' ? INIT_PLNG : INIT_DLNG;
+  var ctr  = (iLat && iLng) ? [iLat, iLng] : USA_CTR;
+  var zoom = (iLat && iLng) ? 14 : 11;
+  var map  = L.map(type + '-map').setView(ctr, zoom);
   L.tileLayer(TILE_URL, TILE_OPT).addTo(map);
   st.instance = map;
-  var ovl = document.getElementById(type+'-ovl');
-  if (iLat&&iLng) { st.marker=L.marker([iLat,iLng],{icon:mkIcon(type==='pickup'?'#2196F3':'#F97316')}).addTo(map); if(ovl)ovl.classList.add('gone'); }
-  map.on('click', function(e){ dropPin(type,e.latlng.lat,e.latlng.lng); revGeo(type,e.latlng.lat,e.latlng.lng); });
-  setTimeout(function(){ map.invalidateSize(true); }, 120);
-  setTimeout(function(){ map.invalidateSize(true); }, 500);
+  var ovl = document.getElementById(type + '-ovl');
+  if (iLat && iLng) {
+    st.marker = L.marker([iLat, iLng], {
+      icon: mkIcon(type === 'pickup' ? '#2196F3' : '#F97316')
+    }).addTo(map);
+    if (ovl) ovl.classList.add('gone');
+  }
+  map.on('click', function(e) {
+    dropPin(type, e.latlng.lat, e.latlng.lng);
+    revGeo(type, e.latlng.lat, e.latlng.lng);
+  });
+  setTimeout(function() { map.invalidateSize(true); }, 120);
+  setTimeout(function() { map.invalidateSize(true); }, 500);
 }
 
 function dropPin(type, lat, lng) {
-  var st=maps[type];
+  var st = maps[type];
   if (!st.instance) return;
   if (st.marker) st.marker.remove();
-  st.marker = L.marker([lat,lng],{icon:mkIcon(type==='pickup'?'#2196F3':'#F97316')}).addTo(st.instance);
-  document.getElementById(type+'_lat').value = lat.toFixed(6);
-  document.getElementById(type+'_lng').value = lng.toFixed(6);
-  document.getElementById(type+'-coord').innerHTML =
-    '<span class="coord-ok"><i class="fas fa-check-circle mr-1"></i>Pin confirmed: '+lat.toFixed(5)+', '+lng.toFixed(5)+'</span>';
-  var ovl=document.getElementById(type+'-ovl'); if(ovl) ovl.classList.add('gone');
-  if (type==='delivery') drawRoutePreview();
+  st.marker = L.marker([lat, lng], {
+    icon: mkIcon(type === 'pickup' ? '#2196F3' : '#F97316')
+  }).addTo(st.instance);
+  document.getElementById(type + '_lat').value = lat.toFixed(6);
+  document.getElementById(type + '_lng').value = lng.toFixed(6);
+  document.getElementById(type + '-coord').innerHTML =
+    '<span class="coord-ok">'
+    + '<i class="fas fa-check-circle mr-1"></i>'
+    + 'Pin confirmed: ' + lat.toFixed(5) + ', ' + lng.toFixed(5) + '</span>';
+  var ovl = document.getElementById(type + '-ovl');
+  if (ovl) ovl.classList.add('gone');
+  if (type === 'delivery') drawRoute();
 }
 
 function setAddr(type, val) {
-  var f=document.getElementById('id_'+type+'_address'); if(f) f.value=val;
+  var f = document.getElementById('id_' + type + '_address');
+  if (f) f.value = val;
 }
 
-// ── Route preview for step 3 ──────────────────────────────
-var routeLine = null;
-function drawRoutePreview() {
-  var dlat=parseFloat(document.getElementById('delivery_lat').value||'0');
-  var dlng=parseFloat(document.getElementById('delivery_lng').value||'0');
-  if (!INIT_PLAT||!INIT_PLNG||!dlat||!dlng) return;
-  var osrmPath  = '/route/v1/driving/'+INIT_PLNG+','+INIT_PLAT+';'+dlng+','+dlat;
+// ── Route drawing ────────────────────────────────────────────────
+
+function clearRouteLines(mp) {
+  if (routeLine)    { mp.removeLayer(routeLine);    routeLine    = null; }
+  if (fallbackLine) { mp.removeLayer(fallbackLine); fallbackLine = null; }
+}
+
+function updateSummary(miles, minutes, method, trafficLevel) {
+  var rs = document.getElementById('route-summary');
+  if (!rs) return;
+  var hrs = Math.floor(minutes / 60);
+  var rem = minutes % 60;
+  var dur = hrs > 0 ? hrs + 'h ' + rem + 'm' : rem + ' min';
+  var isEst = (method === 'straight-line');
+
+  document.getElementById('rs-dist').textContent  = miles.toFixed(1) + ' mi' + (isEst ? '*' : '');
+  document.getElementById('rs-dur').textContent   = (isEst ? '~' : '') + dur;
+  document.getElementById('rs-price').textContent = '$' + computePrice(miles);
+  rs.style.display = 'block';
+
+  // Method tag
+  var methodEl = document.getElementById('rs-method');
+  if (methodEl) {
+    var labels = {
+      'osrm':        'Route via OSRM road network',
+      'ors':         'Route via OpenRouteService (free fallback)',
+      'straight-line': '* Straight-line estimate — actual distance will be higher',
+    };
+    methodEl.textContent = labels[method] || method;
+  }
+
+  updateTrafficBadge(trafficLevel);
+}
+
+function updateTrafficBadge(level) {
+  var el = document.getElementById('traffic-badge');
+  if (!el) return;
+  var cfg = {
+    heavy:    { text: 'Heavy Traffic',    bg: '#DC2626', icon: 'fa-car-crash'    },
+    moderate: { text: 'Moderate Traffic', bg: '#D97706', icon: 'fa-car'          },
+    normal:   { text: 'Normal Traffic',   bg: '#16A34A', icon: 'fa-road'         },
+    light:    { text: 'Light Traffic',    bg: '#2563EB', icon: 'fa-tachometer-alt' },
+  };
+  var c = cfg[level] || cfg['normal'];
+  el.innerHTML = '<i class="fas ' + c.icon + '" style="margin-right:5px;"></i>' + c.text;
+  el.style.background = c.bg;
+  el.style.display    = 'inline-flex';
+}
+
+function showWarning(geodesicMiles, source) {
+  var warn = document.getElementById('route-warn');
+  if (!warn) {
+    warn = document.createElement('div');
+    warn.id = 'route-warn';
+    warn.style.cssText = [
+      'background:rgba(234,179,8,0.10)',
+      'border:1px solid rgba(234,179,8,0.35)',
+      'border-radius:10px','padding:9px 13px',
+      'font-size:0.79rem','color:#78350f',
+      'margin-top:10px','display:flex',
+      'align-items:flex-start','gap:8px','line-height:1.5'
+    ].join(';');
+    var rs = document.getElementById('route-summary');
+    if (rs && rs.parentNode) rs.parentNode.insertBefore(warn, rs.nextSibling);
+  }
+  var msg = source === 'ors'
+    ? 'Destination outside local OSRM coverage. Route shown via OpenRouteService.'
+    : 'Could not calculate road route. Showing straight-line ' + geodesicMiles.toFixed(1) + ' mi — actual distance will be higher.';
+  warn.innerHTML =
+    '<i class="fas fa-exclamation-triangle" style="color:#d97706;margin-top:2px;flex-shrink:0;font-size:.85rem;"></i>'
+    + '<span>' + msg + '</span>';
+  warn.style.display = 'flex';
+}
+
+function hideWarning() {
+  var warn = document.getElementById('route-warn');
+  if (warn) warn.style.display = 'none';
+}
+
+function drawStraightLine(mp, pLat, pLng, dLat, dLng, trafficLevel) {
+  clearRouteLines(mp);
+  fallbackLine = L.polyline([[pLat,pLng],[dLat,dLng]], {
+    color: '#F97316', weight: 3, opacity: 0.65, dashArray: '10,8'
+  }).addTo(mp);
+  mp.fitBounds(fallbackLine.getBounds(), { padding: [30,30] });
+  var geoMi = haversineMiles(pLat, pLng, dLat, dLng);
+  showWarning(geoMi, 'straight-line');
+  updateSummary(geoMi, estimateDuration(geoMi), 'straight-line', trafficLevel);
+}
+
+// ── Main route function ──────────────────────────────────────────
+
+function drawRoute() {
+  var dlat = parseFloat(document.getElementById('delivery_lat').value || '0');
+  var dlng = parseFloat(document.getElementById('delivery_lng').value || '0');
+  if (!INIT_PLAT || !INIT_PLNG || !dlat || !dlng) return;
+
+  var mp = maps.delivery.instance;
+  if (!mp) return;
+
+  if (!pickupMarkerOnDeliveryMap) {
+    pickupMarkerOnDeliveryMap = L.marker(
+      [INIT_PLAT, INIT_PLNG],
+      { icon: mkIcon('#2196F3'), zIndexOffset: 5 }
+    ).addTo(mp);
+  }
+
+  var geodesicMi = haversineMiles(INIT_PLAT, INIT_PLNG, dlat, dlng);
+
+  // Fetch traffic level while routing
+  var trafficLevel = 'normal';
+  fetch('/courier/api/traffic-status/?lat=' + INIT_PLAT + '&lng=' + INIT_PLNG, {
+    credentials: 'same-origin'
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(d) { trafficLevel = d.level || 'normal'; })
+    .catch(function() {});
+
+  // Step 1: Try OSRM
+  var osrmPath  = '/route/v1/driving/' + INIT_PLNG + ',' + INIT_PLAT + ';' + dlng + ',' + dlat;
   var osrmQuery = 'overview=full&geometries=geojson&steps=false';
-  var url = '/courier/api/osrm/?path='+encodeURIComponent(osrmPath)+'&query='+encodeURIComponent(osrmQuery);
-  fetch(url, {credentials:'same-origin'})
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      if (!d||d.code!=='Ok'||!d.routes||!d.routes.length) return;
-      var mp = maps.delivery.instance;
-      if (!mp) return;
-      if (routeLine) mp.removeLayer(routeLine);
-      // Draw pickup marker on delivery map too
-      L.marker([INIT_PLAT,INIT_PLNG],{icon:mkIcon('#2196F3'),zIndexOffset:5}).addTo(mp);
-      var lls = d.routes[0].geometry.coordinates.map(function(c){ return [c[1],c[0]]; });
-      routeLine = L.polyline(lls,{color:'#1565C0',weight:5,opacity:.85,lineJoin:'round'}).addTo(mp);
-      mp.fitBounds(routeLine.getBounds(),{padding:[30,30]});
-      // Stats
-      var mi   = (d.routes[0].distance/1609.344).toFixed(1);
-      var min  = Math.round(d.routes[0].duration/60);
-      var hrs  = Math.floor(min/60); var rem=min%60;
-      var dur  = hrs>0 ? hrs+'h '+rem+'m' : rem+' min';
-      // Pricing: $50 base + $2.50/mi + 8% fuel
-      var price = (50 + parseFloat(mi)*2.5) * 1.08;
-      if (price < 75) price = 75;
-      document.getElementById('rs-dist').textContent  = mi+' mi';
-      document.getElementById('rs-dur').textContent   = dur;
-      document.getElementById('rs-price').textContent = '$'+price.toFixed(2);
-      document.getElementById('route-summary').style.display='block';
+  var osrmUrl   = '/courier/api/osrm/?path=' + encodeURIComponent(osrmPath)
+                + '&query=' + encodeURIComponent(osrmQuery);
+
+  fetch(osrmUrl, { credentials: 'same-origin' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d && d.code === 'Ok' && d.routes && d.routes.length) {
+        var osrmMi  = d.routes[0].distance / 1609.344;
+        var osrmMin = Math.round(d.routes[0].duration / 60);
+
+        if (osrmMi >= geodesicMi * 0.85) {
+          // OSRM valid — draw real road route
+          clearRouteLines(mp);
+          hideWarning();
+          var lls = d.routes[0].geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
+          routeLine = L.polyline(lls, { color:'#F97316', weight:5, opacity:0.85, lineJoin:'round' }).addTo(mp);
+          mp.fitBounds(routeLine.getBounds(), { padding:[30,30] });
+          updateSummary(osrmMi, osrmMin, 'osrm', trafficLevel);
+          return;
+        }
+
+        // OSRM gave bad result — try ORS
+        console.warn('OSRM coverage miss (' + osrmMi.toFixed(1) + ' mi < 85% of ' + geodesicMi.toFixed(1) + ' mi) — trying ORS');
+      }
+
+      // Step 2: Try OpenRouteService
+      tryORS(mp, geodesicMi, dlat, dlng, trafficLevel);
     })
-    .catch(function(){});
+    .catch(function(err) {
+      console.warn('OSRM fetch error:', err);
+      tryORS(mp, geodesicMi, dlat, dlng, trafficLevel);
+    });
 }
 
-// ── Autocomplete ──────────────────────────────────────────
+function tryORS(mp, geodesicMi, dlat, dlng, trafficLevel) {
+  var orsUrl = '/courier/api/ors-route/'
+    + '?plat=' + INIT_PLAT + '&plng=' + INIT_PLNG
+    + '&dlat=' + dlat      + '&dlng=' + dlng;
+
+  fetch(orsUrl, { credentials: 'same-origin' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.error || !d.geometry) {
+        // ORS not configured or failed — straight line
+        console.warn('ORS unavailable:', d.error || 'no geometry');
+        drawStraightLine(mp, INIT_PLAT, INIT_PLNG, dlat, dlng, trafficLevel);
+        return;
+      }
+
+      // ORS valid — draw route with dashed style (it's a fallback)
+      clearRouteLines(mp);
+      showWarning(d.distance_miles, 'ors');
+
+      var lls = d.geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
+      routeLine = L.polyline(lls, {
+        color:     '#F97316',
+        weight:    4,
+        opacity:   0.80,
+        lineJoin:  'round',
+        dashArray: '12,4',   // slightly dashed to indicate fallback
+      }).addTo(mp);
+      mp.fitBounds(routeLine.getBounds(), { padding:[30,30] });
+      updateSummary(d.distance_miles, Math.round(d.duration_min), 'ors', trafficLevel);
+    })
+    .catch(function(err) {
+      console.warn('ORS fetch error:', err);
+      drawStraightLine(mp, INIT_PLAT, INIT_PLNG, dlat, dlng, trafficLevel);
+    });
+}
+
+// ── Autocomplete ─────────────────────────────────────────────────
 function onInput(type) {
   clearTimeout(acTmrs[type]);
-  var val=document.getElementById(type+'-q').value.trim();
-  var box=document.getElementById(type+'-ac');
-  if (val.length<3){ box.innerHTML=''; box.classList.remove('open'); return; }
-  box.innerHTML='<div class="ac-item" style="color:#9CA3AF;font-style:italic;">Searching…</div>';
+  var val = document.getElementById(type + '-q').value.trim();
+  var box = document.getElementById(type + '-ac');
+  if (val.length < 3) { box.innerHTML = ''; box.classList.remove('open'); return; }
+  box.innerHTML = '<div class="ac-item" style="color:#9CA3AF;font-style:italic;">Searching…</div>';
   box.classList.add('open');
-  acTmrs[type]=setTimeout(function(){ fetchAC(type,val); }, 350);
+  acTmrs[type] = setTimeout(function() { fetchAC(type, val); }, 350);
 }
 
 function fetchAC(type, q) {
-  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=us&addressdetails=1&q='+encodeURIComponent(q),
-    {headers:{'Accept-Language':'en'}})
-    .then(function(r){ return r.json(); })
-    .then(function(d){ renderAC(type,d); })
-    .catch(function(){ document.getElementById(type+'-ac').innerHTML='<div class="ac-item" style="color:#DC2626;">Search failed.</div>'; });
+  fetch(
+    'https://nominatim.openstreetmap.org/search?format=json&limit=6'
+    + '&countrycodes=us&addressdetails=1&q=' + encodeURIComponent(q),
+    { headers: { 'Accept-Language': 'en' } }
+  )
+    .then(function(r) { return r.json(); })
+    .then(function(d) { renderAC(type, d); })
+    .catch(function() {
+      document.getElementById(type + '-ac').innerHTML =
+        '<div class="ac-item" style="color:#DC2626;">Search failed.</div>';
+    });
 }
 
 function renderAC(type, data) {
-  var box=document.getElementById(type+'-ac');
-  var rows=(data||[]).filter(function(i){ return ['postcode','country','continent'].indexOf(i.type)<0 && i.display_name.length>5; });
-  if (!rows.length){ box.innerHTML='<div class="ac-item" style="color:#9CA3AF;font-style:italic;">No US results found.</div>'; return; }
-  var html='';
-  rows.forEach(function(item){
-    var pts=item.display_name.split(',');
-    html+='<div class="ac-item" data-lat="'+item.lat+'" data-lng="'+item.lon+'" data-name="'+esc(item.display_name)+'" onclick="selectAC(\''+type+'\',this)">'
-         +'<div class="ac-main">'+esc(pts[0].trim())+'</div>'
-         +'<div class="ac-sub">'+esc(pts.slice(1,4).join(', ').trim())+'</div></div>';
+  var box  = document.getElementById(type + '-ac');
+  var rows = (data || []).filter(function(i) {
+    return ['postcode','country','continent'].indexOf(i.type) < 0 && i.display_name.length > 5;
   });
-  box.innerHTML=html; box.classList.add('open');
+  if (!rows.length) {
+    box.innerHTML = '<div class="ac-item" style="color:#9CA3AF;font-style:italic;">No US results found.</div>';
+    return;
+  }
+  var html = '';
+  rows.forEach(function(item) {
+    var pts = item.display_name.split(',');
+    html += '<div class="ac-item" data-lat="' + item.lat + '" data-lng="' + item.lon
+          + '" data-name="' + esc(item.display_name) + '" onclick="selectAC(\'' + type + '\',this)">'
+          + '<div class="ac-main">' + esc(pts[0].trim()) + '</div>'
+          + '<div class="ac-sub">'  + esc(pts.slice(1,4).join(', ').trim()) + '</div></div>';
+  });
+  box.innerHTML = html; box.classList.add('open');
 }
 
 function selectAC(type, el) {
-  var lat=parseFloat(el.getAttribute('data-lat'));
-  var lng=parseFloat(el.getAttribute('data-lng'));
-  var name=el.getAttribute('data-name');
-  var box=document.getElementById(type+'-ac');
-  box.innerHTML=''; box.classList.remove('open');
-  var pts=name.split(',');
-  document.getElementById(type+'-q').value=pts.slice(0,2).join(',').trim();
+  var lat  = parseFloat(el.getAttribute('data-lat'));
+  var lng  = parseFloat(el.getAttribute('data-lng'));
+  var name = el.getAttribute('data-name');
+  var box  = document.getElementById(type + '-ac');
+  box.innerHTML = ''; box.classList.remove('open');
+  var pts = name.split(',');
+  document.getElementById(type + '-q').value = pts.slice(0,2).join(',').trim();
   buildMap(type);
-  maps[type].instance.setView([lat,lng],15);
-  dropPin(type,lat,lng);
+  maps[type].instance.setView([lat, lng], 15);
+  dropPin(type, lat, lng);
   setAddr(type, pts.slice(0,4).join(', ').trim());
 }
 
 function searchAddr(type) {
-  var q=document.getElementById(type+'-q').value.trim(); if(!q) return;
-  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q='+encodeURIComponent(q),{headers:{'Accept-Language':'en'}})
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      if (!d||!d.length){ alert('No US results for "'+q+'". Try a more specific search.'); return; }
-      selectAC(type,{ getAttribute:function(k){ return {'data-lat':d[0].lat,'data-lng':d[0].lon,'data-name':d[0].display_name}[k]; }});
+  var q = document.getElementById(type + '-q').value.trim(); if (!q) return;
+  fetch(
+    'https://nominatim.openstreetmap.org/search?format=json&limit=1'
+    + '&countrycodes=us&q=' + encodeURIComponent(q),
+    { headers: { 'Accept-Language': 'en' } }
+  )
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d || !d.length) { alert('No US results for "' + q + '". Try a more specific search.'); return; }
+      selectAC(type, {
+        getAttribute: function(k) {
+          return { 'data-lat': d[0].lat, 'data-lng': d[0].lon, 'data-name': d[0].display_name }[k];
+        }
+      });
     })
-    .catch(function(){ alert('Search failed. Check connection.'); });
+    .catch(function() { alert('Search failed. Check connection.'); });
 }
 
 function revGeo(type, lat, lng) {
-  fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng)
-    .then(function(r){ return r.json(); })
-    .then(function(d){ if(d&&d.display_name) setAddr(type, d.display_name.split(',').slice(0,4).join(', ').trim()); })
-    .catch(function(){});
+  fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng)
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d && d.display_name) setAddr(type, d.display_name.split(',').slice(0,4).join(', ').trim());
+    })
+    .catch(function() {});
 }
 
-function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-// Close dropdowns on outside click
-document.addEventListener('click',function(e){
-  ['pickup','delivery'].forEach(function(t){
-    var w=document.getElementById(t+'-q'); if(!w) return;
-    var wr=w.closest('.ac-wrap');
-    if (wr&&!wr.contains(e.target)){ var b=document.getElementById(t+'-ac'); if(b){b.innerHTML='';b.classList.remove('open');} }
+document.addEventListener('click', function(e) {
+  ['pickup','delivery'].forEach(function(t) {
+    var w = document.getElementById(t + '-q'); if (!w) return;
+    var wr = w.closest('.ac-wrap');
+    if (wr && !wr.contains(e.target)) {
+      var b = document.getElementById(t + '-ac');
+      if (b) { b.innerHTML = ''; b.classList.remove('open'); }
+    }
   });
 });
 
-// Block keyboard input on locked address fields
-document.addEventListener('DOMContentLoaded',function(){
-  ['pickup','delivery'].forEach(function(t){
-    var f=document.getElementById('id_'+t+'_address'); if(!f) return;
-    ['keydown','paste','drop','cut'].forEach(function(ev){ f.addEventListener(ev,function(e){ e.preventDefault(); }); });
-  });
-
-  // Bind search inputs
-  ['pickup','delivery'].forEach(function(t){
-    var inp=document.getElementById(t+'-q'); if(!inp) return;
-    inp.addEventListener('input',function(){ onInput(t); });
-    inp.addEventListener('keydown',function(e){
-      if(e.key!=='Enter') return; e.preventDefault();
-      var first=document.querySelector('#'+t+'-ac .ac-item');
-      if(first) selectAC(t,first); else searchAddr(t);
+document.addEventListener('DOMContentLoaded', function() {
+  ['pickup','delivery'].forEach(function(t) {
+    var f = document.getElementById('id_' + t + '_address'); if (!f) return;
+    ['keydown','paste','drop','cut'].forEach(function(ev) {
+      f.addEventListener(ev, function(e) { e.preventDefault(); });
     });
   });
 
-  // Validate on submit
+  ['pickup','delivery'].forEach(function(t) {
+    var inp = document.getElementById(t + '-q'); if (!inp) return;
+    inp.addEventListener('input', function() { onInput(t); });
+    inp.addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      var first = document.querySelector('#' + t + '-ac .ac-item');
+      if (first) selectAC(t, first); else searchAddr(t);
+    });
+  });
+
   function guard(formId, type) {
-    var f=document.getElementById(formId); if(!f) return;
-    f.addEventListener('submit',function(e){
-      var lat=document.getElementById(type+'_lat').value;
-      var lng=document.getElementById(type+'_lng').value;
-      if (!lat||!lng||parseFloat(lat)===0||parseFloat(lng)===0){
+    var f = document.getElementById(formId); if (!f) return;
+    f.addEventListener('submit', function(e) {
+      var lat = document.getElementById(type + '_lat').value;
+      var lng = document.getElementById(type + '_lng').value;
+      if (!lat || !lng || parseFloat(lat) === 0 || parseFloat(lng) === 0) {
         e.preventDefault();
-        alert('Please place a '+type+' pin first.\nSearch for an address or click the map.');
+        alert('Please place a ' + type + ' pin first.\nSearch for an address or click the map.');
       }
     });
   }
-  guard('pickup-form','pickup');
-  guard('delivery-form','delivery');
+  guard('pickup-form',   'pickup');
+  guard('delivery-form', 'delivery');
 
-  // Build map for current step
-  if (STEP===2) buildMap('pickup');
-  if (STEP===3) { buildMap('delivery'); if(INIT_DLAT&&INIT_DLNG) drawRoutePreview(); }
+  if (STEP === 2) buildMap('pickup');
+  if (STEP === 3) { buildMap('delivery'); if (INIT_DLAT && INIT_DLNG) drawRoute(); }
 });
 </script>
 {% endblock %}
