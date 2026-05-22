@@ -83,6 +83,7 @@ urlpatterns = [
     #terms and conditions and billing
     path('terms_and_conditions/', views.terms_and_conditions, name='terms_and_conditions'),
     path('billing/', views.billing, name='billing'),
+    path('contact/', views.contact_page, name='contact'),
     
     #dynamically showing success in our work
     path('fetch-stats/', views.fetch_stats, name='fetch_stats'),

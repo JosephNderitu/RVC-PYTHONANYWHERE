@@ -215,6 +215,11 @@ PAYPAL_CLIENT_SECRET = "ECzjHyP3wjj8xismmtBYgkGB72fo2gnug5dw7GZOOGpVkHEyYxzi7IFV
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# ── Twilio WhatsApp ────────────────────────────────────────
+TWILIO_ACCOUNT_SID    = os.environ.get('TWILIO_ACCOUNT_SID', '')
+TWILIO_AUTH_TOKEN     = os.environ.get('TWILIO_AUTH_TOKEN', '')
+TWILIO_WHATSAPP_FROM  = os.environ.get('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886')
+SITE_URL              = os.environ.get('SITE_URL', 'http://localhost:8000')
 
 #Email setup codes for password reset
 EMAIL_BACKEND    = 'django.core.mail.backends.smtp.EmailBackend'
@@ -223,6 +228,8 @@ EMAIL_PORT       = env.int('EMAIL_PORT', default=587)
 EMAIL_USE_TLS    = env.bool('EMAIL_USE_TLS', default=True)
 EMAIL_HOST_USER  = env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
+ADMIN_EMAIL      = os.getenv('ADMIN_EMAIL', '')
+ADMIN_WHATSAPP   = os.getenv('ADMIN_WHATSAPP', '')
 
 #email setup (invoice and job acceptance) to Customer and (job created) to owner.
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='J&N Collections <noreply@example.com>')
@@ -289,11 +296,6 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-# ── Twilio WhatsApp ────────────────────────────────────────
-TWILIO_ACCOUNT_SID    = os.environ.get('TWILIO_ACCOUNT_SID', '')
-TWILIO_AUTH_TOKEN     = os.environ.get('TWILIO_AUTH_TOKEN', '')
-TWILIO_WHATSAPP_FROM  = os.environ.get('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886')
-SITE_URL              = os.environ.get('SITE_URL', 'http://localhost:8000')
 # ── Driver Verification ────────────────────────────────────────────────────────
 # Set True during development to skip InsightFace (faster, no model download needed)
 # Set False in production for full face matching
