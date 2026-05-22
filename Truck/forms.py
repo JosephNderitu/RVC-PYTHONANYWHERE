@@ -35,6 +35,28 @@ class SignUpForm(UserCreationForm):
         return phone
     
 
-
+class ContactForm(forms.Form):
+    name     = forms.CharField(max_length=120, label='Full name')
+    email    = forms.EmailField(label='Email address')
+    phone    = forms.CharField(max_length=25, required=False, label='Phone number')
+    subject  = forms.CharField(max_length=250, label='Subject')
+    category = forms.ChoiceField(choices=[
+        ('', 'Select a category…'),
+        ('delivery',  'Delivery Issue'),
+        ('billing',   'Billing & Payments'),
+        ('tracking',  'Tracking & GPS'),
+        ('courier',   'Courier Enquiry'),
+        ('technical', 'Technical Support'),
+        ('general',   'General Enquiry'),
+        ('feedback',  'Feedback'),
+    ], label='Category')
+    message   = forms.CharField(widget=forms.Textarea, label='Message')
+    is_urgent = forms.BooleanField(required=False, label='Mark as urgent')
+ 
+    def clean_category(self):
+        val = self.cleaned_data.get('category', '')
+        if not val:
+            raise forms.ValidationError('Please select a category.')
+        return val
 
 

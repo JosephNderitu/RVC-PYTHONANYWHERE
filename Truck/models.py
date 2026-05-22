@@ -4,6 +4,8 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.contrib.gis.db import models as gis_models
 from django.contrib.gis.geos import Point
+import random
+import string
 
 
 class Customer(models.Model):
@@ -380,3 +382,70 @@ class DispatchLog(models.Model):
 
     def __str__(self):
         return f"Dispatch {self.job_id} | {self.event} | attempt {self.attempt_number}"
+    
+def generate_ticket_number():
+    """Generates RVC26-XXXXX style unique ticket numbers."""
+    year   = timezone.now().strftime('%y')
+    suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+    return f'RVC{year}-{suffix}'
+ 
+ 
+class ContactMessage(models.Model):
+    """
+    Stores all contact form submissions.
+    Urgent messages trigger immediate admin email + WhatsApp.
+    chatbot_session_id is reserved for future AI chatbot integration.
+    """
+ 
+    CATEGORY_CHOICES = [
+        ('delivery',  'Delivery Issue'),
+        ('billing',   'Billing & Payments'),
+        ('tracking',  'Tracking & GPS'),
+        ('courier',   'Courier Enquiry'),
+        ('technical', 'Technical Support'),
+        ('general',   'General Enquiry'),
+        ('feedback',  'Feedback'),
+    ]
+ 
+    STATUS_CHOICES = [
+        ('open',     'Open'),
+        ('replied',  'Replied'),
+        ('resolved', 'Resolved'),
+        ('closed',   'Closed'),
+    ]
+ 
+    # Sender info
+    name          = models.CharField(max_length=120)
+    email         = models.EmailField()
+    phone         = models.CharField(max_length=25, blank=True)
+ 
+    # Message
+    subject       = models.CharField(max_length=250)
+    category      = models.CharField(max_length=30, choices=CATEGORY_CHOICES, default='general')
+    message       = models.TextField()
+    is_urgent     = models.BooleanField(default=False)
+ 
+    # Ticket
+    ticket_number = models.CharField(max_length=16, unique=True,
+                                     default=generate_ticket_number)
+ 
+    # Status
+    status        = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    admin_notes   = models.TextField(blank=True,
+                                     help_text='Internal notes — not visible to sender')
+    replied_at    = models.DateTimeField(null=True, blank=True)
+ 
+    # Timestamps
+    created_at    = models.DateTimeField(auto_now_add=True, db_index=True)
+ 
+    # Future: AI chatbot session linkage (provision for chatbot integration)
+    chatbot_session_id = models.CharField(max_length=120, blank=True,
+                                          help_text='Reserved for AI chatbot session linkage')
+ 
+    class Meta:
+        ordering = ['-is_urgent', '-created_at']
+        indexes  = [models.Index(fields=['status', 'created_at'])]
+ 
+    def __str__(self):
+        urgent = '🚨 ' if self.is_urgent else ''
+        return f'{urgent}[{self.ticket_number}] {self.name} — {self.subject}'

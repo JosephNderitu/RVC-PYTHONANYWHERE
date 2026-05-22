@@ -429,3 +429,34 @@ class DispatchLogAdmin(admin.ModelAdmin):
         s = obj.elapsed_seconds
         return f"{int(s//60)}m {int(s%60)}s" if s >= 60 else f"{s:.1f}s"
     elapsed_display.short_description = 'Elapsed'
+
+@admin.register(ContactMessage)
+class ContactMessageAdmin(admin.ModelAdmin):
+    list_display  = ['ticket_number', 'name', 'email', 'category',
+                     'urgent_badge', 'status', 'created_at']
+    list_filter   = ['is_urgent', 'status', 'category', 'created_at']
+    search_fields = ['name', 'email', 'ticket_number', 'subject', 'message']
+    readonly_fields = ['ticket_number', 'created_at', 'chatbot_session_id']
+    list_editable = ['status']
+    ordering      = ['-is_urgent', '-created_at']
+
+    fieldsets = [
+        ('Sender', {'fields': ['name', 'email', 'phone']}),
+        ('Message', {'fields': ['ticket_number', 'category', 'subject',
+                                'message', 'is_urgent']}),
+        ('Status', {'fields': ['status', 'admin_notes', 'replied_at']}),
+        ('AI Chatbot (future)', {'fields': ['chatbot_session_id'],
+                                 'classes': ['collapse']}),
+        ('Timestamps', {'fields': ['created_at'], 'classes': ['collapse']}),
+    ]
+
+    def urgent_badge(self, obj):
+        from django.utils.html import format_html
+        if obj.is_urgent:
+            return format_html(
+                '<span style="background:#DC2626;color:#fff;padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:700;">{}</span>',
+                '🚨 URGENT'
+            )
+        return '—'
+    urgent_badge.short_description = 'Priority'
+
