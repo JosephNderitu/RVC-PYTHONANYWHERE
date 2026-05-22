@@ -162,16 +162,44 @@ SESSION_COOKIE_NAME = 'rvc_sessionid'  # custom name avoids conflicts with other
 
 
 AUTHENTICATION_BACKENDS = [
-    'social_core.backends.facebook.FacebookOAuth2',
+    'social_core.backends.google.GoogleOAuth2',
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-SOCIAL_AUTH_FACEBOOK_KEY = "7448007858649860"
-SOCIAL_AUTH_FACEBOOK_SECRET = "c4b7a040a0ce0fee313f7aeccfeaf05d"
-SOCIAL_AUTH_FACEBOOK_SCOPE = ['EMAIL']
-SOCIAL_AUTH_FACEBOOK_PROFILE_EXTRA_PARAMS = {
-    'fields':'id, name, email'
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY    = os.getenv('GOOGLE_CLIENT_ID', '')
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
+ 
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+    'openid',
+]
+ # After Google login, redirect user to the correct portal
+SOCIAL_AUTH_LOGIN_REDIRECT_URL  = '/'
+SOCIAL_AUTH_GOOGLE_OAUTH2_AUTH_EXTRA_ARGUMENTS = {
+    'access_type': 'offline',
+    'prompt': 'select_account',  # always show account chooser
 }
+
+# Pipeline — keeps default but you can extend it to auto-create Customer profile
+SOCIAL_AUTH_PIPELINE = (
+    'social_core.pipeline.social_auth.social_details',
+    'social_core.pipeline.social_auth.social_uid',
+    'social_core.pipeline.social_auth.auth_allowed',
+    'social_core.pipeline.social_auth.social_user',
+    'social_core.pipeline.user.get_username',
+    'social_core.pipeline.user.create_user',
+    'social_core.pipeline.social_auth.associate_user',
+    'social_core.pipeline.social_auth.load_extra_data',
+    'social_core.pipeline.user.user_details',
+    'Truck.pipeline.create_customer_profile',
+)
+
+SOCIAL_AUTH_ALLOWED_REDIRECT_HOSTS = [
+    'localhost:8000',
+    '127.0.0.1:8000',
+]
+SOCIAL_AUTH_GOOGLE_OAUTH2_WHITELISTED_DOMAINS = []
 #stripe configuration
 STRIPE_API_PUBLIC_KEY = "pk_test_51P7iQvH8HmEJ2HLLyRBv8smOWYlHBxDIQ97M3GfxOW5KMDINXLG64rCn8wzvwbiUJWJGpY4WPsGx7PG2gQw78laF0019acYxQg"
 STRIPE_API_SECRET_KEY = "sk_test_51P7iQvH8HmEJ2HLLpfyWM4BV9Ghi88xDz8uTEmrkLkqm3HU7hCI2av1f3TvzxOMi9a1rgkzNtTvgljXBLE5ii3r500ECCZtr8T"

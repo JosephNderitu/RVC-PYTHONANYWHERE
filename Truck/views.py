@@ -5,6 +5,8 @@ from . import forms
 from django.http import JsonResponse
 from .models import Job, Courier
 import datetime
+from django.contrib.auth import logout
+from django.http import JsonResponse
 
 def home(request):
     if request.method == 'POST':
@@ -32,29 +34,38 @@ def home(request):
 
 def sign_up(request):
     form = forms.SignUpForm()
-    
+ 
     if request.method == 'POST':
         form = forms.SignUpForm(request.POST)
-        
+ 
         if form.is_valid():
-            email = form.cleaned_data.get('email').lower()
-            
+            email = form.cleaned_data['email'].lower()
+ 
             user = form.save(commit=False)
-            user.username = email
+            user.username   = email          # use email as username
+            user.first_name = form.cleaned_data.get('first_name', '')
+            user.last_name  = form.cleaned_data.get('last_name', '')
             user.save()
-            
-            login(request,user, backend='django.contrib.auth.backends.ModelBackend')
-            return redirect('/')
-            
-    
-    return render(request, 'sign_up.html',{
-        'form': form
-    })
-    
-
-# views.py
-from django.contrib.auth import logout
-from django.shortcuts import redirect
+ 
+            # Save telephone to Customer profile
+            telephone = form.cleaned_data.get('telephone', '')
+            if telephone:
+                try:
+                    customer = user.customer
+                    customer.phone_number = telephone
+                    customer.save(update_fields=['phone_number'])
+                except Exception:
+                    pass  # Customer profile may not exist yet if using signals
+ 
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+ 
+            # Redirect to the correct portal
+            next_url = request.POST.get('next') or request.GET.get('next', '/')
+            if next_url not in ('/', '/customer/', '/courier/'):
+                next_url = '/'
+            return redirect(next_url)
+ 
+    return render(request, 'sign_up.html', {'form': form})
 
 def sign_out(request):
     if request.method == 'POST':
@@ -62,8 +73,6 @@ def sign_out(request):
         return redirect('/')
     else:
         return redirect('/')  # Or handle GET request if needed
-
-
 
 def terms_and_conditions(request):
     return render(request, 'terms_and_conditions.html')
@@ -84,13 +93,12 @@ def fetch_stats(request):
 
     return JsonResponse(data)
 
-from django.http import JsonResponse
-
 def set_cookie_expiry(request):
     if request.method == 'GET':
         # Set session expiry to 2 hours from now
         expiry_time = datetime.datetime.now() + datetime.timedelta(hours=2)
         request.session.set_expiry(7200)
         return JsonResponse({'expiry_time': expiry_time})
+
 def cookie_policy(request):
     return render(request, 'cookie_policy.html')

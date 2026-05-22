@@ -1,42 +1,322 @@
 {% extends 'base.html' %}
-{% load bootstrap4 %}
+
+{% block title %}Create Account — RiftValley Carriers{% endblock %}
 
 {% block content %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500&display=swap');
+*{box-sizing:border-box;}
 
-<div class = "container-fluid mt-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-4">
-            <div class="card">
-                <div class="card-body">
-                    <h4 class = "text-center text-uppercase mb-3">
-                        <b>
-                            {% if request.GET.next != '/courier/' %}
-                            Customer
-                            {% else %}
-                            Courier
-                            {% endif %}
-                        </b>
-                    </h4>
+.auth-bg {
+  min-height: 100vh;
+  background: #F8FAFC;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  font-family: 'Inter', sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+.auth-bg::before {
+  content: '';
+  position: fixed;
+  top: -120px; right: -120px;
+  width: 420px; height: 420px;
+  background: radial-gradient(circle, rgba(249,115,22,.12) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.auth-bg::after {
+  content: '';
+  position: fixed;
+  bottom: -100px; left: -100px;
+  width: 350px; height: 350px;
+  background: radial-gradient(circle, rgba(13,27,62,.08) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.auth-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 36px 40px 32px;
+  width: 100%;
+  max-width: 460px;
+  box-shadow: 0 4px 6px rgba(0,0,0,.04), 0 20px 60px rgba(13,27,62,.10);
+  position: relative;
+  z-index: 1;
+}
+.brand { display:flex; align-items:center; gap:10px; margin-bottom:24px; text-decoration:none; }
+.brand-icon { width:40px; height:40px; background:#0D1B3E; border-radius:10px; display:flex; align-items:center; justify-content:center; color:#F97316; font-size:18px; flex-shrink:0; }
+.brand-name { font-family:'Sora',sans-serif; font-size:1rem; font-weight:800; color:#0D1B3E; line-height:1.1; }
+.brand-sub  { font-size:.68rem; font-weight:500; color:#6B7280; letter-spacing:.04em; text-transform:uppercase; }
+.role-badge { display:inline-flex; align-items:center; gap:6px; background:#FFF7ED; border:1px solid rgba(249,115,22,.3); color:#C2410C; font-family:'Sora',sans-serif; font-size:.72rem; font-weight:700; padding:4px 12px; border-radius:20px; text-transform:uppercase; letter-spacing:.05em; margin-bottom:18px; }
+.auth-title { font-family:'Sora',sans-serif; font-size:1.45rem; font-weight:800; color:#0D1B3E; margin:0 0 4px; }
+.auth-sub   { font-size:.88rem; color:#6B7280; margin:0 0 22px; }
 
-                    <form method="POST">
-                        {% csrf_token %}
-                        {% bootstrap_form form%}
+/* Two-column grid for name fields */
+.fields-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
 
-                        <button type="submit" class="btn btn-warning btn-block">Sign Up </button>
+.field-group { margin-bottom:16px; }
+.field-label { display:block; font-size:.8rem; font-weight:600; color:#374151; margin-bottom:6px; font-family:'Sora',sans-serif; }
+.field-label .req { color:#F97316; margin-left:2px; }
+.field-wrap  { position:relative; }
+.field-icon  { position:absolute; left:13px; top:50%; transform:translateY(-50%); color:#9CA3AF; font-size:13px; pointer-events:none; }
+.auth-input  { width:100%; padding:11px 13px 11px 38px; border:1.5px solid #E5E7EB; border-radius:10px; font-size:.88rem; font-family:'Inter',sans-serif; color:#111827; background:#FAFAFA; transition:border-color .2s, box-shadow .2s, background .2s; outline:none; }
+.auth-input:focus { border-color:#F97316; background:#fff; box-shadow:0 0 0 3px rgba(249,115,22,.12); }
+.auth-input::placeholder { color:#9CA3AF; }
+.auth-input.no-icon { padding-left:13px; }
 
-                        <p class="text-center mt-3">
-                            Already have an account? <a href="/sign_in/?next={ request.GET.next }}"><b>Sign In</b></a>
-                        </p>
-                        <hr>
-                        <a href="{% url 'social:begin' 'facebook'%}?next={{request.GET.next}}" class="btn btn-outline-primary btn-block">Sign In With Facebook</a>
-                        </hr>
+/* Password toggle */
+.toggle-pw { position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:#9CA3AF; cursor:pointer; padding:0; font-size:13px; transition:color .2s; }
+.toggle-pw:hover { color:#F97316; }
 
-                    </form>
-                </div>
-            </div>
-        </div>
+/* Password strength bar */
+.strength-wrap { margin-top:8px; }
+.strength-bar-bg { height:4px; background:#E5E7EB; border-radius:4px; overflow:hidden; }
+.strength-bar { height:100%; width:0; border-radius:4px; transition:width .3s, background .3s; }
+.strength-label { font-size:.73rem; color:#6B7280; margin-top:4px; }
 
+/* Strength colors */
+.s0  { width:0; }
+.s1  { width:25%;  background:#EF4444; }
+.s2  { width:50%;  background:#F97316; }
+.s3  { width:75%;  background:#EAB308; }
+.s4  { width:100%; background:#22C55E; }
+
+/* Helper text */
+.field-hint { font-size:.73rem; color:#9CA3AF; margin-top:4px; }
+
+/* Submit */
+.btn-submit { width:100%; padding:12px; background:#F97316; color:#fff; border:none; border-radius:10px; font-family:'Sora',sans-serif; font-size:.95rem; font-weight:700; cursor:pointer; transition:background .2s, transform .1s, box-shadow .2s; box-shadow:0 4px 14px rgba(249,115,22,.35); margin-top:6px; }
+.btn-submit:hover { background:#EA6C0A; transform:translateY(-1px); box-shadow:0 6px 20px rgba(249,115,22,.45); }
+.btn-submit:active { transform:translateY(0); }
+
+/* Divider */
+.auth-divider { display:flex; align-items:center; gap:12px; margin:20px 0; color:#9CA3AF; font-size:.8rem; }
+.auth-divider::before,.auth-divider::after { content:''; flex:1; height:1px; background:#E5E7EB; }
+
+/* Google button */
+.btn-google { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; padding:11px 16px; background:#fff; border:1.5px solid #E5E7EB; border-radius:10px; color:#374151; font-family:'Sora',sans-serif; font-size:.9rem; font-weight:600; text-decoration:none; transition:border-color .2s, box-shadow .2s, background .2s; }
+.btn-google:hover { border-color:#D1D5DB; background:#FAFAFA; box-shadow:0 2px 8px rgba(0,0,0,.08); color:#374151; text-decoration:none; }
+.btn-google svg { width:20px; height:20px; flex-shrink:0; }
+
+/* Terms */
+.terms-note { font-size:.74rem; color:#9CA3AF; text-align:center; margin-top:16px; line-height:1.5; }
+.terms-note a { color:#F97316; text-decoration:none; }
+
+/* Footer */
+.auth-footer { text-align:center; margin-top:20px; font-size:.86rem; color:#6B7280; }
+.auth-footer a { color:#0D1B3E; font-weight:700; text-decoration:none; font-family:'Sora',sans-serif; }
+.auth-footer a:hover { color:#F97316; }
+
+/* Error */
+.auth-errors { background:#FEF2F2; border:1px solid #FECACA; border-radius:10px; padding:12px 14px; margin-bottom:18px; }
+.auth-errors .err-item { display:flex; align-items:flex-start; gap:8px; color:#DC2626; font-size:.82rem; margin-bottom:4px; }
+.auth-errors .err-item:last-child { margin-bottom:0; }
+.field-error { font-size:.78rem; color:#DC2626; margin-top:4px; }
+
+@media(max-width:480px){
+  .auth-card { padding:28px 22px 26px; }
+  .fields-row { grid-template-columns:1fr; }
+}
+</style>
+
+<div class="auth-bg">
+  <div class="auth-card">
+
+    <!-- Brand -->
+    <a href="/" class="brand">
+      <div class="brand-icon"><i class="fas fa-truck"></i></div>
+      <div>
+        <div class="brand-name">RiftValley Carriers</div>
+        <div class="brand-sub">US Trucking &amp; Logistics</div>
+      </div>
+    </a>
+
+    <!-- Role badge -->
+    <div class="role-badge">
+      {% if request.GET.next == '/courier/' %}
+        <i class="fas fa-hard-hat"></i> Courier Account
+      {% else %}
+        <i class="fas fa-user"></i> Customer Account
+      {% endif %}
     </div>
+
+    <h1 class="auth-title">Create your account</h1>
+    <p class="auth-sub">Join thousands shipping with RiftValley Carriers.</p>
+
+    <!-- Non-field errors -->
+    {% if form.non_field_errors %}
+    <div class="auth-errors">
+      {% for err in form.non_field_errors %}
+      <div class="err-item"><i class="fas fa-exclamation-circle mt-1"></i>{{ err }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Form -->
+    <form method="POST" id="signup-form">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.GET.next }}">
+
+      <!-- Name row -->
+      <div class="fields-row">
+        <div class="field-group">
+          <label class="field-label" for="id_first_name">First name</label>
+          <div class="field-wrap">
+            <span class="field-icon"><i class="fas fa-user"></i></span>
+            <input type="text" name="first_name" id="id_first_name"
+                   class="auth-input" placeholder="Joseph"
+                   value="{{ form.first_name.value|default:'' }}"
+                   autocomplete="given-name">
+          </div>
+          {% for e in form.first_name.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="id_last_name">Last name</label>
+          <div class="field-wrap">
+            <span class="field-icon"><i class="fas fa-user"></i></span>
+            <input type="text" name="last_name" id="id_last_name"
+                   class="auth-input" placeholder="Gikuru"
+                   value="{{ form.last_name.value|default:'' }}"
+                   autocomplete="family-name">
+          </div>
+          {% for e in form.last_name.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+
+      <!-- Email -->
+      <div class="field-group">
+        <label class="field-label" for="id_email">Email address <span class="req">*</span></label>
+        <div class="field-wrap">
+          <span class="field-icon"><i class="fas fa-envelope"></i></span>
+          <input type="email" name="email" id="id_email" class="auth-input"
+                 placeholder="you@example.com"
+                 value="{{ form.email.value|default:'' }}"
+                 autocomplete="email" required>
+        </div>
+        {% for e in form.email.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+      </div>
+
+      <!-- Telephone -->
+      <div class="field-group">
+        <label class="field-label" for="id_telephone">Phone number</label>
+        <div class="field-wrap">
+          <span class="field-icon"><i class="fas fa-phone"></i></span>
+          <input type="tel" name="telephone" id="id_telephone" class="auth-input"
+                 placeholder="+1 404 000 0000"
+                 value="{{ form.telephone.value|default:'' }}"
+                 autocomplete="tel">
+        </div>
+        <div class="field-hint">Used for delivery notifications via WhatsApp</div>
+        {% for e in form.telephone.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+      </div>
+
+      <!-- Password 1 -->
+      <div class="field-group">
+        <label class="field-label" for="id_password1">Password <span class="req">*</span></label>
+        <div class="field-wrap">
+          <span class="field-icon"><i class="fas fa-lock"></i></span>
+          <input type="password" name="password1" id="id_password1" class="auth-input"
+                 placeholder="Create a strong password"
+                 autocomplete="new-password" required
+                 oninput="checkStrength(this.value)">
+          <button type="button" class="toggle-pw" onclick="togglePw('id_password1',this)">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+        <!-- Strength bar -->
+        <div class="strength-wrap" id="strength-wrap" style="display:none;">
+          <div class="strength-bar-bg"><div class="strength-bar" id="strength-bar"></div></div>
+          <div class="strength-label" id="strength-label"></div>
+        </div>
+        {% for e in form.password1.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+      </div>
+
+      <!-- Password 2 -->
+      <div class="field-group">
+        <label class="field-label" for="id_password2">Confirm password <span class="req">*</span></label>
+        <div class="field-wrap">
+          <span class="field-icon"><i class="fas fa-lock"></i></span>
+          <input type="password" name="password2" id="id_password2" class="auth-input"
+                 placeholder="Repeat your password"
+                 autocomplete="new-password" required>
+          <button type="button" class="toggle-pw" onclick="togglePw('id_password2',this)">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+        {% for e in form.password2.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+      </div>
+
+      <button type="submit" class="btn-submit">
+        <i class="fas fa-user-plus mr-2"></i> Create Account
+      </button>
+    </form>
+
+    <!-- Terms -->
+    <p class="terms-note">
+      By creating an account you agree to our
+      <a href="/terms_and_conditions/">Terms of Service</a> and
+      <a href="/cookie-policy/">Privacy Policy</a>.
+    </p>
+
+    <!-- Divider -->
+    <div class="auth-divider">or sign up with</div>
+
+    <!-- Google -->
+    <a href="{% url 'social:begin' 'google-oauth2' %}?next={{ request.GET.next }}"
+       class="btn-google">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      Continue with Google
+    </a>
+
+    <!-- Footer -->
+    <div class="auth-footer">
+      Already have an account?
+      <a href="/sign_in/?next={{ request.GET.next }}">Sign in</a>
+    </div>
+
+  </div>
 </div>
 
+<script>
+function togglePw(id, btn) {
+  var inp = document.getElementById(id);
+  var icon = btn.querySelector('i');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  icon.className = inp.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+}
+
+function checkStrength(pw) {
+  var wrap  = document.getElementById('strength-wrap');
+  var bar   = document.getElementById('strength-bar');
+  var label = document.getElementById('strength-label');
+
+  if (!pw) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+
+  var score = 0;
+  if (pw.length >= 8)              score++;
+  if (/[A-Z]/.test(pw))           score++;
+  if (/[0-9]/.test(pw))           score++;
+  if (/[^A-Za-z0-9]/.test(pw))   score++;
+
+  var levels = [
+    { cls:'s1', text:'Weak — too short or simple', col:'#EF4444' },
+    { cls:'s2', text:'Fair — add numbers or symbols', col:'#F97316' },
+    { cls:'s3', text:'Good — add uppercase or symbols', col:'#EAB308' },
+    { cls:'s4', text:'Strong password ✓', col:'#22C55E' },
+  ];
+  var lvl = levels[score - 1] || levels[0];
+  bar.className = 'strength-bar ' + lvl.cls;
+  label.textContent = lvl.text;
+  label.style.color = lvl.col;
+}
+</script>
 {% endblock %}

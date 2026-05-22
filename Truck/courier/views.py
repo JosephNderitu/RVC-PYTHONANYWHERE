@@ -1,4 +1,3 @@
-from Truck.models import Job
 from django.conf import settings
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
@@ -13,8 +12,7 @@ from django.db.models.functions import Round
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 from django.utils import timezone
 from django.http import JsonResponse
 
