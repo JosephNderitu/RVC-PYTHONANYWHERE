@@ -98,14 +98,14 @@ body { background:#fff; color:#111827; }
       </p>
 
       <div class="fu d3 flex flex-wrap gap-4 mb-16">
-        <a href="/sign_in/?next=/customer/"
-           class="inline-flex items-center gap-2 px-7 py-4 rounded-xl text-white font-bold text-base no-underline"
-           style="background:#F97316;box-shadow:0 8px 28px rgba(249,115,22,.4);">
+        <a href="{% if request.user.is_authenticated %}{% url 'customer:home' %}{% else %}/sign_in/?next=/customer/{% endif %}"
+          class="inline-flex items-center gap-2 px-7 py-4 rounded-xl text-white font-bold text-base no-underline"
+          style="background:#F97316;box-shadow:0 8px 28px rgba(249,115,22,.4);">
           <i class="fas fa-user"></i> I Need a Courier &nbsp;→
         </a>
-        <a href="/sign_in/?next=/courier/"
-           class="inline-flex items-center gap-2 px-7 py-4 rounded-xl text-white font-bold text-base no-underline"
-           style="background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.25);backdrop-filter:blur(8px);">
+        <a href="{% if request.user.is_authenticated and request.user.courier is not None %}{% url 'courier:home' %}{% else %}/sign_up/?next=/courier/{% endif %}"
+          class="inline-flex items-center gap-2 px-7 py-4 rounded-xl text-white font-bold text-base no-underline"
+          style="background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.25);backdrop-filter:blur(8px);">
           <i class="fas fa-truck-fast"></i> I'm a Courier &nbsp;→
         </a>
       </div>
