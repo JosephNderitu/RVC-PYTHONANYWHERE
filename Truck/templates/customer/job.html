@@ -172,6 +172,27 @@
         <img src="{{ job.delivery_photo.url }}" class="ml-auto rounded-lg object-cover" style="width:48px;height:48px;">
         {% endif %}
       </div>
+      <!-- ── Weather notice on tracking page ─────────────────────── -->
+    {% if job.weather_condition and job.weather_condition != 'clear' and job.weather_condition != 'cloudy' %}
+    <div class="d-flex align-items-center gap-3 px-4 py-3 rounded-xl mt-4 mb-4"
+        style="background:#EFF6FF;border:1px solid #BFDBFE;">
+      <i class="fas {{ job.weather_icon }} flex-shrink-0"
+        style="color:#2563EB;font-size:18px;"></i>
+      <div>
+        <div class="fw-bold" style="font-size:.85rem;color:#1E40AF;">
+          {{ job.weather_label }} along your route
+        </div>
+        <div style="font-size:.75rem;color:#1E40AF;opacity:.85;margin-top:2px;line-height:1.5;">
+          Your estimated delivery time has been adjusted for current weather.
+          {% if job.weather_eta_multiplier > 1.0 %}
+            ETA is approximately
+            {{ job.weather_eta_multiplier|floatformat:2 }}x
+            longer than a clear-weather delivery.
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
     </div>
   </div>
 

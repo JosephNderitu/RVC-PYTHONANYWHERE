@@ -255,11 +255,29 @@ def create_job_page(request):
                         creating_job.price_goods_surcharge = goods_surcharge
                         creating_job.save()
  
+                        # ── Fetch weather at pickup location ──────────────────────────────
+                        from Truck.pricing_engine import get_weather_condition, WEATHER_CONFIG
+                        weather_key  = get_weather_condition(p_lat, p_lng)
+                        weather_cfg  = WEATHER_CONFIG.get(weather_key, WEATHER_CONFIG['clear'])
+                        weather_mult = weather_cfg['multiplier']
+
+                        # Adjust duration for weather
+                        weather_adjusted_duration = int(round(result['duration_min'] * weather_mult))
+
+                        # Store on job
+                        creating_job.weather_condition      = weather_key
+                        creating_job.weather_label          = weather_cfg['label']
+                        creating_job.weather_icon           = weather_cfg['icon']
+                        creating_job.weather_eta_multiplier = weather_mult
+                        creating_job.duration               = weather_adjusted_duration
+                        creating_job.save()
+
                         messages.info(
                             request,
                             f"Distance: {miles} mi via {result['method']} · "
-                            f"Est. {result['duration_min']} min · "
+                            f"Est. {weather_adjusted_duration} min · "
                             f"${final_price} USD"
+                            + (f" · {weather_cfg['label']} ({weather_mult}x ETA)" if weather_mult != 1.0 else "")
                         )
                     else:
                         messages.error(
@@ -310,6 +328,18 @@ def create_job_page(request):
                     creating_job.price_mileage_cost    = mileage_cost
                     creating_job.price_fuel_surcharge  = fuel_surcharge
                     creating_job.price_goods_surcharge = goods_surcharge
+                    # Weather for manual distance path
+                    from Truck.pricing_engine import get_weather_condition, WEATHER_CONFIG
+                    weather_key  = get_weather_condition(
+                        creating_job.pickup_lat, creating_job.pickup_lng
+                    )
+                    weather_cfg  = WEATHER_CONFIG.get(weather_key, WEATHER_CONFIG['clear'])
+                    weather_mult = weather_cfg['multiplier']
+                    creating_job.duration               = int(round(creating_job.duration * weather_mult))
+                    creating_job.weather_condition      = weather_key
+                    creating_job.weather_label          = weather_cfg['label']
+                    creating_job.weather_icon           = weather_cfg['icon']
+                    creating_job.weather_eta_multiplier = weather_mult
                     creating_job.save()
 
                 # Build price breakdown for Step 4 display
