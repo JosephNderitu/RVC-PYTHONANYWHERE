@@ -215,6 +215,32 @@ class Job(models.Model):
         default=False,
         help_text='True if AI detected fragile item — shown to courier'
     )
+    # ── Goods type — feeds pricing surcharge + courier handling ──────────
+    GOODS_STANDARD   = 'standard'
+    GOODS_FRAGILE    = 'fragile'
+    GOODS_MEDICAL    = 'medical'
+    GOODS_ARTWORK    = 'artwork'
+    GOODS_PERISHABLE = 'perishable'
+    GOODS_TYPES = (
+        (GOODS_STANDARD,   'Standard Goods'),
+        (GOODS_FRAGILE,    'Fragile / Delicate'),
+        (GOODS_MEDICAL,    'Medical Supplies'),
+        (GOODS_ARTWORK,    'Artwork / Antiques'),
+        (GOODS_PERISHABLE, 'Perishables'),
+    )
+ 
+    goods_type = models.CharField(
+        max_length=20,
+        choices=GOODS_TYPES,
+        default='standard',
+        help_text='Affects pricing surcharge and courier handling instructions',
+    )
+ 
+    # ── Pricing breakdown (stored for receipt / invoice consistency) ──────
+    price_base_fare      = models.FloatField(default=0.0)
+    price_mileage_cost   = models.FloatField(default=0.0)
+    price_fuel_surcharge = models.FloatField(default=0.0)
+    price_goods_surcharge = models.FloatField(default=0.0)
 
     def get_confirmation_url(self, base_url=''):
         from django.conf import settings

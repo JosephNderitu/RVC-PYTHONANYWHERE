@@ -302,4 +302,4 @@ CELERY_BEAT_SCHEDULE = {
 SKIP_FACE_VERIFICATION = True    # ← change to False when ready for production
 ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImFiZmY3MDYwMzE0ODQ1ZTE5YjQ1OWM1MTAzOWNjZjAwIiwiaCI6Im11cm11cjY0In0='
 # Used for: real-time traffic speed overlay on courier maps
-TOMTOM_API_KEY = '' 
+TOMTOM_API_KEY = 'cdWakEzXi7JHegRHwwIEYh2Aw12cH2v8', 

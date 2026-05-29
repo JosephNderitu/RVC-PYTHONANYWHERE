@@ -18,13 +18,14 @@ class BasicCustomerForm(forms.ModelForm):
 class JobCreateStep1Form(forms.ModelForm):
     class Meta:
         model = Job
-        fields = ('names', 'description', 'category', 'size', 'quantity', 'photo')
+        fields = ('names', 'description', 'category', 'size', 'quantity', 'goods_type', 'photo')
         labels = {
             'names': "Enter the Item's Name",
             'description': "Enter the Item's Description",
             'category': 'Choose Item Category',
             'size': "Choose the Item's Size",
             'quantity': "Enter the Item's Quantity in tonnes",
+            'goods_type': "Choose the type of good you want to move",
             'photo': "Upload the Item's Photo",
         }
 

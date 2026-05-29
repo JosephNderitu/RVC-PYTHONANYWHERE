@@ -6,4 +6,8 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'RiftValley.settings')
 
 app = Celery('RiftValley')
 app.config_from_object('django.conf:settings', namespace='CELERY')
-app.autodiscover_tasks()
+app.autodiscover_tasks([
+    'Truck',
+    'Truck.goods_classification',
+    'Truck.driver_verification',
+])
