@@ -241,6 +241,23 @@ class Job(models.Model):
     price_mileage_cost   = models.FloatField(default=0.0)
     price_fuel_surcharge = models.FloatField(default=0.0)
     price_goods_surcharge = models.FloatField(default=0.0)
+    # ── Weather context (stored at booking time) ─────────────────────
+    weather_condition      = models.CharField(
+        max_length=20, blank=True, default='',
+        help_text='WMO condition key: clear|drizzle|rain|heavy_rain|fog|snow|storm'
+    )
+    weather_label          = models.CharField(
+        max_length=40, blank=True, default='',
+        help_text='Human-readable label, e.g. "Light Rain"'
+    )
+    weather_icon           = models.CharField(
+        max_length=40, blank=True, default='fa-sun',
+        help_text='FontAwesome icon class'
+    )
+    weather_eta_multiplier = models.FloatField(
+        default=1.0,
+        help_text='ETA multiplier from weather at booking time, e.g. 1.12 for rain'
+    )
 
     def get_confirmation_url(self, base_url=''):
         from django.conf import settings

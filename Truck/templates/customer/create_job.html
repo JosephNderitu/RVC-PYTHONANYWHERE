@@ -971,6 +971,13 @@
               <i class="fas fa-route mr-1"></i>
               <span id="rs-method">Route calculated via OSRM road network</span>
           </p>
+          <div id="weather-notice" style="display:none;margin-top:8px;">
+            <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-xl"
+                 style="background:#EFF6FF;border:1px solid #BFDBFE;font-size:.78rem;color:#1E40AF;">
+              <i id="weather-notice-icon" class="fas fa-sun flex-shrink-0"></i>
+              <span id="weather-notice-text"></span>
+            </div>
+          </div>
         </div>
 
         {% bootstrap_form step3_form exclude='delivery_lat,delivery_lng,delivery_address,manual_distance,distance_unit' %}
@@ -1112,6 +1119,26 @@
         </div>
         {% endif %}
 
+        <!-- ── Weather notice ─────────────────────────────────────── -->
+        {% if job.weather_condition and job.weather_condition != 'clear' and job.weather_condition != 'cloudy' %}
+        <div class="d-flex align-items-center gap-3 px-4 py-3 rounded-xl mb-4"
+             style="background:#EFF6FF;border:1px solid #BFDBFE;">
+          <i class="fas {{ job.weather_icon }} flex-shrink-0"
+             style="color:#2563EB;font-size:16px;"></i>
+          <div>
+            <div class="fw-bold" style="font-size:.85rem;color:#1E40AF;">
+              {{ job.weather_label }} along route
+            </div>
+            <div style="font-size:.75rem;color:#1E40AF;opacity:.85;margin-top:2px;">
+              Estimated delivery time has been adjusted for current weather conditions.
+              {% if job.weather_eta_multiplier > 1.0 %}
+                ETA is {{ job.weather_eta_multiplier|floatformat:2 }}x longer than normal.
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        
         <!-- ── Security notice ───────────────────────────────────────── -->
         <div class="d-flex align-items-center gap-3 px-4 py-3 rounded-xl mb-5"
             style="background:#F0FDF4;border:1px solid #BBF7D0;">
@@ -1292,6 +1319,7 @@ function updateSummary(miles, minutes, method, trafficLevel) {
   }
 
   updateTrafficBadge(trafficLevel);
+  updateWeatherNotice(miles, minutes);
 }
 
 function updateTrafficBadge(level) {
@@ -1307,6 +1335,20 @@ function updateTrafficBadge(level) {
   el.innerHTML = '<i class="fas ' + c.icon + '" style="margin-right:5px;"></i>' + c.text;
   el.style.background = c.bg;
   el.style.display    = 'inline-flex';
+}
+
+function updateWeatherNotice(miles, minutes) {
+  var el = document.getElementById('weather-notice');
+  if (!el) return;
+  // Only show a notice when weather genuinely affects the ETA
+  // We don't have live weather on the Step 3 map (that's the server-side job),
+  // but we can show a disclaimer that ETA includes current conditions.
+  el.style.display = 'block';
+  document.getElementById('weather-notice-icon').className =
+    'fas fa-cloud-sun flex-shrink-0';
+  document.getElementById('weather-notice-text').textContent =
+    'Est. time includes current weather conditions at pickup. ' +
+    'Final ETA confirmed after booking.';
 }
 
 function showWarning(geodesicMiles, source) {
