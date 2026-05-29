@@ -15,7 +15,13 @@ from Truck.models import *
 from django.core.paginator import Paginator
 
 from Truck.customer import forms
-from .forms import *
+from Truck.customer.forms import (
+    BasicUserForm,
+    BasicCustomerForm,
+    JobCreateStep1Form,
+    JobCreateStep2Form,
+    JobCreateStep3Form,
+)
 from django.contrib import messages
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
@@ -201,9 +207,12 @@ def create_job_page(request):
                     d_lng = creating_job.delivery_lng
 
                     if all([p_lat, p_lng, d_lat, d_lng]):
-                        result = compute_distance(p_lat, p_lng, d_lat, d_lng)
-
-                        # Replace the distance engine result block
+                        # ── Route + base price ─────────────────────────────────────
+                        result = compute_distance(
+                            p_lat, p_lng, d_lat, d_lng,
+                            vehicle_size=creating_job.size or 'medium',
+                        )
+ 
                         if result['error']:
                             messages.error(
                                 request,
@@ -215,20 +224,42 @@ def create_job_page(request):
                                 "step1_form": step1_form,
                                 "step2_form": step2_form,
                                 "step3_form": step3_form,
-                                "job": creating_job,
-                                "step": 3,
+                                "job":        creating_job,
+                                "step":       3,
                                 "show_manual_distance": show_manual_distance,
+                                "categories": categories,
                             })
-
-                        creating_job.distance = result['distance_miles']   # ← miles not km
-                        creating_job.duration = result['duration_min']
-                        creating_job.price    = result['price_usd']        # ← USD not KES
+ 
+                        # ── Apply goods type surcharge ─────────────────────────────
+                        from Truck.pricing_engine import GOODS_SENSITIVITY
+                        goods_key = creating_job.goods_type or 'standard'
+                        goods_cfg = GOODS_SENSITIVITY.get(goods_key, GOODS_SENSITIVITY['standard'])
+ 
+                        base_price       = result['price_usd']
+                        goods_surcharge  = round(base_price * goods_cfg['surcharge'], 2)
+                        final_price      = round(base_price + goods_surcharge, 2)
+ 
+                        # ── Store breakdown on job ─────────────────────────────────
+                        from Truck.pricing_engine import VEHICLE_CONFIG
+                        v = VEHICLE_CONFIG.get(creating_job.size or 'medium', VEHICLE_CONFIG['medium'])
+                        miles         = result['distance_miles']
+                        mileage_cost  = round(miles * v['rate_per_mile'], 2)
+                        fuel_surcharge = round(mileage_cost * v['fuel_surcharge'], 2)
+ 
+                        creating_job.distance            = miles
+                        creating_job.duration            = result['duration_min']
+                        creating_job.price               = final_price
+                        creating_job.price_base_fare     = v['base_fare']
+                        creating_job.price_mileage_cost  = mileage_cost
+                        creating_job.price_fuel_surcharge = fuel_surcharge
+                        creating_job.price_goods_surcharge = goods_surcharge
                         creating_job.save()
-
+ 
                         messages.info(
                             request,
-                            f"Distance: {result['distance_miles']} mi via {result['method']} · "
-                            f"Est. {result['duration_min']} min"
+                            f"Distance: {miles} mi via {result['method']} · "
+                            f"Est. {result['duration_min']} min · "
+                            f"${final_price} USD"
                         )
                     else:
                         messages.error(
@@ -254,20 +285,56 @@ def create_job_page(request):
                     else:  # km
                         distance_miles = manual_distance * 0.621371
 
+                    # Manual distance — same goods surcharge logic
                     distance_miles = round(distance_miles, 2)
+ 
                     from Truck.distance_engine import _compute_price, _compute_duration
-                    creating_job.distance = distance_miles
-                    creating_job.duration = _compute_duration(distance_miles)
-                    creating_job.price    = _compute_price(distance_miles)
+                    from Truck.pricing_engine import GOODS_SENSITIVITY, VEHICLE_CONFIG
+ 
+                    vehicle_size = creating_job.size or 'medium'
+                    base_price   = _compute_price(distance_miles, vehicle_size)
+ 
+                    goods_key    = creating_job.goods_type or 'standard'
+                    goods_cfg    = GOODS_SENSITIVITY.get(goods_key, GOODS_SENSITIVITY['standard'])
+                    goods_surcharge = round(base_price * goods_cfg['surcharge'], 2)
+                    final_price  = round(base_price + goods_surcharge, 2)
+ 
+                    v = VEHICLE_CONFIG.get(vehicle_size, VEHICLE_CONFIG['medium'])
+                    mileage_cost  = round(distance_miles * v['rate_per_mile'], 2)
+                    fuel_surcharge = round(mileage_cost * v['fuel_surcharge'], 2)
+ 
+                    creating_job.distance              = distance_miles
+                    creating_job.duration              = _compute_duration(distance_miles)
+                    creating_job.price                 = final_price
+                    creating_job.price_base_fare       = v['base_fare']
+                    creating_job.price_mileage_cost    = mileage_cost
+                    creating_job.price_fuel_surcharge  = fuel_surcharge
+                    creating_job.price_goods_surcharge = goods_surcharge
                     creating_job.save()
 
+                # Build price breakdown for Step 4 display
+                from Truck.pricing_engine import VEHICLE_CONFIG, GOODS_SENSITIVITY
+                _v = VEHICLE_CONFIG.get(creating_job.size or 'medium', VEHICLE_CONFIG['medium'])
+                _g = GOODS_SENSITIVITY.get(creating_job.goods_type or 'standard', GOODS_SENSITIVITY['standard'])
+                price_breakdown = {
+                    'vehicle_name':        _v['name'],
+                    'goods_name':          _g['name'],
+                    'goods_surcharge_pct': int(_g['surcharge'] * 100),
+                    'base_fare':           creating_job.price_base_fare,
+                    'mileage_rate':        _v['rate_per_mile'],
+                    'mileage_cost':        creating_job.price_mileage_cost,
+                    'fuel_surcharge':      creating_job.price_fuel_surcharge,
+                    'goods_surcharge':     creating_job.price_goods_surcharge,
+                    'total':               creating_job.price,
+                }
                 return render(request, 'customer/create_job.html', {
-                    "step1_form": step1_form,
-                    "step2_form": step2_form,
-                    "step3_form": step3_form,
-                    "job": creating_job,
-                    "step": 4,
-                    "categories": Category.objects.all().order_by('name'),
+                    "step1_form":      step1_form,
+                    "step2_form":      step2_form,
+                    "step3_form":      step3_form,
+                    "job":             creating_job,
+                    "step":            4,
+                    "categories":      categories,
+                    "price_breakdown": price_breakdown,
                 })
 
         # ── Step 4 — payment ─────────────────────────────────────────────────
@@ -298,7 +365,7 @@ def create_job_page(request):
                         import logging
                         logging.getLogger(__name__).info(
                             "auto_assign_job queued for job %s | task_id=%s",
-                            job.id, result.id
+                            creating_job.id, result.id
                         )
                     except Exception as exc:
                         import logging
@@ -353,14 +420,33 @@ def create_job_page(request):
     if creating_job.price:
         current_step = 4
 
+    # Build price breakdown only when landing on step 4
+    price_breakdown = None
+    if current_step == 4 and creating_job.price:
+        from Truck.pricing_engine import VEHICLE_CONFIG, GOODS_SENSITIVITY
+        _v = VEHICLE_CONFIG.get(creating_job.size or 'medium', VEHICLE_CONFIG['medium'])
+        _g = GOODS_SENSITIVITY.get(creating_job.goods_type or 'standard', GOODS_SENSITIVITY['standard'])
+        price_breakdown = {
+            'vehicle_name':        _v['name'],
+            'goods_name':          _g['name'],
+            'goods_surcharge_pct': int(_g['surcharge'] * 100),
+            'base_fare':           creating_job.price_base_fare,
+            'mileage_rate':        _v['rate_per_mile'],
+            'mileage_cost':        creating_job.price_mileage_cost,
+            'fuel_surcharge':      creating_job.price_fuel_surcharge,
+            'goods_surcharge':     creating_job.price_goods_surcharge,
+            'total':               creating_job.price,
+        }
+
     return render(request, 'customer/create_job.html', {
-        "job":                creating_job,
-        "step":               current_step,
-        "step1_form":         step1_form,
-        "step2_form":         step2_form,
-        "step3_form":         step3_form,
+        "job":                  creating_job,
+        "step":                 current_step,
+        "step1_form":           step1_form,
+        "step2_form":           step2_form,
+        "step3_form":           step3_form,
         "show_manual_distance": show_manual_distance,
-        "categories":Category.objects.all().order_by('name'),
+        "categories":           categories,
+        "price_breakdown":      price_breakdown,
     })
 
 @login_required(login_url="/sign_in/?next=/customer/")
