@@ -37,6 +37,8 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
       - DEBUG=True
+      - HF_HUB_OFFLINE=1
+      - TRANSFORMERS_OFFLINE=1
     depends_on:
       db:
         condition: service_healthy
@@ -50,6 +52,8 @@ services:
     volumes:
       - .:/app
       - paddleocr_models:/root/.paddleocr 
+      - hf_cache:/root/.cache/huggingface    # ← CLIP model cache
+      - ul_cache:/root/.config/Ultralytics   # ← YOLOv8 model cache
     working_dir: /app
     environment:
       - DATABASE_URL=postgis://rvc_user:rvc_pass_2026@db:5432/rvc_spatial
@@ -112,3 +116,5 @@ services:
 volumes:
   postgis_data:
   paddleocr_models:
+  hf_cache:
+  ul_cache:

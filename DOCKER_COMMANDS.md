@@ -76,6 +76,7 @@ docker compose up --build
 ### 6. Run database migrations
 ```powershell
 docker compose exec web python manage.py migrate
+docker compose exec web python manage.py shell
 ```
 
 ---

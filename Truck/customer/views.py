@@ -11,17 +11,11 @@ import stripe
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
-from Truck.models import Courier, Job, Transaction
+from Truck.models import *
 from django.core.paginator import Paginator
 
 from Truck.customer import forms
-from .forms import (
-    BasicUserForm,
-    BasicCustomerForm,
-    JobCreateStep1Form,
-    JobCreateStep2Form,
-    JobCreateStep3Form,
-)
+from .forms import *
 from django.contrib import messages
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
@@ -117,6 +111,7 @@ def payment_method_page(request):
 @login_required(login_url="/sign_in/?next=/customer/")
 def create_job_page(request):
     current_customer = request.user.customer
+    categories = Category.objects.all().order_by('name')
 
     if not current_customer.stripe_payment_method_id:
         return redirect(reverse('customer:payment_method'))
@@ -272,6 +267,7 @@ def create_job_page(request):
                     "step3_form": step3_form,
                     "job": creating_job,
                     "step": 4,
+                    "categories": Category.objects.all().order_by('name'),
                 })
 
         # ── Step 4 — payment ─────────────────────────────────────────────────
@@ -298,7 +294,7 @@ def create_job_page(request):
                     try:
                         from Truck.tasks import auto_assign_job
                         import time
-                        result = auto_assign_job.delay(str(job.id), [], time.time())
+                        result = auto_assign_job.delay(str(creating_job.id), [], time.time())
                         import logging
                         logging.getLogger(__name__).info(
                             "auto_assign_job queued for job %s | task_id=%s",
@@ -307,7 +303,7 @@ def create_job_page(request):
                     except Exception as exc:
                         import logging
                         logging.getLogger(__name__).warning(
-                            "Failed to queue auto_assign_job for job %s: %s", job.id, exc
+                            "Failed to queue auto_assign_job for job %s: %s", creating_job.id, exc
                         )
                         # Non-fatal: job is still created, courier can manually browse and accept
 
@@ -364,6 +360,7 @@ def create_job_page(request):
         "step2_form":         step2_form,
         "step3_form":         step3_form,
         "show_manual_distance": show_manual_distance,
+        "categories":Category.objects.all().order_by('name'),
     })
 
 @login_required(login_url="/sign_in/?next=/customer/")
