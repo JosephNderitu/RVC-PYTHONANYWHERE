@@ -9,9 +9,11 @@ from django.contrib.auth import logout
 from django.http import JsonResponse
 from django.core.mail import send_mail, EmailMultiAlternatives
 from django.conf import settings as django_settings
+import requests as http_client
 import logging
  
 logger = logging.getLogger(__name__)
+ 
 
 def home(request):
     if request.method == 'POST':
@@ -78,6 +80,224 @@ def sign_out(request):
         return redirect('/')
     else:
         return redirect('/')  # Or handle GET request if needed
+
+
+import json as _json
+from django.http import JsonResponse
+from Truck.pricing_engine import (
+    compute_quote, check_rate_limit, get_client_ip,
+    VEHICLE_CONFIG, GOODS_SENSITIVITY,
+)
+ 
+ 
+def get_quote_page(request):
+    """
+    Public price calculator page.
+    No login required — works for anyone.
+    """
+    vehicle_sizes = [
+        {
+            'value':    'small',
+            'name':     'Cargo Van',
+            'subtitle': 'Up to 150 lbs',
+            'icon':     'fa-truck',
+            'from_price': '$75',
+            'rate':     '$2.50/mi',
+        },
+        {
+            'value':    'medium',
+            'name':     'Box Truck',
+            'subtitle': '150 lbs – 5 tons',
+            'icon':     'fa-truck-moving',
+            'from_price': '$125',
+            'rate':     '$3.75/mi',
+        },
+        {
+            'value':    'large',
+            'name':     'Semi-Truck',
+            'subtitle': '5 – 36 tons',
+            'icon':     'fa-trailer',
+            'from_price': '$300',
+            'rate':     '$5.50/mi',
+        },
+    ]
+ 
+    goods_types = [
+        {'value': 'standard',   'name': 'Standard',   'icon': 'fa-box',               'note': 'No surcharge'},
+        {'value': 'fragile',    'name': 'Fragile',     'icon': 'fa-wine-glass-alt',    'note': '+12%'},
+        {'value': 'medical',    'name': 'Medical',     'icon': 'fa-pills',             'note': '+18%'},
+        {'value': 'artwork',    'name': 'Artwork',     'icon': 'fa-palette',           'note': '+20%'},
+        {'value': 'perishable', 'name': 'Perishable',  'icon': 'fa-thermometer-half',  'note': '+15%'},
+    ]
+ 
+    return render(request, 'get_quote.html', {
+        'vehicle_sizes': vehicle_sizes,
+        'goods_types':   goods_types,
+    })
+ 
+ 
+def get_quote_api(request):
+    """
+    POST /api/get-quote/
+    Rate limited: 30 requests/hour/IP.
+    Calls compute_quote() and returns full pricing breakdown as JSON.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+ 
+    # ── Rate limit ────────────────────────────────────────────────
+    ip = get_client_ip(request)
+    allowed, remaining, reset_in = check_rate_limit(ip, limit=30, window=3600)
+    if not allowed:
+        mins = max(1, reset_in // 60)
+        return JsonResponse({
+            'error':        f'Too many requests. Please try again in {mins} minutes.',
+            'rate_limited': True,
+            'reset_in_min': mins,
+        }, status=429)
+ 
+    # ── Parse body ────────────────────────────────────────────────
+    try:
+        data = _json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid request body'}, status=400)
+ 
+    p_lat        = data.get('pickup_lat')
+    p_lng        = data.get('pickup_lng')
+    d_lat        = data.get('delivery_lat')
+    d_lng        = data.get('delivery_lng')
+    vehicle_size = data.get('vehicle_size', 'medium')
+    goods_type   = data.get('goods_type', 'standard')
+ 
+    if not all([p_lat, p_lng, d_lat, d_lng]):
+        return JsonResponse(
+            {'error': 'Pickup and delivery coordinates are required.'}, status=400
+        )
+ 
+    if vehicle_size not in VEHICLE_CONFIG:
+        return JsonResponse({'error': 'Invalid vehicle size.'}, status=400)
+ 
+    if goods_type not in GOODS_SENSITIVITY:
+        return JsonResponse({'error': 'Invalid goods type.'}, status=400)
+ 
+    # ── Compute ───────────────────────────────────────────────────
+    try:
+        result = compute_quote(
+            float(p_lat), float(p_lng),
+            float(d_lat), float(d_lng),
+            vehicle_size=vehicle_size,
+            goods_type=goods_type,
+        )
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("compute_quote error: %s", exc, exc_info=True)
+        return JsonResponse({'error': 'Could not calculate price. Please try again.'}, status=500)
+ 
+    if result.get('error'):
+        return JsonResponse({'error': result['error']}, status=400)
+ 
+    # Add rate limit info to response headers
+    response = JsonResponse(result)
+    response['X-RateLimit-Remaining'] = remaining
+    response['X-RateLimit-Reset']     = reset_in
+    return response
+
+def public_route_api(request):
+    from django.conf import settings
+    plat = request.GET.get('plat')
+    plng = request.GET.get('plng')
+    dlat = request.GET.get('dlat')
+    dlng = request.GET.get('dlng')
+    if not all([plat, plng, dlat, dlng]):
+        return JsonResponse({'code': 'Error', 'message': 'Missing coordinates'}, status=400)
+    osrm_base = getattr(settings, 'OSRM_URL', 'http://osrm:5000')
+    url = f"{osrm_base}/route/v1/driving/{plng},{plat};{dlng},{dlat}?overview=full&geometries=geojson&steps=false"
+    try:
+        resp = http_client.get(url, timeout=8)
+        return JsonResponse(resp.json())
+    except Exception as exc:
+        logger.warning("Public OSRM proxy error: %s", exc)
+        return JsonResponse({'code': 'Error', 'message': 'OSRM unavailable'})
+
+
+def public_ors_route_api(request):
+    from django.conf import settings
+    plat = request.GET.get('plat')
+    plng = request.GET.get('plng')
+    dlat = request.GET.get('dlat')
+    dlng = request.GET.get('dlng')
+    if not all([plat, plng, dlat, dlng]):
+        return JsonResponse({'error': 'Missing coordinates'}, status=400)
+    ors_key = getattr(settings, 'ORS_API_KEY', '')
+    body = {
+        'coordinates': [[float(plng), float(plat)], [float(dlng), float(dlat)]],
+        'units': 'mi',
+    }
+    try:
+        resp = http_client.post(
+            'https://api.openrouteservice.org/v2/directions/driving-hgv/geojson',
+            json=body,
+            headers={'Authorization': ors_key, 'Content-Type': 'application/json'},
+            timeout=10,
+        )
+        data = resp.json()
+        if 'features' in data and data['features']:
+            feat    = data['features'][0]
+            dist_mi = feat['properties']['summary']['distance']
+            dur_min = round(feat['properties']['summary']['duration'] / 60)
+            return JsonResponse({
+                'geometry':       feat['geometry'],
+                'distance_miles': round(dist_mi, 2),
+                'duration_min':   dur_min,
+            })
+    except Exception as exc:
+        logger.warning("Public ORS proxy error: %s", exc)
+    return JsonResponse({'error': 'ORS unavailable'})
+
+
+def nearest_couriers_api(request):
+    from Truck.models import Courier
+    from django.contrib.gis.geos import Point
+    from django.contrib.gis.db.models.functions import Distance
+    from django.contrib.gis.measure import D
+
+    lat = request.GET.get('lat')
+    lng = request.GET.get('lng')
+    if not lat or not lng:
+        return JsonResponse({'error': 'lat and lng required'}, status=400)
+    try:
+        point = Point(float(lng), float(lat), srid=4326)
+        couriers = (
+            Courier.objects
+            .filter(is_available=True, location__isnull=False,
+                    location__distance_lte=(point, D(km=80)))
+            .annotate(distance=Distance('location', point))
+            .order_by('distance')[:8]
+        )
+        result = []
+        for c in couriers:
+            miles = c.distance.km * 0.621371
+            fn = c.user.first_name[:1] if c.user.first_name else ''
+            ln = c.user.last_name[:1]  if c.user.last_name  else ''
+            result.append({
+                'distance_miles': round(miles, 1),
+                'initials':       (fn + ln).upper() or 'CV',
+                'lat':            round(c.location.y, 3),
+                'lng':            round(c.location.x, 3),
+            })
+        nearest = result[0]['distance_miles'] if result else None
+        eta_min = round(nearest / 30 * 60)    if nearest else None
+        return JsonResponse({
+            'count':         len(result),
+            'couriers':      result[:5],
+            'nearest_miles': nearest,
+            'eta_min':       eta_min,
+            'radius_miles':  50,
+        })
+    except Exception as exc:
+        logger.warning("nearest_couriers_api error: %s", exc)
+        return JsonResponse({'count': 0, 'couriers': [], 'nearest_miles': None, 'eta_min': None})
+    
 
 def terms_and_conditions(request):
     return render(request, 'terms_and_conditions.html')

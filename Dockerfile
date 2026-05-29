@@ -33,4 +33,7 @@ RUN GDAL_VERSION=$(gdal-config --version) && \
     pip install --no-cache-dir GDAL==${GDAL_VERSION} && \
     pip install --no-cache-dir -r requirements.txt
 
+RUN pip install torch==2.2.2+cpu torchvision==0.17.2+cpu \
+    --extra-index-url https://download.pytorch.org/whl/cpu
+
 COPY . .

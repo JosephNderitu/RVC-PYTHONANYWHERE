@@ -128,9 +128,9 @@ class Job(models.Model):
     MEDIUM_SIZE = "medium"
     LARGE_SIZE = "large"
     SIZES = (
-        (SMALL_SIZE, "Small"),
-        (MEDIUM_SIZE, "Medium"),
-        (LARGE_SIZE, "Large"),
+        (SMALL_SIZE,  "Small — Cargo Van (up to 150 lbs)"),
+        (MEDIUM_SIZE, "Medium — Box Truck (150 lbs to 10,000 lbs / ~5 tons)"),
+        (LARGE_SIZE,  "Large — Semi-Truck (10,000 lbs to 80,000 lbs / up to 36 tons)"),
     )
     CREATING_STATUS = 'creating'
     PROCESSING_STATUS = 'processing'
@@ -186,6 +186,35 @@ class Job(models.Model):
     confirmation_token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     customer_confirmed = models.BooleanField(default=False)
     confirmed_at       = models.DateTimeField(null=True, blank=True)
+    # ── Goods classification (added for ML pipeline) ─────────────────────
+    CLASSIFICATION_PENDING    = 'pending'
+    CLASSIFICATION_PROCESSING = 'processing'
+    CLASSIFICATION_COMPLETE   = 'complete'
+    CLASSIFICATION_FAILED     = 'failed'
+    CLASSIFICATION_FLAGGED    = 'flagged'
+    CLASSIFICATION_SKIPPED    = 'skipped'
+    CLASSIFICATION_STATUSES   = (
+        (CLASSIFICATION_PENDING,    'Pending'),
+        (CLASSIFICATION_PROCESSING, 'Processing'),
+        (CLASSIFICATION_COMPLETE,   'Complete'),
+        (CLASSIFICATION_FAILED,     'Failed'),
+        (CLASSIFICATION_FLAGGED,    'Flagged — admin review'),
+        (CLASSIFICATION_SKIPPED,    'Skipped'),
+    )
+ 
+    classification_status  = models.CharField(
+        max_length=20, choices=CLASSIFICATION_STATUSES,
+        default='pending',
+        help_text='Status of AI goods classification for this job'
+    )
+    is_flagged_prohibited  = models.BooleanField(
+        default=False,
+        help_text='True if prohibited goods detected — blocks job until admin review'
+    )
+    fragility_flag         = models.BooleanField(
+        default=False,
+        help_text='True if AI detected fragile item — shown to courier'
+    )
 
     def get_confirmation_url(self, base_url=''):
         from django.conf import settings
@@ -211,7 +240,64 @@ class Job(models.Model):
     def delivery_lng(self):
         return self.delivery_location.x if self.delivery_location else 0
 
-
+class ClassificationResult(models.Model):
+    STATUS_CHOICES = [
+        ('pending',    'Pending'),
+        ('processing', 'Processing'),
+        ('complete',   'Complete'),
+        ('failed',     'Failed'),
+        ('flagged',    'Flagged — prohibited items detected'),
+    ]
+ 
+    job               = models.OneToOneField(
+        'Job', on_delete=models.CASCADE,
+        related_name='classification'
+    )
+    task_id           = models.CharField(max_length=255, blank=True,
+                            help_text='Celery task ID for debugging')
+ 
+    # ── CLIP results ──────────────────────────────────────────────────────
+    status                = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    category_suggestion   = models.CharField(max_length=50, blank=True)
+    category_confidence   = models.FloatField(default=0.0)
+    item_name_suggestion  = models.CharField(max_length=255, blank=True)
+    low_confidence        = models.BooleanField(default=False,
+                               help_text='True when CLIP confidence < 0.35')
+ 
+    # ── Size suggestion ───────────────────────────────────────────────────
+    size_suggestion       = models.CharField(max_length=20, blank=True)
+    size_reliable         = models.BooleanField(default=True)
+ 
+    # ── Fragility ─────────────────────────────────────────────────────────
+    fragility_score       = models.FloatField(default=0.0)
+    is_fragile            = models.BooleanField(default=False)
+ 
+    # ── Prohibited detection ──────────────────────────────────────────────
+    prohibited_detected   = models.BooleanField(default=False)
+    prohibited_items      = models.JSONField(default=list,
+                               help_text='List of detected prohibited items with confidence scores')
+    prohibited_reason     = models.TextField(blank=True)
+ 
+    # ── Processing metadata ───────────────────────────────────────────────
+    processing_time_s     = models.FloatField(default=0.0)
+    error_message         = models.TextField(blank=True)
+    raw_results           = models.JSONField(default=dict,
+                               help_text='Full raw output from all pipeline stages (debug)')
+ 
+    # ── Future: AI chatbot linkage ────────────────────────────────────────
+    chatbot_session_id    = models.CharField(max_length=120, blank=True,
+                               help_text='Reserved for future AI chatbot session linkage')
+ 
+    created_at            = models.DateTimeField(auto_now_add=True)
+    updated_at            = models.DateTimeField(auto_now=True)
+ 
+    class Meta:
+        ordering = ['-created_at']
+ 
+    def __str__(self):
+        return f'Classification({self.job_id}) — {self.status}'
+        
+        
 class Transaction(models.Model):
     IN_STATUS = "in"
     OUT_STATUS = "out"

@@ -176,15 +176,599 @@
 
       <!-- ═══ STEP 1: Item Info ═══ -->
       {% if step == 1 %}
-      <h3 class="font-bold mb-4" style="color:#0D1B3E;font-family:'Sora',sans-serif;"><i class="fas fa-box mr-2" style="color:#F97316;"></i>Item Information</h3>
-      <form method="POST" enctype="multipart/form-data">
+
+      <h3 class="font-bold mb-4" style="color:#0D1B3E;font-family:'Sora',sans-serif;">
+        <i class="fas fa-box mr-2" style="color:#F97316;"></i>Item Information
+      </h3>
+
+      <form method="POST" enctype="multipart/form-data" id="step1-form">
         {% csrf_token %}
-        {% bootstrap_form step1_form %}
-        <input type="hidden" name="step" value="1">
-        <div class="flex justify-end mt-4">
-          <button type="submit" class="btn-rvc-primary">Save & Continue <i class="fas fa-arrow-right ml-1"></i></button>
+
+        <!-- ══════════════════════════════════════════════════════════
+            STEP 1 — PHOTO FIRST
+            Photo is the primary action. AI analyses it, then
+            auto-fills the fields below. Customer can edit anything.
+        ══════════════════════════════════════════════════════════ -->
+
+        <!-- ── Photo upload ────────────────────────────────────────── -->
+        <div class="form-group">
+
+          <label class="form-label d-flex align-items-center gap-2">
+            <span style="font-weight:600;font-size:.85rem;color:#374151;">
+              Item Photo <span style="color:#F97316;">*</span>
+            </span>
+            <span class="badge rounded-pill d-flex align-items-center gap-1"
+                  style="background:#FFF7ED;color:#C2410C;border:1px solid #FED7AA;
+                        font-size:.7rem;font-weight:700;padding:3px 9px;">
+              <i class="fas fa-robot" style="font-size:.65rem;"></i> AI Auto-fill
+            </span>
+          </label>
+
+          <!-- Upload zone — all states managed here -->
+          <div id="upload-zone"
+              class="rounded-xl text-center position-relative"
+              style="border:2px dashed #D1D5DB;background:#F9FAFB;
+                      padding:36px 20px;cursor:pointer;
+                      transition:border-color .2s,background .2s,padding .15s;"
+              onclick="document.getElementById('id_photo').click()">
+
+            <!-- File input: covers entire zone -->
+            <input type="file" name="photo" id="id_photo" accept="image/*"
+                  class="position-absolute opacity-0"
+                  style="inset:0;width:100%;height:100%;cursor:pointer;z-index:2;"
+                  onchange="onPhotoChange(this)">
+
+            <!-- Empty state -->
+            <div id="z-empty">
+              <div class="mx-auto mb-3 rounded-xl d-flex align-items-center justify-content-center"
+                  id="upload-icon"
+                  style="width:60px;height:60px;background:#F1F5F9;
+                          color:#9CA3AF;font-size:24px;transition:all .2s;">
+                <i class="fas fa-cloud-upload-alt"></i>
+              </div>
+              <div class="fw-bold mb-1" style="font-size:.9rem;color:#374151;font-family:'Sora',sans-serif;">
+                Drag &amp; drop your item photo here
+              </div>
+              <div class="mb-3" style="font-size:.8rem;color:#9CA3AF;">
+                or <span style="color:#F97316;font-weight:600;">click to browse</span>
+              </div>
+              <span class="badge rounded-pill"
+                    style="background:#F1F5F9;color:#6B7280;font-weight:500;font-size:.72rem;padding:4px 12px;">
+                <i class="fas fa-image mr-1"></i>JPEG · PNG · WebP &nbsp;·&nbsp;
+                <i class="fas fa-hdd ml-1 mr-1"></i>Max 20 MB
+              </span>
+            </div>
+
+            <!-- Preview state (hidden until photo chosen) -->
+            <div id="z-preview" class="d-none">
+              <div class="d-flex align-items-center gap-3 mx-auto text-start"
+                  style="max-width:400px;">
+
+                <!-- Thumbnail + remove -->
+                <div class="position-relative flex-shrink-0">
+                  <img id="preview-img" src="" alt="preview"
+                      style="width:76px;height:76px;border-radius:12px;
+                              object-fit:cover;border:2px solid #D1FAE5;">
+                  <button type="button" onclick="removePhoto(event)"
+                          class="position-absolute d-flex align-items-center justify-content-center"
+                          style="top:-8px;right:-8px;width:22px;height:22px;
+                                background:#DC2626;color:#fff;border:2px solid #fff;
+                                border-radius:50%;font-size:9px;cursor:pointer;
+                                line-height:1;z-index:3;padding:0;">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>
+
+                <!-- File info -->
+                <div class="flex-grow-1 min-width-0">
+                  <div class="fw-semibold text-truncate"
+                      id="preview-name"
+                      style="font-size:.85rem;color:#0D1B3E;max-width:220px;"></div>
+                  <div class="text-muted mb-2" id="preview-size" style="font-size:.73rem;"></div>
+                  <span class="badge rounded-pill"
+                        style="background:#D1FAE5;color:#065F46;font-size:.7rem;font-weight:700;">
+                    <i class="fas fa-check-circle mr-1"></i>Photo ready
+                  </span>
+                </div>
+
+                <!-- Change -->
+                <button type="button"
+                        onclick="document.getElementById('id_photo').click();event.stopPropagation();"
+                        class="btn btn-sm flex-shrink-0"
+                        style="background:#F8FAFC;color:#374151;border:1px solid #E5E7EB;
+                              border-radius:8px;font-size:.75rem;z-index:3;position:relative;">
+                  <i class="fas fa-sync-alt mr-1"></i>Change
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          {% for e in step1_form.photo.errors %}
+          <small class="text-danger d-block mt-1">{{ e }}</small>
+          {% endfor %}
+
+          <!-- ── AI Analysis panel (appears after photo upload) ──── -->
+          <div id="ai-panel" class="d-none mt-3 rounded-xl overflow-hidden"
+              style="border:1px solid #E5E7EB;">
+
+            <!-- Loading -->
+            <div id="ai-loading" class="d-none">
+              <div class="d-flex align-items-center gap-3 px-4 py-3"
+                  style="background:#EFF6FF;border-bottom:1px solid #DBEAFE;">
+                <div class="spinner-border flex-shrink-0"
+                    style="width:18px;height:18px;border-width:2.5px;color:#F97316;"
+                    role="status">
+                  <span class="visually-hidden">Loading</span>
+                </div>
+                <div>
+                  <div class="fw-bold" style="font-size:.83rem;color:#1E40AF;font-family:'Sora',sans-serif;">
+                    <span id="ai-title">Analysing your item…</span>
+                  </div>
+                  <div style="font-size:.72rem;color:#3B82F6;" id="ai-sub">
+                    AI is examining your photo — usually takes 3–10 seconds
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Success -->
+            <div id="ai-success" class="d-none">
+              <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 px-4 py-3"
+                  style="background:#F0FDF4;border-bottom:1px solid #D1FAE5;">
+                <div class="d-flex align-items-center gap-2">
+                  <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                      style="width:28px;height:28px;background:#22C55E;color:#fff;font-size:11px;">
+                    <i class="fas fa-robot"></i>
+                  </div>
+                  <div>
+                    <div class="fw-bold" style="font-size:.82rem;color:#14532D;font-family:'Sora',sans-serif;">
+                      Fields auto-filled — review and edit as needed
+                    </div>
+                    <div style="font-size:.72rem;color:#166534;">
+                      Each field shows an AI badge where suggestions were applied
+                    </div>
+                  </div>
+                </div>
+                <button type="button" id="accept-all-btn"
+                        onclick="acceptAll()"
+                        class="btn btn-sm fw-bold d-flex align-items-center gap-1"
+                        style="background:#0D1B3E;color:#fff;border-radius:8px;
+                              font-family:'Sora',sans-serif;font-size:.78rem;padding:5px 12px;">
+                  <i class="fas fa-check-double"></i> Accept All
+                </button>
+              </div>
+            </div>
+
+            <!-- Low confidence -->
+            <div id="ai-lowconf" class="d-none">
+              <div class="d-flex align-items-start gap-2 px-4 py-3"
+                  style="background:#FFFBEB;border-bottom:1px solid #FDE68A;">
+                <i class="fas fa-exclamation-circle mt-1 flex-shrink-0" style="color:#D97706;font-size:13px;"></i>
+                <div>
+                  <div class="fw-bold" style="font-size:.82rem;color:#92400E;">
+                    Item could not be confidently identified
+                  </div>
+                  <div style="font-size:.73rem;color:#78350F;margin-top:2px;">
+                    AI confidence is low for this image. Please fill in the item name,
+                    category, and size manually using the fields below.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Prohibited -->
+            <div id="ai-prohibited" class="d-none">
+              <div class="px-4 py-3" style="background:#FEF2F2;">
+                <div class="d-flex align-items-start gap-2 mb-2">
+                  <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0 mt-1"
+                      style="width:26px;height:26px;background:#DC2626;color:#fff;font-size:11px;">
+                    <i class="fas fa-ban"></i>
+                  </div>
+                  <div>
+                    <div class="fw-bold" style="font-size:.85rem;color:#991B1B;font-family:'Sora',sans-serif;">
+                      Potentially prohibited item detected
+                    </div>
+                    <div style="font-size:.77rem;color:#7F1D1D;margin-top:3px;line-height:1.55;">
+                      Our AI detected items that may not be permitted for shipping.
+                      This job has been flagged for admin review. You will be notified
+                      by email once the review is complete.
+                    </div>
+                  </div>
+                </div>
+                <div id="prohibited-tags" class="d-flex flex-wrap gap-1 mt-1"></div>
+              </div>
+            </div>
+
+            <!-- Failed / fallback -->
+            <div id="ai-failed" class="d-none">
+              <div class="d-flex align-items-center gap-2 px-4 py-3"
+                  style="background:#F8FAFC;">
+                <i class="fas fa-info-circle flex-shrink-0" style="color:#9CA3AF;"></i>
+                <div id="ai-failed-msg" style="font-size:.8rem;color:#6B7280;">
+                  AI classification unavailable. Please fill in the details below manually.
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /ai-panel -->
+
+        </div><!-- /photo form-group -->
+
+
+        <!-- ── Item name ─────────────────────────────────────────────── -->
+        <div class="form-group">
+          <label class="form-label d-flex align-items-center gap-2">
+            <span style="font-weight:600;font-size:.85rem;color:#374151;">
+              Item name <span style="color:#F97316;">*</span>
+            </span>
+            <span id="badge-name" class="d-none badge rounded-pill"
+                  style="background:#FFF7ED;color:#C2410C;border:1px solid #FED7AA;
+                        font-size:.65rem;font-weight:700;padding:3px 8px;">
+              <i class="fas fa-robot mr-1" style="font-size:.6rem;"></i>AI suggested
+            </span>
+          </label>
+          <input type="text" name="names" id="id_names" class="form-control"
+                placeholder="e.g. MacBook Pro 14-inch, Dining Table, Legal Documents"
+                value="{{ step1_form.names.value|default:'' }}"
+                required
+                oninput="clearBadge('badge-name')">
+          <small class="text-muted" style="font-size:.73rem;">
+            <i class="fas fa-magic mr-1" style="color:#F97316;"></i>
+            Upload your photo above — AI will suggest a name automatically
+          </small>
+          {% for e in step1_form.names.errors %}
+          <small class="text-danger d-block">{{ e }}</small>
+          {% endfor %}
         </div>
+
+        <!-- ── Description ───────────────────────────────────────────── -->
+        <div class="form-group">
+          <label class="form-label" style="font-weight:600;font-size:.85rem;color:#374151;">
+            Description
+            <span class="text-muted fw-normal" style="font-size:.75rem;">(optional)</span>
+          </label>
+          <textarea name="description" id="id_description"
+                    class="form-control" rows="2"
+                    placeholder="Describe the item — condition, fragility, any special handling notes…">{{ step1_form.description.value|default:'' }}</textarea>
+        </div>
+
+        <!-- ── Category + Size ───────────────────────────────────────── -->
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group">
+              <label class="form-label d-flex align-items-center gap-2">
+                <span style="font-weight:600;font-size:.85rem;color:#374151;">Category</span>
+                <span id="badge-category" class="d-none badge rounded-pill"
+                      style="background:#FFF7ED;color:#C2410C;border:1px solid #FED7AA;
+                            font-size:.65rem;font-weight:700;padding:3px 8px;">
+                  <i class="fas fa-robot mr-1" style="font-size:.6rem;"></i>AI suggested
+                </span>
+              </label>
+              <select name="category" id="id_category" class="form-control"
+                      onchange="clearBadge('badge-category')">
+                <option value="">Select a category…</option>
+                {% for cat in categories %}
+                <option value="{{ cat.id }}"
+                        data-slug="{{ cat.slug }}"
+                        {% if step1_form.category.value == cat.id|stringformat:'s' %}selected{% endif %}>
+                  {{ cat.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label class="form-label d-flex align-items-center gap-2">
+                <span style="font-weight:600;font-size:.85rem;color:#374151;">Size</span>
+                <span id="badge-size" class="d-none badge rounded-pill"
+                      style="background:#FFF7ED;color:#C2410C;border:1px solid #FED7AA;
+                            font-size:.65rem;font-weight:700;padding:3px 8px;">
+                  <i class="fas fa-robot mr-1" style="font-size:.6rem;"></i>AI suggested
+                </span>
+              </label>
+              <select name="size" id="id_size" class="form-control"
+                      onchange="clearBadge('badge-size')">
+                <option value="small"  {% if step1_form.size.value == 'small'  %}selected{% endif %}>Small — Cargo Van (up to 150 lbs)</option>
+                <option value="medium" {% if step1_form.size.value == 'medium' or not step1_form.size.value %}selected{% endif %}>Medium — Box Truck (up to 5 tons)</option>
+                <option value="large"  {% if step1_form.size.value == 'large'  %}selected{% endif %}>Large — Semi-Truck (up to 36 tons)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Quantity ───────────────────────────────────────────────── -->
+        <div class="form-group">
+          <label class="form-label" style="font-weight:600;font-size:.85rem;color:#374151;">Quantity</label>
+          <input type="number" name="quantity" id="id_quantity"
+                class="form-control" style="max-width:130px;"
+                min="1" max="999"
+                value="{{ step1_form.quantity.value|default:'1' }}">
+        </div>
+
+        <!-- ── Fragility notice (AI-triggered, hidden by default) ─────── -->
+        <div id="fragility-notice" class="d-none mb-3">
+          <div class="d-flex align-items-center gap-2 rounded-xl px-3 py-3"
+              style="background:#FFFBEB;border:1px solid #FDE68A;">
+            <i class="fas fa-exclamation-triangle flex-shrink-0" style="color:#D97706;font-size:14px;"></i>
+            <div>
+              <div class="fw-bold" style="font-size:.82rem;color:#92400E;">
+                Handle with care — fragile item
+              </div>
+              <div style="font-size:.73rem;color:#78350F;margin-top:2px;">
+                Your courier will be notified to take extra care with this shipment.
+              </div>
+            </div>
+            <input type="hidden" name="fragility_flag" id="fragility_flag" value="0">
+          </div>
+        </div>
+
+        <!-- Hidden fields -->
+        <input type="hidden" name="step" value="1">
+        <input type="hidden" name="classification_complete" id="classification_complete" value="0">
+
+        <!-- Submit -->
+        <div class="flex justify-end mt-4">
+          <button type="submit" class="btn-rvc-primary" id="step1-submit"
+                  disabled style="opacity:.55;">
+            <i class="fas fa-lock mr-1" id="submit-icon"></i>
+            <span id="submit-text">Upload a photo to continue</span>
+          </button>
+        </div>
+
       </form>
+
+      <script>
+      var CLS_JOB_ID = '{{ job.id|default:"" }}';
+      var pollTimer  = null;
+      var aiResult   = null;
+
+      // ── Upload zone interaction ──────────────────────────────────────
+      var zone = document.getElementById('upload-zone');
+
+      function zoneStyle(hover) {
+        var isEmpty = !document.getElementById('z-empty').classList.contains('d-none');
+        if (!isEmpty) return;
+        zone.style.borderColor = hover ? '#F97316' : '#D1D5DB';
+        zone.style.background  = hover ? '#FFF7ED' : '#F9FAFB';
+        var icon = document.getElementById('upload-icon');
+        if (icon) {
+          icon.style.background = hover ? '#FFF7ED' : '#F1F5F9';
+          icon.style.color      = hover ? '#F97316' : '#9CA3AF';
+        }
+      }
+      zone.addEventListener('mouseover',  function() { zoneStyle(true);  });
+      zone.addEventListener('mouseout',   function() { zoneStyle(false); });
+      zone.addEventListener('dragover',   function(e) { e.preventDefault(); zoneStyle(true);  });
+      zone.addEventListener('dragleave',  function()  { zoneStyle(false); });
+      zone.addEventListener('drop', function(e) {
+        e.preventDefault(); zoneStyle(false);
+        var f = e.dataTransfer.files[0];
+        if (f) {
+          var dt = new DataTransfer();
+          dt.items.add(f);
+          document.getElementById('id_photo').files = dt.files;
+          onPhotoChange(document.getElementById('id_photo'));
+        }
+      });
+
+      // ── Photo selected ────────────────────────────────────────────────
+      function onPhotoChange(input) {
+        if (!input.files || !input.files[0]) return;
+        var f = input.files[0];
+
+        if (f.size > 20 * 1024 * 1024) {
+          alert('Photo is too large (' + (f.size/1024/1024).toFixed(1) + ' MB).\nMaximum allowed is 20 MB.\nPlease compress or choose a smaller image.');
+          input.value = '';
+          return;
+        }
+
+        // Preview
+        var reader = new FileReader();
+        reader.onload = function(e) { document.getElementById('preview-img').src = e.target.result; };
+        reader.readAsDataURL(f);
+
+        document.getElementById('preview-name').textContent = f.name;
+        document.getElementById('preview-size').textContent =
+          f.size >= 1048576 ? (f.size/1048576).toFixed(1)+' MB' : (f.size/1024).toFixed(0)+' KB';
+
+        // Swap zone to preview
+        document.getElementById('z-empty').classList.add('d-none');
+        document.getElementById('z-preview').classList.remove('d-none');
+        zone.style.borderColor = '#22C55E';
+        zone.style.background  = '#F0FDF4';
+        zone.style.padding     = '16px 20px';
+
+        classify(f);
+      }
+
+      function removePhoto(e) {
+        e.stopPropagation(); e.preventDefault();
+        document.getElementById('id_photo').value = '';
+        document.getElementById('z-empty').classList.remove('d-none');
+        document.getElementById('z-preview').classList.add('d-none');
+        document.getElementById('ai-panel').classList.add('d-none');
+        zone.style.borderColor = '#D1D5DB';
+        zone.style.background  = '#F9FAFB';
+        zone.style.padding     = '36px 20px';
+        document.getElementById('classification_complete').value = '0';
+        if (pollTimer) clearInterval(pollTimer);
+        submit(false, 'Upload a photo to continue');
+        resetBadges();
+      }
+
+      // ── Classification ────────────────────────────────────────────────
+      function classify(file) {
+        panel('loading', 'Uploading photo…', 'Sending to AI for analysis');
+        submit(false, 'Analysing item…');
+
+        if (!CLS_JOB_ID) {
+          setTimeout(function() { panel('failed', 'Fill in the item details below manually.'); submit(true, 'Save & Continue'); }, 500);
+          return;
+        }
+
+        var fd = new FormData();
+        fd.append('job_id', CLS_JOB_ID);
+        fd.append('photo', file);
+        fd.append('csrfmiddlewaretoken', csrf());
+
+        fetch('/customer/api/classify-item/', { method:'POST', body:fd, credentials:'same-origin' })
+          .then(function(r){ return r.json(); })
+          .then(function(d) {
+            if (d.error) { panel('failed', d.error); submit(true, 'Save & Continue'); return; }
+            panel('loading', 'Analysing your item…', 'AI is identifying your item — please wait');
+            startPoll();
+          })
+          .catch(function() { panel('failed', 'Could not reach AI service. Fill in the details below.'); submit(true, 'Save & Continue'); });
+      }
+
+      function startPoll() {
+        if (pollTimer) clearInterval(pollTimer);
+        var n = 0;
+        pollTimer = setInterval(function() {
+          n++;
+          if (n > 60) {
+            clearInterval(pollTimer);
+            panel('failed', 'Analysis took too long. Please fill in the fields below manually.');
+            submit(true, 'Save & Continue');
+            return;
+          }
+          var s = n * 2;
+          document.getElementById('ai-sub').textContent =
+            s < 8  ? 'Uploading to AI…' :
+            s < 20 ? 'Loading AI model…' :
+            s < 50 ? 'Classifying item (' + s + 's)…' : 'Finalising…';
+
+          fetch('/customer/api/classify-item/status/' + CLS_JOB_ID + '/', { credentials:'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d) {
+              if (d.status === 'processing' || d.status === 'pending') return;
+              clearInterval(pollTimer);
+
+              if (d.status === 'failed') {
+                panel('failed', d.error || 'Classification failed. Fill in details below.');
+                submit(true, 'Save & Continue');
+                return;
+              }
+              if (d.prohibited_detected) {
+                panel('prohibited', '', '', d);
+                submit(false, 'Pending admin review');
+                document.getElementById('classification_complete').value = '0';
+                return;
+              }
+
+              aiResult = d;
+              applyAI(d);
+
+              if (d.low_confidence) {
+                panel('lowconf');
+                document.getElementById('accept-all-btn').classList.add('d-none');
+              } else {
+                panel('success');
+              }
+              document.getElementById('classification_complete').value = '1';
+              submit(true, 'Save & Continue');
+            })
+            .catch(function(){});
+        }, 2000);
+      }
+
+      // ── Panel switcher ────────────────────────────────────────────────
+      function panel(state, t, s, data) {
+        document.getElementById('ai-panel').classList.remove('d-none');
+        ['ai-loading','ai-success','ai-lowconf','ai-prohibited','ai-failed']
+          .forEach(function(id){ document.getElementById(id).classList.add('d-none'); });
+
+        if (state === 'loading') {
+          document.getElementById('ai-loading').classList.remove('d-none');
+          if (t) document.getElementById('ai-title').textContent = t;
+          if (s) document.getElementById('ai-sub').textContent   = s;
+        } else if (state === 'success') {
+          document.getElementById('ai-success').classList.remove('d-none');
+        } else if (state === 'lowconf') {
+          document.getElementById('ai-success').classList.remove('d-none');
+          document.getElementById('ai-lowconf').classList.remove('d-none');
+        } else if (state === 'prohibited') {
+          document.getElementById('ai-prohibited').classList.remove('d-none');
+          if (data && data.prohibited_items) {
+            document.getElementById('prohibited-tags').innerHTML =
+              data.prohibited_items.map(function(item) {
+                return '<span class="badge rounded-pill mr-1 mb-1" style="background:#FEE2E2;color:#DC2626;border:1px solid #FECACA;font-size:.72rem;">'
+                    + '<i class="fas fa-exclamation-triangle mr-1"></i>'
+                    + item.item + ' (' + Math.round(item.confidence*100) + '%)</span>';
+              }).join('');
+          }
+        } else if (state === 'failed') {
+          document.getElementById('ai-failed').classList.remove('d-none');
+          if (t) document.getElementById('ai-failed-msg').textContent = t;
+        }
+      }
+
+      // ── Apply AI to form fields ───────────────────────────────────────
+      function applyAI(d) {
+        if (d.item_name) {
+          document.getElementById('id_names').value = d.item_name;
+          showBadge('badge-name');
+        }
+        if (d.category_slug) {
+          var sel = document.getElementById('id_category');
+          for (var i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].getAttribute('data-slug') === d.category_slug) {
+              sel.selectedIndex = i; break;
+            }
+          }
+          showBadge('badge-category');
+        }
+        if (d.size_suggestion && d.size_reliable) {
+          document.getElementById('id_size').value = d.size_suggestion;
+          showBadge('badge-size');
+        }
+        if (d.is_fragile) {
+          document.getElementById('fragility_flag').value = '1';
+          document.getElementById('fragility-notice').classList.remove('d-none');
+        }
+      }
+
+      function acceptAll() {
+        if (aiResult) applyAI(aiResult);
+      }
+
+      // ── Badge helpers ─────────────────────────────────────────────────
+      function showBadge(id)  { var el=document.getElementById(id); if(el) el.classList.remove('d-none'); }
+      function clearBadge(id) { var el=document.getElementById(id); if(el) el.classList.add('d-none');   }
+      function resetBadges()  {
+        ['badge-name','badge-category','badge-size'].forEach(clearBadge);
+        document.getElementById('fragility-notice').classList.add('d-none');
+        document.getElementById('fragility_flag').value = '0';
+      }
+
+      // ── Submit button state ───────────────────────────────────────────
+      function submit(on, text) {
+        var btn = document.getElementById('step1-submit');
+        btn.disabled          = !on;
+        btn.style.opacity     = on ? '1' : '.55';
+        document.getElementById('submit-icon').className  = 'fas ' + (on ? 'fa-arrow-right' : 'fa-lock') + ' mr-1';
+        document.getElementById('submit-text').textContent = text;
+      }
+
+      // ── CSRF ──────────────────────────────────────────────────────────
+      function csrf() {
+        var c = document.cookie.split(';').find(function(x){ return x.trim().startsWith('csrftoken='); });
+        return c ? c.trim().split('=')[1] : '';
+      }
+
+      // ── Restore state on reload ───────────────────────────────────────
+      document.addEventListener('DOMContentLoaded', function() {
+        {% if job.classification_status == 'complete' %}
+          submit(true, 'Save & Continue');
+          document.getElementById('classification_complete').value = '1';
+        {% elif job.classification_status == 'flagged' %}
+          submit(false, 'Pending admin review');
+        {% endif %}
+      });
+      </script>
+
       {% endif %}
 
       <!-- ═══ STEP 2: Pickup ═══ -->

@@ -12,6 +12,7 @@ from django.contrib.auth import views as auth_views
 from Truck.customer import views as customer_views
 from Truck.courier import views as courier_views, apis as courier_apis
 from Truck.driver_verification import api as verification_api 
+from Truck.goods_classification import api as gc_api
 
 
 customer_urlpatterns = [
@@ -23,6 +24,9 @@ customer_urlpatterns = [
     path('jobs/archived/', customer_views.archived_jobs_page, name="archived_jobs"),
     path('jobs/<job_id>/', customer_views.job_page, name="job"),
     path('confirm/<uuid:job_id>/<uuid:token>/', customer_views.confirm_delivery_page, name="confirm_delivery"),
+    
+    path('api/classify-item/',                gc_api.classify_item,        name='classify_item'),
+    path('api/classify-item/status/<job_id>/',gc_api.classify_item_status, name='classify_item_status'),
 ]
 
 courier_urlpatterns = [
@@ -91,6 +95,13 @@ urlpatterns = [
     #cookies section
     path('set_cookie_expiry/', views.set_cookie_expiry, name='set_cookie_expiry'),
     path('cookie-policy/', views.cookie_policy, name='cookie_policy'),
+    
+    #quota calculations
+    path('get-quote/', views.get_quote_page, name='get_quote'),
+    path('api/get-quote/', views.get_quote_api,  name='get_quote_api'),
+    path('api/nearest-couriers/', views.nearest_couriers_api,   name='nearest_couriers'),
+    path('api/route/', views.public_route_api,      name='public_route'),
+    path('api/ors-route/', views.public_ors_route_api,   name='public_ors_route'),
 
 ]
 

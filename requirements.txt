@@ -72,3 +72,12 @@ paddleocr==2.7.3
 insightface==0.7.3
 onnxruntime==1.17.3
 opencv-python-headless==4.9.0.80
+
+# Goods Classification — add to requirements.txt
+torch==2.2.2+cpu       # CPU-only PyTorch (~250MB installed)
+torchvision==0.17.2+cpu
+torchaudio==2.2.2+cpu
+--extra-index-url https://download.pytorch.org/whl/cpu
+ 
+transformers==4.40.2   # HuggingFace: loads CLIP
+ultralytics==8.2.18     # YOLOv8 for object detection

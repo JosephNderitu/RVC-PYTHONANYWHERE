@@ -108,6 +108,12 @@ body { background:#fff; color:#111827; }
           style="background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.25);backdrop-filter:blur(8px);">
           <i class="fas fa-truck-fast"></i> I'm a Courier &nbsp;→
         </a>
+        <a href="/get-quote/"
+          class="inline-flex items-center gap-2 px-7 py-4 rounded-xl font-bold text-base no-underline"
+          style="background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.35);
+                  color:#fff;backdrop-filter:blur(8px);">
+          <i class="fas fa-calculator"></i> Get a Price →
+        </a>
       </div>
 
       <!-- Hero stat strip -->
@@ -567,7 +573,7 @@ body { background:#fff; color:#111827; }
 
 <!-- ══════════════ PORTAL CARDS ══════════════ -->
 <section class="py-24 px-4 sm:px-8 lg:px-16" style="background:#F8FAFC;">
-  <div class="max-w-5xl mx-auto">
+  <div class="max-w-7xl mx-auto">  <!-- was max-w-5xl — too narrow for 3 cards -->
 
     <div class="text-center mb-14">
       <span class="s-bar"></span>
@@ -575,46 +581,88 @@ body { background:#fff; color:#111827; }
       <p class="text-gray-400">Join thousands of customers and couriers on our platform</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- was grid-cols-1 md:grid-cols-2 — changed to md:grid-cols-3 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-      <div class="rvc-card p-8" style="border-top:4px solid #F97316;">
-        <div class="flex items-center gap-3 mb-5">
-          <div class="ib ib-o"><i class="fas fa-user"></i></div>
+      <div class="rvc-card p-6" style="border-top:4px solid #F97316;">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="ib ib-o flex-shrink-0"><i class="fas fa-user"></i></div>
           <div>
             <div class="font-bold text-lg" style="color:#0D1B3E;">Customer Portal</div>
             <div class="text-gray-400 text-sm">Ship parcels with ease</div>
           </div>
         </div>
-        <p class="text-gray-500 text-sm leading-relaxed mb-6">Create a job in four simple steps, track your courier on a live map, and receive proof-of-delivery photos when your shipment arrives safely.</p>
+        <p class="text-gray-500 text-sm leading-relaxed mb-5">
+          Create a job in four simple steps, track your courier on a live map, and receive
+          proof-of-delivery photos when your shipment arrives safely.
+        </p>
         {% if not request.user.is_authenticated %}
-        <div class="flex items-center gap-2 text-xs px-4 py-3 rounded-lg mb-5 border" style="background:#FFFBEB;color:#B45309;border-color:#FDE68A;">
-          <i class="fas fa-triangle-exclamation"></i>
-          Please <a href="/sign_in/?next=/customer/" class="font-bold underline" style="color:#F97316;">sign in</a> to access the customer portal
+        <div class="flex items-center gap-2 text-xs px-3 py-2 rounded-lg mb-4 border"
+             style="background:#FFFBEB;color:#B45309;border-color:#FDE68A;">
+          <i class="fas fa-triangle-exclamation flex-shrink-0"></i>
+          Please <a href="/sign_in/?next=/customer/" class="font-bold underline ml-1"
+                    style="color:#F97316;">sign in</a>&nbsp;to access
         </div>
         {% endif %}
-        <a href="{% url 'customer:home' %}" class="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold no-underline text-white" style="background:#F97316;">
+        <a href="{% url 'customer:home' %}"
+           class="flex items-center justify-center gap-2 w-full py-3 rounded-xl
+                  text-sm font-bold no-underline text-white mt-auto"
+           style="background:#F97316;">
           <i class="fas fa-arrow-right"></i> Enter Customer Portal
         </a>
       </div>
 
-      <div class="rvc-card p-8" style="border-top:4px solid #0D1B3E;">
-        <div class="flex items-center gap-3 mb-5">
-          <div class="ib ib-n"><i class="fas fa-truck-fast"></i></div>
+      <div class="rvc-card p-6" style="border-top:4px solid #0D1B3E;">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="ib ib-n flex-shrink-0"><i class="fas fa-truck-fast"></i></div>
           <div>
             <div class="font-bold text-lg" style="color:#0D1B3E;">Courier Portal</div>
             <div class="text-gray-400 text-sm">Start earning today</div>
           </div>
         </div>
-        <p class="text-gray-500 text-sm leading-relaxed mb-6">Browse available jobs on a live map, accept deliveries, capture proof-of-delivery photos, and get paid directly to your PayPal account.</p>
+        <p class="text-gray-500 text-sm leading-relaxed mb-5">
+          Browse available jobs on a live map, accept deliveries, capture proof-of-delivery
+          photos, and get paid directly to your PayPal account.
+        </p>
         {% if not request.user.is_authenticated %}
-        <div class="flex items-center gap-2 text-xs px-4 py-3 rounded-lg mb-5 border" style="background:#FFFBEB;color:#B45309;border-color:#FDE68A;">
-          <i class="fas fa-triangle-exclamation"></i>
-          Please <a href="/sign_in/?next=/courier/" class="font-bold underline" style="color:#F97316;">sign in</a> to access the courier portal
+        <div class="flex items-center gap-2 text-xs px-3 py-2 rounded-lg mb-4 border"
+             style="background:#FFFBEB;color:#B45309;border-color:#FDE68A;">
+          <i class="fas fa-triangle-exclamation flex-shrink-0"></i>
+          Please <a href="/sign_in/?next=/courier/" class="font-bold underline ml-1"
+                    style="color:#F97316;">sign in</a>&nbsp;to access
         </div>
         {% endif %}
         <a href="{% if request.user.is_authenticated %}{% url 'courier:home' %}{% else %}/sign_in/?next=/courier/{% endif %}"
-           class="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold no-underline border transition-all" style="border-color:#0D1B3E;color:#0D1B3E;">
+           class="flex items-center justify-center gap-2 w-full py-3 rounded-xl
+                  text-sm font-bold no-underline border transition-all"
+           style="border-color:#0D1B3E;color:#0D1B3E;">
           <i class="fas fa-arrow-right"></i> Enter Courier Portal
+        </a>
+      </div>
+
+      <div class="rvc-card p-6" style="border-top:4px solid #059669;">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="ib flex-shrink-0" style="background:#059669;">
+            <i class="fas fa-calculator"></i>
+          </div>
+          <div>
+            <div class="font-bold text-lg" style="color:#0D1B3E;">Price Calculator</div>
+            <div class="text-gray-400 text-sm">No account needed</div>
+          </div>
+        </div>
+        <p class="text-gray-500 text-sm leading-relaxed mb-5">
+          Get an instant price estimate before booking. See a full breakdown including
+          distance, real-time traffic, live weather conditions, and vehicle type.
+        </p>
+        <!-- spacer so button aligns with others when no auth warning is shown -->
+        {% if not request.user.is_authenticated %}
+        <div class="mb-4" style="height:40px;"></div>
+        {% endif %}
+        <a href="/get-quote/"
+           class="flex items-center justify-center gap-2 w-full py-3 rounded-xl
+                  text-sm font-bold no-underline text-white"
+           style="background:#059669;">
+          <i class="fas fa-calculator"></i> Calculate My Price
         </a>
       </div>
 

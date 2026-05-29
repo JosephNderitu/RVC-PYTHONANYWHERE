@@ -460,3 +460,66 @@ class ContactMessageAdmin(admin.ModelAdmin):
         return '—'
     urgent_badge.short_description = 'Priority'
 
+@admin.register(ClassificationResult)
+class ClassificationResultAdmin(admin.ModelAdmin):
+    list_display  = ['job', 'status', 'category_suggestion', 'confidence_display',
+                     'prohibited_badge', 'fragile_badge', 'processing_time_s', 'created_at']
+    list_filter   = ['status', 'prohibited_detected', 'is_fragile', 'low_confidence']
+    search_fields = ['job__names', 'job__id', 'category_suggestion', 'item_name_suggestion']
+    readonly_fields = ['task_id', 'created_at', 'updated_at', 'raw_results', 'processing_time_s']
+    ordering       = ['-created_at']
+ 
+    fieldsets = [
+        ('Job',       {'fields': ['job']}),
+        ('CLIP Result',{'fields': ['status', 'category_suggestion', 'category_confidence',
+                                   'item_name_suggestion', 'low_confidence']}),
+        ('Size',      {'fields': ['size_suggestion', 'size_reliable']}),
+        ('Fragility', {'fields': ['fragility_score', 'is_fragile']}),
+        ('Prohibited',{'fields': ['prohibited_detected', 'prohibited_items', 'prohibited_reason']}),
+        ('Meta',      {'fields': ['task_id', 'processing_time_s', 'error_message',
+                                  'raw_results', 'created_at', 'updated_at'],
+                       'classes': ['collapse']}),
+    ]
+ 
+    actions = ['clear_prohibited_flag']
+ 
+    def confidence_display(self, obj):
+        from django.utils.html import format_html
+        pct = int(obj.category_confidence * 100)
+        color = '#16A34A' if pct >= 60 else '#D97706' if pct >= 35 else '#DC2626'
+        return format_html('<span style="color:{};font-weight:700;">{}&percnt;</span>', color, pct)
+    confidence_display.short_description = 'Confidence'
+ 
+    def prohibited_badge(self, obj):
+        from django.utils.html import format_html
+        if obj.prohibited_detected:
+            return format_html(
+                '<span style="background:#DC2626;color:#fff;padding:2px 8px;'
+                'border-radius:10px;font-size:.75rem;font-weight:700;">🚨 FLAGGED</span>'
+            )
+        return '—'
+    prohibited_badge.short_description = 'Prohibited'
+ 
+    def fragile_badge(self, obj):
+        from django.utils.html import format_html
+        if obj.is_fragile:
+            return format_html(
+                '<span style="background:#D97706;color:#fff;padding:2px 8px;'
+                'border-radius:10px;font-size:.75rem;font-weight:700;">⚠️ FRAGILE</span>'
+            )
+        return '—'
+    fragile_badge.short_description = 'Fragile'
+ 
+    @admin.action(description='✓ Clear prohibited flag (allow job to proceed)')
+    def clear_prohibited_flag(self, request, queryset):
+        from Truck.models import Job
+        for result in queryset.filter(prohibited_detected=True):
+            result.prohibited_detected = False
+            result.prohibited_reason   = ''
+            result.status              = 'complete'
+            result.save(update_fields=['prohibited_detected', 'prohibited_reason', 'status'])
+            Job.objects.filter(pk=result.job_id).update(
+                is_flagged_prohibited=False,
+                classification_status='complete',
+            )
+        self.message_user(request, f'Cleared prohibited flag on {queryset.count()} job(s).')
