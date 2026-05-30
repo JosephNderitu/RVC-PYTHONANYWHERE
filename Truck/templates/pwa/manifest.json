@@ -1,0 +1,46 @@
+{% load static %}{
+  "name": "RiftValley Carriers",
+  "short_name": "RVC Courier",
+  "description": "RiftValley Carriers courier portal — manage deliveries, track routes, and update job status on the go.",
+  "start_url": "/courier/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0B0F1A",
+  "theme_color": "#0B0F1A",
+  "lang": "en-US",
+  "dir": "ltr",
+  "categories": ["logistics", "navigation", "productivity"],
+  "icons": [
+    {
+      "src": "{% static 'images/logo.png' %}",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "{% static 'images/logo.png' %}",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Current Job",
+      "short_name": "Active Job",
+      "description": "View your active delivery",
+      "url": "/courier/jobs/current/",
+      "icons": [{ "src": "{% static 'images/logo.png' %}", "sizes": "192x192" }]
+    },
+    {
+      "name": "Available Jobs",
+      "short_name": "Find Jobs",
+      "description": "Browse available delivery jobs",
+      "url": "/courier/jobs/available/",
+      "icons": [{ "src": "{% static 'images/logo.png' %}", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

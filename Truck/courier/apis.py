@@ -122,6 +122,79 @@ def current_job_update_api(request, id):
 
     return JsonResponse({"success": True, "new_status": job.status})
 
+# ═══════════════════════════════════════════════════════════════════
+# ADD THIS FUNCTION to Truck/courier/apis.py
+#
+# Paste it after the existing current_job_update_api function
+# (after line 123 in your current apis.py)
+# ═══════════════════════════════════════════════════════════════════
+
+@csrf_exempt
+def current_job_json_api(request):
+    """
+    GET /courier/api/jobs/current/json/
+
+    Returns the courier's current active job as JSON.
+    Used by the PWA offline layer (courier-offline.js) to cache
+    job data in IndexedDB so it's readable without internet.
+
+    Returns 404 if no active job exists (triggers cache clear).
+    """
+    auth_error = _json_auth_check(request)
+    if auth_error:
+        return auth_error
+
+    try:
+        courier = request.user.courier
+    except Exception:
+        return JsonResponse({"success": False, "error": "No courier profile"}, status=403)
+
+    job = Job.objects.filter(
+        courier=courier,
+        status__in=[Job.PICKING_STATUS, Job.DELIVERING_STATUS],
+    ).select_related('Customer__user').last()
+
+    if not job:
+        return JsonResponse(
+            {"success": False, "error": "No active job"},
+            status=404,
+        )
+
+    # Courier earns 80% of the job price
+    earnings = round(float(job.price) * 0.8, 2) if job.price else 0
+
+    return JsonResponse({
+        "success": True,
+        "job": {
+            "id":               str(job.id),
+            "status":           job.status,
+            "names":            job.names or "",
+            "description":      job.description or "",
+            "distance":         round(float(job.distance), 1) if job.distance else 0,
+            "duration":         round(float(job.duration), 0) if job.duration else 0,
+            "price":            float(job.price) if job.price else 0,
+            "earnings":         earnings,
+            # ── Pickup ──────────────────────────────────────────
+            "pickup_address":   job.pickup_address or "",
+            "pickup_lat":       float(job.pickup_lat) if job.pickup_lat else None,
+            "pickup_lng":       float(job.pickup_lng) if job.pickup_lng else None,
+            "pickup_name":      job.pickup_name or "",
+            "pickup_phone":     job.pickup_phone or "",
+            # ── Delivery ────────────────────────────────────────
+            "delivery_address": job.delivery_address or "",
+            "delivery_lat":     float(job.delivery_lat) if job.delivery_lat else None,
+            "delivery_lng":     float(job.delivery_lng) if job.delivery_lng else None,
+            "delivery_name":    job.delivery_name or "",
+            "delivery_phone":   job.delivery_phone or "",
+            # ── Customer ────────────────────────────────────────
+            "customer_name":    job.Customer.user.get_full_name() if job.Customer else "",
+            "customer_phone":   job.Customer.phone_number if job.Customer else "",
+            # ── Timestamps ──────────────────────────────────────
+            "created_at":       job.created_at.strftime('%Y-%m-%d %H:%M') if job.created_at else "",
+            "pickedup_at":      job.pickedup_at.strftime('%Y-%m-%d %H:%M') if job.pickedup_at else None,
+        }
+    })
+    
 
 @csrf_exempt
 def fcm_token_update_api(request):

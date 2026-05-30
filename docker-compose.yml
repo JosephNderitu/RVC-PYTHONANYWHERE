@@ -29,8 +29,18 @@ services:
     build: .
     container_name: rvc_web
     command: python manage.py runserver 0.0.0.0:8000
+    # ── Production (DEBUG=False): switch to gunicorn ──────────
+    # command: >
+    #   sh -c "python manage.py collectstatic --noinput &&
+    #          gunicorn RiftValley.wsgi:application
+    #          --bind 0.0.0.0:8000
+    #          --workers 4
+    #          --timeout 120
+    #          --access-logfile -"
     volumes:
       - .:/app
+      - staticfiles:/app/staticfiles   # ← shared with nginx
+      - media_files:/app/media 
     working_dir: /app
     ports:
       - "8000:8000"
@@ -44,6 +54,23 @@ services:
         condition: service_healthy
     env_file:
       - .env
+
+   # ── Nginx reverse proxy (production entry point) ─────────────
+  # In development (DEBUG=True), this is optional but recommended
+  # to test production-like static file serving.
+  # In production (DEBUG=False): this is REQUIRED.
+  nginx:
+    image: nginx:alpine
+    container_name: rvc_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - staticfiles:/app/staticfiles:ro  # ← same volume as web
+      - media_files:/app/media:ro        # ← same volume as web
+    depends_on:
+      - web
+    restart: unless-stopped
 
   celery:
     build: .
@@ -118,3 +145,5 @@ volumes:
   paddleocr_models:
   hf_cache:
   ul_cache:
+  staticfiles:
+  media_files:
