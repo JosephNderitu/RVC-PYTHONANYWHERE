@@ -1,0 +1,170 @@
+{% extends 'courier/base.html' %}
+{% load static %}
+
+{% block title %}Offline | RVC Courier{% endblock %}
+
+{% block head %}
+<style>
+  html, body { overflow-y: auto !important; }
+  #content   { height: auto !important; min-height: 100vh; }
+
+  .offline-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 64px);
+    padding: 32px 24px;
+    text-align: center;
+  }
+
+  .offline-icon {
+    width: 80px; height: 80px;
+    border-radius: 22px;
+    background: rgba(249,115,22,.12);
+    border: 1px solid rgba(249,115,22,.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem;
+    margin-bottom: 24px;
+    animation: pulse-icon 2.5s ease-in-out infinite;
+  }
+  @keyframes pulse-icon {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(249,115,22,.2); }
+    50%       { box-shadow: 0 0 0 16px rgba(249,115,22,.0); }
+  }
+
+  .offline-title {
+    font-family: 'Sora', sans-serif;
+    font-size: 1.5rem; font-weight: 800;
+    color: var(--rvc-text);
+    margin-bottom: 8px;
+  }
+
+  .offline-sub {
+    font-size: .9rem;
+    color: var(--rvc-muted-l);
+    max-width: 280px;
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+
+  .offline-card {
+    width: 100%; max-width: 340px;
+    background: var(--rvc-card);
+    border: 1px solid var(--rvc-border-l);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+    text-align: left;
+  }
+  .offline-card-title {
+    font-size: .75rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .06em;
+    color: var(--rvc-muted); margin-bottom: 12px;
+  }
+
+  .offline-link {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--rvc-border);
+    text-decoration: none; color: var(--rvc-text);
+    font-size: .9rem; font-weight: 500;
+    transition: color .15s;
+  }
+  .offline-link:last-child { border-bottom: none; padding-bottom: 0; }
+  .offline-link:hover { color: var(--rvc-orange); }
+  .offline-link i { color: var(--rvc-orange); width: 18px; text-align: center; }
+
+  .retry-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 13px 28px;
+    background: var(--rvc-orange);
+    color: #fff; border: none; border-radius: 12px;
+    font-family: 'Sora', sans-serif;
+    font-weight: 700; font-size: .9rem;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+  }
+  .retry-btn:active { transform: scale(.97); }
+  .retry-btn:hover  { background: var(--rvc-orange-d); }
+
+  .status-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    padding: 12px 20px;
+    background: rgba(239,68,68,.12);
+    border-top: 1px solid rgba(239,68,68,.2);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: .8rem; color: var(--rvc-red); font-weight: 600;
+    transition: all .3s;
+  }
+  .status-bar.online {
+    background: rgba(16,185,129,.12);
+    border-top-color: rgba(16,185,129,.2);
+    color: var(--rvc-green);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="offline-wrap">
+
+  <div class="offline-icon">
+    <i class="fas fa-wifi" style="color:var(--rvc-orange);"></i>
+  </div>
+
+  <h1 class="offline-title">You're Offline</h1>
+  <p class="offline-sub">
+    No internet connection detected. Some cached pages are still available below.
+  </p>
+
+  <!-- Cached pages available offline -->
+  <div class="offline-card">
+    <div class="offline-card-title">Available Offline</div>
+    <a href="/courier/" class="offline-link">
+      <i class="fas fa-home"></i>
+      Dashboard
+    </a>
+    <a href="/courier/jobs/current/" class="offline-link">
+      <i class="fas fa-truck"></i>
+      Current Job
+    </a>
+    <a href="/courier/jobs/available/" class="offline-link">
+      <i class="fas fa-list"></i>
+      Available Jobs
+    </a>
+    <a href="/courier/profile/" class="offline-link">
+      <i class="fas fa-user"></i>
+      My Profile
+    </a>
+  </div>
+
+  <button class="retry-btn" onclick="window.location.reload()">
+    <i class="fas fa-redo"></i>
+    Try Again
+  </button>
+
+</div>
+
+<!-- Connection status bar -->
+<div class="status-bar" id="status-bar">
+  <i class="fas fa-circle" style="font-size:.5rem;"></i>
+  <span id="status-text">No internet connection</span>
+</div>
+
+<script>
+  function updateStatus() {
+    const bar  = document.getElementById('status-bar');
+    const text = document.getElementById('status-text');
+    if (navigator.onLine) {
+      bar.classList.add('online');
+      text.textContent = 'Connection restored — tap Try Again';
+    } else {
+      bar.classList.remove('online');
+      text.textContent = 'No internet connection';
+    }
+  }
+  updateStatus();
+  window.addEventListener('online',  updateStatus);
+  window.addEventListener('offline', updateStatus);
+</script>
+{% endblock %}
