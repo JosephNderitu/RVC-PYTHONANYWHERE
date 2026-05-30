@@ -1,1 +1,12 @@
 myenv/
+venv/
+__pycache__/
+.env
+*.pyc
+osrm_data/
+staticfiles/
+media/
+*.png
+*.jpg
+*.jpeg
+celerybeat-schedule

@@ -1,190 +1,608 @@
 {% extends 'customer/base.html' %}
 {% load static %}
 
-{% block head %}
+{% block head_extra %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+.map-shell { position:relative; border-radius:14px; overflow:hidden; height:420px; border:1px solid #E5E7EB; }
+.map-shell #track-map { width:100%; height:100%; }
+#map-loader {
+  position:absolute; inset:0; background:rgba(255,255,255,.9);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  z-index:800; gap:10px; font-size:.875rem; color:#6B7280;
+  font-family:'Sora',sans-serif;
+}
+#map-loader.gone { display:none; }
 
-<!--<script async src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAP_API_KEY }}&libraries=places&callback=initMap"></script>-->
-<!--updated scrript-->
-<script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAP_API_KEY }}&callback=initMap&libraries=places&v=weekly" defer></script>
+.info-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media(max-width:640px){ .info-grid { grid-template-columns:1fr; } }
 
-<script>
+.info-item label { display:block; font-size:.72rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:.07em; color:#9CA3AF; margin-bottom:3px; }
+.info-item span  { font-size:.9rem; font-weight:600; color:#0D1B3E; }
 
-    var pickupLat = parseFloat("{{ job.pickup_lat }}");
-    var pickupLng = parseFloat("{{ job.pickup_lng }}");
+.route-stat { text-align:center; padding:14px 10px; }
+.route-stat .val { font-size:1.3rem; font-weight:800; color:#0D1B3E; font-family:'Sora',sans-serif; }
+.route-stat .lbl { font-size:.72rem; color:#9CA3AF; font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin-top:3px; }
 
-    var deliveryLat = parseFloat("{{ job.delivery_lat }}");
-    var deliveryLng = parseFloat("{{ job.delivery_lng }}");
-
-    function initMap() {
-        const directionsService = new google.maps.DirectionsService();
-        const directionsRenderer = new google.maps.DirectionsRenderer();
-        const map = new google.maps.Map(document.getElementById("map"), {
-          zoom: 7,
-          center: { lat: 41.85, lng: -87.65 },
-        });
-      
-        directionsRenderer.setMap(map);
-
-        calculateAndDisplayRoute(map, directionsService, directionsRenderer);  
-      }
-      
-      function calculateAndDisplayRoute(map, directionsService, directionsRenderer) {
-        directionsService
-          .route({
-            origin: new google.maps.LatLng(pickupLat, pickupLng),
-            destination: new google.maps.LatLng(deliveryLat, deliveryLng),
-            travelMode: google.maps.TravelMode.DRIVING,
-          })
-          .then((response) => {
-            new google.maps.DirectionsRenderer({
-                map: map,
-                directions: response,
-                suppressMarkers: true,
-                polylineOptions:  { 
-                    strokeColor: "black",
-                    strokeWeight: 5,
-                    strokeOpacity : 0.9,
-                }
-            });
-
-            var leg = response.routes[0].legs[0];
-            new google.maps.Marker({
-                position: leg.start_location,
-                map: map,
-                icon: "{% static '/images/start.png' %}"
-            });
-
-            new google.maps.Marker({
-                position: leg.end_location,
-                map: map,
-                icon: "{% static '/images/end.jpg' %}"
-            })
-
-            
-          })
-          .catch((e) => window.alert("Directions request failed due to " + status));
-      }
-      
-      window.initMap = initMap;
-
-      console.log("happy happy")
-
-</script>
-
+.status-track { display:flex; align-items:center; gap:0; margin-bottom:8px; }
+.st-step { display:flex; flex-direction:column; align-items:center; flex:1; }
+.st-dot  { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.75rem; }
+.st-line { flex:1; height:2px; }
+.st-label{ font-size:.68rem; font-weight:600; text-align:center; margin-top:5px; white-space:nowrap; }
+</style>
 {% endblock %}
 
 {% block main %}
+{% with st=job.status %}
 
-<!--Job Description-->
-<div class="media mb-4">
-    <img src= "{{ job.photo.url }}"  width="150" height="150" class="mr-3 rounded-lg">
-    <div class="media-body">
-
-       {% if job.status == 'processing'%} 
-        <form  method='POST' class="float-right">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-danger">Cancel Job</button>
-        </form>
-
-       {% endif %}
-
-        <h4>{{ job.names }}</h4>
-        <p class= "text-secondary">{{ job.description }} </p>
-
-        <div class="row">
-            <div class="col-lg-3">
-                <small class= "text-secondary">CATEGORY</small><br>
-                <span><b>{{  job.category.name }}</b></span>
-            </div>
-
-            <div class="col-lg-3">
-                <small class= "text-secondary">SIZE</small><br>
-                <span><b>{{  job.get_size_display }}</b></span>
-            </div>
-
-            <div class="col-lg-3">
-                <small class= "text-secondary">PRICE</small><br>
-                <span><b>${{  job.price }}</b></span>
-            </div>
-
-            <div class="col-lg-3">
-                <small class= "text-secondary">QUANTITY</small><br>
-                <span><b>{{  job.quantity }}</b></span>
-            </div>
-            
-        </div>
+<!-- Back + Header -->
+<div class="flex items-center gap-3 mb-5">
+  <a href="{% url 'customer:current_jobs' %}"
+     class="flex items-center justify-center w-9 h-9 rounded-xl no-underline"
+     style="background:#F1F5F9;color:#374151;">
+    <i class="fas fa-arrow-left text-sm"></i>
+  </a>
+  <div>
+    <h1 class="text-xl font-bold" style="color:#0D1B3E;font-family:'Sora',sans-serif;">{{ job.names }}</h1>
+    <div class="flex items-center gap-2 mt-0.5">
+      <span class="sb sb-{{ st }}">
+        {% if st == 'processing' %}<i class="fas fa-hourglass-half"></i>Waiting for courier
+        {% elif st == 'picking' %}<i class="fas fa-truck"></i>Picking up
+        {% elif st == 'delivering' %}<i class="fas fa-shipping-fast"></i>Delivering
+        {% elif st == 'completed' %}<i class="fas fa-check-circle"></i>Delivered
+        {% elif st == 'cancel' %}<i class="fas fa-times-circle"></i>Cancelled
+        {% else %}{{ job.get_status_display }}
+        {% endif %}
+      </span>
+      <span class="text-xs text-gray-400">{{ job.created_at|date:"M j, Y" }}</span>
     </div>
+  </div>
+
+  {% if st == 'processing' %}
+  <form method="POST" class="ml-auto">
+    {% csrf_token %}
+    <button type="submit"
+            class="px-4 py-2 rounded-xl text-sm font-bold text-white"
+            style="background:#DC2626;border:none;"
+            onclick="return confirm('Cancel this job?')">
+      <i class="fas fa-times mr-1"></i>Cancel
+    </button>
+  </form>
+  {% endif %}
 </div>
 
-<!--DELIVERY INFORMATION-->
-<b class="text-secondary">DELIVERY INFORMATION</b><br/>
-<div  class="card bg-light mt-2 mb-5">
-    <div  class="card-body p-4">
-        <h4 class="mb-3">PICKUP</h4>
-        <div class="row">
-            <div class="col-lg-4">
-                <b>Address</b><br>
-                <span>{{  job.pickup_address }}</span><br>
-            </div>
-            <div class="col-lg-4">
-                <b>name: {{ job.pickup_name}}</b><br>
-                <span>Contact: {{  job.pickup_phone }}</span><br>
-            </div>
-            <div id="pickup_photo" class="col-lg-4">
-
-                {% if job.pickup_photo %}
-                    <img src="{{ job.pickup_photo.url }}" class="rounded-lg photo" width="150" height="150px" style="object-fit: cover;">
-                {% else %}
-                    <div class="photo-blank" style="border: 2px dashed #DFDFDF; height: 150px; width: 150px; border-radius: 8px; align-items: center; display: flex; justify-content: center; text-align: center; padding: 10px;">
-                        Pickup Photo will appear here.
-                    </div>
-                {% endif %}
-
-            </div>
-        </div>
-
-        <hr class="my-4" />
-
-        <h4 class="mb-3">DELIVERY</h4>
-        <div class="row">
-            <div class="col-lg-4">
-                <b>Address</b><br>
-                <span>{{  job.delivery_address }}</span><br>
-            </div>
-            <div class="col-lg-4">
-                <b>name: {{ job.delivery_name}}</b><br>
-                <span>Contact: {{  job.delivery_phone }}</span><br>
-            </div>
-            <div id="pickup_delivery" class="col-lg-4">
-
-                {% if job.delivery_photo %}
-                <img src="{{ job.delivery_photo.url }}" class="rounded-lg photo" width="150" height="150px" style="object-fit: cover;">
-            {% else %}
-                <div class="photo-blank" style="border: 2px dashed #DFDFDF; height: 150px; width: 150px; border-radius: 8px; align-items: center; display: flex; justify-content: center; text-align: center; padding: 10px;">
-                    Delivery Photo will appear here.
-                </div>
-            {% endif %}
-            
-            </div>
-        </div>
-
+<!-- Status timeline -->
+<div class="pc p-5 mb-5">
+  <div class="status-track">
+    <!-- Rendered directly for reliability -->
+    <!-- Step 1 -->
+    <div class="st-step">
+      <div class="st-dot" style="background:{% if st != 'creating' %}#0D1B3E{% else %}#E5E7EB{% endif %};color:{% if st != 'creating' %}#fff{% else %}#9CA3AF{% endif %};">
+        <i class="fas fa-check text-xs"></i>
+      </div>
+      <div class="st-label" style="color:{% if st != 'creating' %}#0D1B3E{% else %}#9CA3AF{% endif %};">Created</div>
     </div>
+    <div class="st-line flex-1" style="background:{% if st == 'picking' or st == 'delivering' or st == 'completed' %}#0D1B3E{% else %}#E5E7EB{% endif %};"></div>
+    <!-- Step 2 -->
+    <div class="st-step">
+      <div class="st-dot" style="background:{% if st == 'picking' or st == 'delivering' or st == 'completed' %}#F97316{% elif st == 'processing' %}#FEF3C7{% else %}#E5E7EB{% endif %};color:{% if st == 'picking' or st == 'delivering' or st == 'completed' %}#fff{% elif st == 'processing' %}#B45309{% else %}#9CA3AF{% endif %};">
+        <i class="fas fa-truck text-xs"></i>
+      </div>
+      <div class="st-label" style="color:{% if st == 'picking' or st == 'delivering' or st == 'completed' %}#F97316{% else %}#9CA3AF{% endif %};">Courier</div>
+    </div>
+    <div class="st-line flex-1" style="background:{% if st == 'delivering' or st == 'completed' %}#0D1B3E{% else %}#E5E7EB{% endif %};"></div>
+    <!-- Step 3 -->
+    <div class="st-step">
+      <div class="st-dot" style="background:{% if st == 'delivering' or st == 'completed' %}#1D4ED8{% else %}#E5E7EB{% endif %};color:{% if st == 'delivering' or st == 'completed' %}#fff{% else %}#9CA3AF{% endif %};">
+        <i class="fas fa-shipping-fast text-xs"></i>
+      </div>
+      <div class="st-label" style="color:{% if st == 'delivering' or st == 'completed' %}#1D4ED8{% else %}#9CA3AF{% endif %};">En Route</div>
+    </div>
+    <div class="st-line flex-1" style="background:{% if st == 'completed' %}#16A34A{% else %}#E5E7EB{% endif %};"></div>
+    <!-- Step 4 -->
+    <div class="st-step">
+      <div class="st-dot" style="background:{% if st == 'completed' %}#16A34A{% else %}#E5E7EB{% endif %};color:{% if st == 'completed' %}#fff{% else %}#9CA3AF{% endif %};">
+        <i class="fas fa-flag-checkered text-xs"></i>
+      </div>
+      <div class="st-label" style="color:{% if st == 'completed' %}#16A34A{% else %}#9CA3AF{% endif %};">Delivered</div>
+    </div>
+  </div>
 </div>
 
-<!--Map Area-->
-<div class="d-flex justify-content-between">
-    <b class="text-secondary">TRACK DELIVERY</b>
+<!-- Two column grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+
+  <!-- Item info -->
+  <div class="pc p-5">
+    <div class="flex items-center gap-3 mb-4">
+      <img src="{{ job.photo.url }}" alt="{{ job.names }}"
+           class="rounded-xl object-cover" style="width:60px;height:60px;">
+      <div>
+        <div class="font-bold text-sm" style="color:#0D1B3E;">{{ job.names }}</div>
+        <div class="text-xs text-gray-400 mt-0.5">{{ job.description }}</div>
+      </div>
+    </div>
+    <div class="info-grid">
+      <div class="info-item"><label>Category</label><span>{{ job.category.name }}</span></div>
+      <div class="info-item"><label>Size</label><span>{{ job.get_size_display }}</span></div>
+      <div class="info-item"><label>Quantity</label><span>{{ job.quantity }}</span></div>
+      <div class="info-item"><label>Price</label><span style="color:#F97316;">${{ job.price }}</span></div>
+    </div>
+  </div>
+
+  <!-- Route stats -->
+  <div class="pc lg:col-span-2">
+    <div class="flex" style="border-bottom:1px solid #F3F4F6;">
+      <div class="route-stat flex-1" style="border-right:1px solid #F3F4F6;">
+        <div class="val">{{ job.distance }} mi</div><div class="lbl">Distance</div>
+      </div>
+      <div class="route-stat flex-1" style="border-right:1px solid #F3F4F6;">
+        <div class="val">~{{ job.duration }} min</div><div class="lbl">Est. Duration</div>
+      </div>
+      <div class="route-stat flex-1">
+        <div class="val" style="color:#F97316;">${{ job.price }}</div><div class="lbl">Price</div>
+      </div>
+    </div>
+    <div class="p-5">
+      <!-- Pickup -->
+      <div class="flex gap-3 mb-4">
+        <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:#2196F3;">P</div>
+        <div>
+          <div class="text-xs text-gray-400 mb-0.5">PICKUP</div>
+          <div class="font-semibold text-sm" style="color:#0D1B3E;">{{ job.pickup_name }}</div>
+          <div class="text-xs text-gray-500">{{ job.pickup_address }}</div>
+          {% if job.pickup_phone %}<div class="text-xs text-gray-400">{{ job.pickup_phone }}</div>{% endif %}
+        </div>
+        {% if job.pickup_photo %}
+        <img src="{{ job.pickup_photo.url }}" class="ml-auto rounded-lg object-cover" style="width:48px;height:48px;">
+        {% endif %}
+      </div>
+      <div style="border-left:2px dashed #E5E7EB;height:20px;margin-left:15px;"></div>
+      <!-- Delivery -->
+      <div class="flex gap-3 mt-1">
+        <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:#F97316;">D</div>
+        <div>
+          <div class="text-xs text-gray-400 mb-0.5">DELIVERY</div>
+          <div class="font-semibold text-sm" style="color:#0D1B3E;">{{ job.delivery_name }}</div>
+          <div class="text-xs text-gray-500">{{ job.delivery_address }}</div>
+          {% if job.delivery_phone %}<div class="text-xs text-gray-400">{{ job.delivery_phone }}</div>{% endif %}
+        </div>
+        {% if job.delivery_photo %}
+        <img src="{{ job.delivery_photo.url }}" class="ml-auto rounded-lg object-cover" style="width:48px;height:48px;">
+        {% endif %}
+      </div>
+      <!-- ── Weather notice on tracking page ─────────────────────── -->
+    {% if job.weather_condition and job.weather_condition != 'clear' and job.weather_condition != 'cloudy' %}
+    <div class="d-flex align-items-center gap-3 px-4 py-3 rounded-xl mt-4 mb-4"
+        style="background:#EFF6FF;border:1px solid #BFDBFE;">
+      <i class="fas {{ job.weather_icon }} flex-shrink-0"
+        style="color:#2563EB;font-size:18px;"></i>
+      <div>
+        <div class="fw-bold" style="font-size:.85rem;color:#1E40AF;">
+          {{ job.weather_label }} along your route
+        </div>
+        <div style="font-size:.75rem;color:#1E40AF;opacity:.85;margin-top:2px;line-height:1.5;">
+          Your estimated delivery time has been adjusted for current weather.
+          {% if job.weather_eta_multiplier > 1.0 %}
+            ETA is approximately
+            {{ job.weather_eta_multiplier|floatformat:2 }}x
+            longer than a clear-weather delivery.
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Live tracking map -->
+<div class="pc mb-5">
+  <div class="flex items-center justify-between px-5 py-4" style="border-bottom:1px solid #F3F4F6;">
     <div>
-        <span class="badge badge-warning">{{ job.get_status_display }}</span>
+      <div class="font-bold" style="color:#0D1B3E;font-family:'Sora',sans-serif;">Live Tracking</div>
+      <div class="text-xs text-gray-400 mt-0.5">Real-time courier location via OSRM road network</div>
     </div>
+    {% if st == 'picking' or st == 'delivering' %}
+    <div class="flex items-center gap-2 text-xs font-semibold" style="color:#16A34A;">
+      <span class="relative flex h-2 w-2">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style="background:#16A34A;"></span>
+        <span class="relative inline-flex rounded-full h-2 w-2" style="background:#16A34A;"></span>
+      </span>
+      LIVE
+    </div>
+    {% endif %}
+  </div>
+  <div class="p-4">
+    <div class="map-shell">
+      <div id="map-loader">
+        <div class="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style="border-color:#0D1B3E;border-top-color:transparent;"></div>
+        <span>Loading road route&hellip;</span>
+      </div>
+      <div id="track-map"></div>
+    </div>
+    <!-- Legend -->
+    <div class="flex flex-wrap items-center gap-5 mt-3 text-xs text-gray-500">
+      <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-full" style="background:#2196F3;"></span>Pickup</span>
+      <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-full" style="background:#F97316;"></span>Delivery</span>
+      <span id="legend-courier" class="flex items-center gap-1.5" style="display:none!important;">
+        <span class="inline-block w-3 h-3 rounded-full" style="background:#10B981;"></span>Courier (live)
+      </span>
+      <span class="ml-auto text-gray-400">Route via OSRM — real road network</span>
+    </div>
+  </div>
 </div>
 
-<div class="card bg-white mt-2">
-    <div class="card-body p-0">
-        <div id="map" style="height: 500px;">
-           <!-- <iframe src="https://maps.google.com/maps?q=Tangesir%20Dates%20Products&amp;t=&amp;z=13&amp;ie=UTF8&amp;iwloc=&amp;output=embed"width=740  height=500 allowfullscreen></iframe>-->
-        </div>
-        
-    </div>
-</div>
+{% endwith %}
+
+<!-- Map JavaScript -->
+<!-- Replace the existing <script> block in customer/job.html (tracking map) -->
+<script>
+var PLAT = {{ job.pickup_lat|default:0 }};
+var PLNG = {{ job.pickup_lng|default:0 }};
+var DLAT = {{ job.delivery_lat|default:0 }};
+var DLNG = {{ job.delivery_lng|default:0 }};
+var JOB_ID    = "{{ job.id }}";
+var POLL_ACTIVE = {% if job.status == 'picking' or job.status == 'delivering' %}true{% else %}false{% endif %};
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // ── Styles ───────────────────────────────────────────────────────────────────
+  if (!document.getElementById('rvc-cust-styles')) {
+    var s = document.createElement('style');
+    s.id  = 'rvc-cust-styles';
+    s.textContent = [
+      '@keyframes rvc-ping{0%{transform:scale(1);opacity:.65}100%{transform:scale(2.8);opacity:0}}',
+
+      // Dark popups
+      '.rvc-popup .leaflet-popup-content-wrapper{'
+        + 'background:#0D1B3E;border:1px solid rgba(249,115,22,.22);'
+        + 'border-radius:14px;box-shadow:0 10px 36px rgba(0,0,0,.5);padding:0;}',
+      '.rvc-popup .leaflet-popup-content{margin:0;padding:12px 14px;min-width:180px;}',
+      '.rvc-popup .leaflet-popup-tip-container{display:none;}',
+      '.rvc-popup .leaflet-popup-close-button{color:rgba(255,255,255,.4)!important;'
+        + 'top:6px!important;right:8px!important;}',
+
+      // ── ETA CARD (the main customer-facing element) ──
+      '#rvc-eta-card{position:absolute;top:14px;left:50%;'
+        + 'transform:translateX(-50%);z-index:1000;'
+        + 'background:rgba(13,27,62,.96);'
+        + 'border:1.5px solid rgba(249,115,22,.35);'
+        + 'border-radius:18px;padding:12px 20px;'
+        + 'font-family:Sora,sans-serif;'
+        + 'backdrop-filter:blur(14px);'
+        + 'min-width:220px;text-align:center;'
+        + 'box-shadow:0 8px 32px rgba(0,0,0,.45);}',
+      '#rvc-eta-card .eta-phase{'
+        + 'font-size:.62rem;font-weight:800;text-transform:uppercase;'
+        + 'letter-spacing:.1em;color:rgba(255,255,255,.45);margin-bottom:4px;}',
+      '#rvc-eta-card .eta-time{'
+        + 'font-size:2rem;font-weight:800;color:#F97316;line-height:1;'
+        + 'letter-spacing:-.01em;}',
+      '#rvc-eta-card .eta-sub{'
+        + 'font-size:.72rem;color:rgba(255,255,255,.6);margin-top:4px;}',
+      '#rvc-eta-card .eta-dist{'
+        + 'font-size:.75rem;font-weight:700;color:#fff;margin-top:5px;}',
+      '#rvc-eta-card .eta-source{'
+        + 'font-size:.6rem;color:rgba(255,255,255,.3);margin-top:6px;'
+        + 'display:flex;align-items:center;justify-content:center;gap:4px;}',
+      '#rvc-eta-card .eta-dot{'
+        + 'width:5px;height:5px;border-radius:50%;background:#10B981;'
+        + 'animation:rvc-ping .9s ease-in-out infinite;}',
+
+      // Route badge
+      '#rvc-route-badge{position:absolute;bottom:16px;left:50%;'
+        + 'transform:translateX(-50%);z-index:900;'
+        + 'background:rgba(13,27,62,.9);border:1px solid rgba(249,115,22,.25);'
+        + 'border-radius:20px;padding:5px 14px;color:#fff;'
+        + 'font-family:Sora,sans-serif;font-size:.72rem;font-weight:600;'
+        + 'backdrop-filter:blur(8px);'
+        + 'display:none;align-items:center;gap:7px;white-space:nowrap;'
+        + 'pointer-events:none;}',
+
+      // Loader
+      '#map-loader.gone{display:none!important;}',
+    ].join('');
+    document.head.appendChild(s);
+  }
+
+  // ── Popup builder ─────────────────────────────────────────────────────────────
+  function popupRows(rows) {
+    return '<div>' + rows.map(function(r){
+      return '<div style="display:flex;justify-content:space-between;gap:14px;'
+           + 'padding:3px 0;border-bottom:1px solid rgba(255,255,255,.06);">'
+           + '<span style="color:rgba(255,255,255,.5);font-size:.7rem;'
+           + 'font-family:Sora,sans-serif;">' + r.label + '</span>'
+           + '<span style="color:' + (r.color||'#fff') + ';font-size:.75rem;'
+           + 'font-weight:700;font-family:Sora,sans-serif;">' + r.value + '</span>'
+           + '</div>';
+    }).join('') + '</div>';
+  }
+
+  // ── Pin factory ───────────────────────────────────────────────────────────────
+  function makePin(opts) {
+    var pulse = opts.pulse
+      ? '<div style="position:absolute;inset:-7px;border-radius:50%;'
+        + 'border:2px solid ' + opts.bg + ';'
+        + 'animation:rvc-ping 1.6s ease-out infinite;opacity:.5;"></div>'
+      : '';
+    return L.divIcon({
+      className:'',
+      html:'<div style="position:relative;width:44px;height:44px;">' + pulse
+         + '<div style="width:44px;height:44px;border-radius:50%;background:' + opts.bg + ';'
+         + 'border:3px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.3);'
+         + 'display:flex;flex-direction:column;align-items:center;'
+         + 'justify-content:center;gap:1px;">'
+         + '<span style="font-size:15px;line-height:1;">' + opts.emoji + '</span>'
+         + '<span style="font-size:6.5px;font-weight:800;color:#fff;'
+         + 'font-family:Sora,sans-serif;text-transform:uppercase;'
+         + 'letter-spacing:.05em;">' + opts.label + '</span>'
+         + '</div></div>',
+      iconSize:[44,44], iconAnchor:[22,22], popupAnchor:[0,-28],
+    });
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────────
+  function haversine(lat1,lng1,lat2,lng2){
+    var R=3958.8,r=Math.PI/180;
+    var dL=(lat2-lat1)*r, dG=(lng2-lng1)*r;
+    var a=Math.sin(dL/2)*Math.sin(dL/2)
+        +Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dG/2)*Math.sin(dG/2);
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
+
+  function fmtDuration(minutes) {
+    if (!minutes || minutes < 1) return 'Arriving';
+    var h = Math.floor(minutes / 60), m = Math.round(minutes % 60);
+    return h > 0 ? h + 'h ' + m + 'm' : m + ' min';
+  }
+
+  function fmtSeconds(seconds) {
+    return fmtDuration(seconds / 60);
+  }
+
+  // ── Init map ──────────────────────────────────────────────────────────────────
+  var map = L.map('track-map').setView([(PLAT+DLAT)/2,(PLNG+DLNG)/2], 9);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    {attribution:'&copy; <a href="https://openstreetmap.org">OSM</a>', maxZoom:19}).addTo(map);
+
+  // ── ETA Card ──────────────────────────────────────────────────────────────────
+  var etaCard = document.createElement('div');
+  etaCard.id  = 'rvc-eta-card';
+  etaCard.innerHTML =
+    '<div class="eta-phase">Locating courier...</div>'
+    + '<div class="eta-time" id="eta-time">—</div>'
+    + '<div class="eta-sub" id="eta-sub">Waiting for GPS signal</div>'
+    + '<div class="eta-dist" id="eta-dist"></div>'
+    + '<div class="eta-source">'
+    + '<div class="eta-dot"></div>'
+    + '<span id="eta-source-lbl">Live tracking</span>'
+    + '</div>';
+  document.getElementById('track-map').appendChild(etaCard);
+
+  function updateEtaCard(etaSeconds, remainingMiles, phase, courierName) {
+    var phaseEl  = etaCard.querySelector('.eta-phase');
+    var timeEl   = document.getElementById('eta-time');
+    var subEl    = document.getElementById('eta-sub');
+    var distEl   = document.getElementById('eta-dist');
+    var srcEl    = document.getElementById('eta-source-lbl');
+
+    if (etaSeconds != null && etaSeconds >= 0) {
+      var minutes = Math.round(etaSeconds / 60);
+      timeEl.textContent = fmtSeconds(etaSeconds);
+      timeEl.style.color = etaSeconds < 300 ? '#34D399' : '#F97316';  // green if < 5 min
+
+      phaseEl.textContent = phase === 'pickup'
+        ? 'Arriving at pickup'
+        : 'Arriving at delivery';
+      subEl.textContent = courierName
+        ? courierName + ' is on the way'
+        : 'Courier en route';
+      distEl.textContent = remainingMiles
+        ? remainingMiles.toFixed(1) + ' mi remaining'
+        : '';
+      srcEl.textContent = 'Live ETA · updates every 5s';
+    } else {
+      phaseEl.textContent = 'Locating courier...';
+      timeEl.textContent  = '—';
+      subEl.textContent   = 'Waiting for GPS signal';
+      distEl.textContent  = '';
+    }
+  }
+
+  // ── Route badge ───────────────────────────────────────────────────────────────
+  var badge = document.createElement('div');
+  badge.id  = 'rvc-route-badge';
+  document.getElementById('track-map').appendChild(badge);
+
+  function showBadge(icon, text, color) {
+    badge.innerHTML = '<i class="fas fa-' + icon + '" style="color:'
+                    + (color||'#F97316') + ';font-size:.7rem;"></i> ' + text;
+    badge.style.display = 'flex';
+  }
+
+  var loader = document.getElementById('map-loader');
+
+  // ── Static markers ────────────────────────────────────────────────────────────
+  L.marker([PLAT,PLNG], {icon:makePin({bg:'#1D4ED8',emoji:'📦',label:'PICKUP'}), zIndexOffset:10})
+    .addTo(map)
+    .bindPopup(popupRows([
+      {label:'Pickup',  value:'{{ job.pickup_address|truncatechars:35|escapejs }}'},
+      {label:'Contact', value:'{{ job.pickup_name|escapejs }}'},
+      {label:'Phone',   value:'{{ job.pickup_phone|escapejs }}', color:'#34D399'},
+    ]), {className:'rvc-popup', maxWidth:230});
+
+  L.marker([DLAT,DLNG], {icon:makePin({bg:'#F97316',emoji:'🏁',label:'DELIVERY'}), zIndexOffset:10})
+    .addTo(map)
+    .bindPopup(popupRows([
+      {label:'Delivery', value:'{{ job.delivery_address|truncatechars:35|escapejs }}'},
+      {label:'Contact',  value:'{{ job.delivery_name|escapejs }}'},
+      {label:'Phone',    value:'{{ job.delivery_phone|escapejs }}', color:'#34D399'},
+      {label:'Distance', value:'{{ job.distance|floatformat:1 }} mi'},
+      {label:'Cost',     value:'${{ job.price|floatformat:2 }}',   color:'#F97316'},
+    ]), {className:'rvc-popup', maxWidth:230});
+
+  // ── Route drawing — OSRM → ORS → straight line ────────────────────────────────
+  var routeLine   = null;
+  var geodesicMi  = haversine(PLAT,PLNG,DLAT,DLNG);
+
+  function drawPolyline(lls,color,dashed){
+    if (routeLine) map.removeLayer(routeLine);
+    routeLine = L.polyline(lls,{
+      color:color||'#F97316', weight:5, opacity:.85,
+      lineJoin:'round', dashArray:dashed?'12 6':null,
+    }).addTo(map);
+    map.fitBounds(routeLine.getBounds(),{padding:[50,50]});
+  }
+
+  function tryOSRM(){
+    var url='/courier/api/osrm/?path='+encodeURIComponent(
+      '/route/v1/driving/'+PLNG+','+PLAT+';'+DLNG+','+DLAT)
+      +'&query='+encodeURIComponent('overview=full&geometries=geojson&steps=false');
+    fetch(url,{credentials:'same-origin'})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if (!d||d.code!=='Ok'||!d.routes||!d.routes.length) throw new Error('no route');
+        var mi=d.routes[0].distance/1609.344;
+        if (mi<geodesicMi*0.85) throw new Error('coverage');
+        var lls=d.routes[0].geometry.coordinates.map(function(c){return [c[1],c[0]];});
+        drawPolyline(lls,'#F97316',false);
+        showBadge('road',mi.toFixed(1)+' mi total route · via OSRM','#34D399');
+        if(loader) loader.classList.add('gone');
+      })
+      .catch(function(){ tryORS(); });
+  }
+
+  function tryORS(){
+    fetch('/courier/api/ors-route/?plat='+PLAT+'&plng='+PLNG+'&dlat='+DLAT+'&dlng='+DLNG,
+      {credentials:'same-origin'})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if (d.error||!d.geometry) throw new Error(d.error||'no geo');
+        var lls=d.geometry.coordinates.map(function(c){return [c[1],c[0]];});
+        drawPolyline(lls,'#F97316',true);
+        showBadge('route',d.distance_miles.toFixed(1)+' mi · via ORS','#60A5FA');
+        if(loader) loader.classList.add('gone');
+      })
+      .catch(function(){ drawStraightLine(); });
+  }
+
+  function drawStraightLine(){
+    drawPolyline([[PLAT,PLNG],[DLAT,DLNG]],'#94A3B8',true);
+    showBadge('exclamation-triangle',geodesicMi.toFixed(1)+' mi estimate','#F59E0B');
+    if(loader) loader.classList.add('gone');
+  }
+
+  tryOSRM();
+
+  // ── Live courier tracking with ETA ────────────────────────────────────────────
+  if (!POLL_ACTIVE) {
+    updateEtaCard(null, null, null, null);
+    return;
+  }
+
+  var courierMk    = null;
+  var trailPts     = [];
+  var trailLines   = [];
+  var legendCourier = document.getElementById('legend-courier');
+  var pollTimer;
+  var lastEtaSeconds = null;
+
+  // Client-side countdown between polls
+  var countdownTimer = null;
+  function startCountdown(etaSeconds){
+    if (countdownTimer) clearInterval(countdownTimer);
+    var remaining = etaSeconds;
+    countdownTimer = setInterval(function(){
+      remaining -= 1;
+      if (remaining < 0) remaining = 0;
+      document.getElementById('eta-time').textContent = fmtSeconds(remaining);
+      // Colour shift as courier gets closer
+      document.getElementById('eta-time').style.color =
+        remaining < 180 ? '#34D399' :   // green when < 3 min
+        remaining < 600 ? '#F97316' :   // orange when < 10 min
+        '#fff';
+    }, 1000);
+  }
+
+  function makeCourierIcon(){
+    return makePin({bg:'#10B981',emoji:'🚚',label:'COURIER',pulse:true});
+  }
+
+  function updateTrail(lat,lng){
+    trailPts.push([lat,lng]);
+    if (trailPts.length>5) trailPts.shift();
+    trailLines.forEach(function(l){map.removeLayer(l);}); trailLines=[];
+    for (var i=1;i<trailPts.length;i++){
+      var op=0.1+(i/trailPts.length)*0.4, wt=1+(i/trailPts.length)*2;
+      trailLines.push(L.polyline([trailPts[i-1],trailPts[i]],
+        {color:'#10B981',weight:wt,opacity:op}).addTo(map));
+    }
+  }
+
+  function poll(){
+    fetch('/courier/api/courier-location/'+JOB_ID+'/', {credentials:'same-origin'})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if (!d.success) return;
+
+        if (!d.visible){
+          if (courierMk){map.removeLayer(courierMk);courierMk=null;}
+          trailLines.forEach(function(l){map.removeLayer(l);}); trailLines=[]; trailPts=[];
+          if (legendCourier) legendCourier.style.setProperty('display','none','important');
+          if (d.status==='completed'||d.status==='cancel'){
+            clearInterval(pollTimer);
+            if (countdownTimer) clearInterval(countdownTimer);
+            updateEtaCard(0, 0, d.target_type, d.courier_name);
+            document.getElementById('eta-time').textContent = '✓ Done';
+          }
+          return;
+        }
+
+        // ── Update ETA card with server-computed ETA ──────────────────────
+        if (d.eta_seconds != null){
+          lastEtaSeconds = d.eta_seconds;
+          updateEtaCard(d.eta_seconds, d.remaining_miles, d.target_type, d.courier_name);
+          startCountdown(d.eta_seconds);  // client-side 1s countdown between polls
+        }
+
+        // ── Courier marker ────────────────────────────────────────────────
+        updateTrail(d.lat, d.lng);
+
+        if (!courierMk){
+          courierMk = L.marker([d.lat,d.lng],{icon:makeCourierIcon(),zIndexOffset:20})
+            .addTo(map)
+            .bindPopup(popupRows([
+              {label:'Status',  value:'En Route',                 color:'#34D399'},
+              {label:'Courier', value:d.courier_name||'Courier'},
+              {label:'ETA',     value:d.eta_formatted||'Calculating...', color:'#F97316'},
+              {label:'Remaining',value:d.remaining_miles
+                ? d.remaining_miles.toFixed(1)+' mi' : '—'},
+            ]),{className:'rvc-popup',maxWidth:200});
+          if (legendCourier) legendCourier.style.removeProperty('display');
+        } else {
+          courierMk.setLatLng([d.lat,d.lng]);
+          courierMk.setPopupContent(popupRows([
+            {label:'Status',   value:'En Route',                 color:'#34D399'},
+            {label:'Courier',  value:d.courier_name||'Courier'},
+            {label:'ETA',      value:d.eta_formatted||'—',       color:'#F97316'},
+            {label:'Remaining',value:d.remaining_miles
+              ? d.remaining_miles.toFixed(1)+' mi' : '—'},
+            {label:'Target',   value:d.target_type==='pickup'?'Heading to Pickup':'Heading to Delivery'},
+          ]));
+        }
+      })
+      .catch(function(){});
+  }
+
+  poll();
+  pollTimer = setInterval(poll, 5000);
+
+})();
+</script>
 {% endblock %}

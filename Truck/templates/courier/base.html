@@ -1,95 +1,233 @@
-
 {% load static %}
+{% load bootstrap4 %}
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Courier | RiftValley Carriers</title>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Courier | RiftValley Carriers{% endblock %}</title>
 
-        {% load bootstrap4 %}
-        {% bootstrap_css %}
-        {% bootstrap_javascript  jquery='full' %}
+  <!-- ── Bootstrap ──────────────────────────────── -->
+  {% bootstrap_css %}
+  {% bootstrap_javascript jquery='full' %}
 
-        {% include "load-firebase.html" %}
+  <!-- ── Google Fonts ───────────────────────────── -->
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-        
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const messaging = firebase.messaging();
+  <!-- ── FontAwesome ────────────────────────────── -->
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.9.0/css/all.css">
 
-            // Check current permission status
-            if (Notification.permission === 'granted') {
-                getToken();
-            } else if (Notification.permission === 'default') {
-                requestPermission();
-            } else {
-                console.error('Notification permission has been blocked by the user.');
+  <!-- ── SweetAlert2 ────────────────────────────── -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-dark@4/dark.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
+
+  <!-- ── Tailwind ───────────────────────────────── -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            /* RVC system design tokens */
+            'rvc-dark':     '#0B0F1A',
+            'rvc-card':     '#111827',
+            'rvc-card-l':   '#1F2937',
+            'rvc-border':   '#1E2840',
+            'rvc-border-l': '#2E3A55',
+            'rvc-orange':   '#F97316',
+            'rvc-orange-d': '#EA6C0A',
+            'rvc-navy':     '#0D1B3E',
+            'rvc-muted':    '#64748B',
+            'rvc-muted-l':  '#94A3B8',
+            'rvc-text':     '#F8FAFC',
+            'rvc-green':    '#10B981',
+            'rvc-red':      '#EF4444',
+            /* Legacy aliases */
+            dark:    '#0B0F1A',
+            surface: '#111827',
+            card:    '#1F2937',
+            border:  '#1E2840',
+            accent:  '#F97316',
+          },
+          fontFamily: {
+            sora:  ['Sora', 'system-ui', 'sans-serif'],
+            inter: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        }
+      },
+      corePlugins: { preflight: false }
+    }
+  </script>
+
+  <!-- ── Firebase ───────────────────────────────── -->
+  {% include "load-firebase.html" %}
+
+  <!-- ── Viewport height fix (iOS Safari) ──────── -->
+  <script>
+    (function() {
+      function setVH() {
+        document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+      }
+      setVH();
+      window.addEventListener('resize', setVH);
+      window.addEventListener('orientationchange', function() { setTimeout(setVH, 200); });
+    })();
+  </script>
+
+  <!-- ── FCM push token registration ───────────── -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      try {
+        var messaging = firebase.messaging();
+        function registerFCM() {
+          messaging.getToken({
+            vapidKey: 'BA1cWIPYCPUCFZxTMEVfN0aHFib229js50M1qBNjiFvGK4z93ei2HnvwuwMRX2IkJIkaBhCcm1S42R3WLSKYJiI'
+          }).then(function(token) {
+            if (token) {
+              fetch('{% url "courier:fcm_token_update_api" %}?fcm_token=' + token);
             }
+          }).catch(function(e) { console.warn('FCM:', e); });
+        }
+        if (Notification.permission === 'granted') {
+          registerFCM();
+        } else if (Notification.permission === 'default') {
+          Notification.requestPermission().then(function(p) {
+            if (p === 'granted') registerFCM();
+          });
+        }
+      } catch (e) { console.warn('Firebase messaging not available:', e); }
+    });
+  </script>
 
-            function requestPermission() {
-                Notification.requestPermission().then((permission) => {
-                    if (permission === 'granted') {
-                        console.log('Notification permission granted.');
-                        getToken();
-                    } else {
-                        console.error('Unable to get permission to notify.');
-                    }
-                });
-            }
+  <style>
+    /* ── Design system variables ─────────────────── */
+    :root {
+      --rvc-dark:     #0B0F1A;
+      --rvc-card:     #111827;
+      --rvc-card-l:   #1F2937;
+      --rvc-border:   #1E2840;
+      --rvc-border-l: #2E3A55;
+      --rvc-orange:   #F97316;
+      --rvc-orange-d: #EA6C0A;
+      --rvc-navy:     #0D1B3E;
+      --rvc-muted:    #64748B;
+      --rvc-muted-l:  #94A3B8;
+      --rvc-text:     #F8FAFC;
+      --rvc-green:    #10B981;
+      --rvc-red:      #EF4444;
+      --top-h: 56px;
+      --tab-h: 64px;
+    }
 
-            function getToken() {
-                messaging.getToken({ vapidKey: "BA1cWIPYCPUCFZxTMEVfN0aHFib229js50M1qBNjiFvGK4z93ei2HnvwuwMRX2IkJIkaBhCcm1S42R3WLSKYJiI" })
-                .then((currentToken) => {
-                    if (currentToken) {
-                        console.log('Token retrieved: ', currentToken);
-                        fetch('{% url "courier:fcm_token_update_api" %}?fcm_token=' + currentToken);
-                    } else {
-                        console.log('No registration token available. Request permission to generate one.');
-                    }
-                })
-                .catch((err) => {
-                    console.error('An error occurred while retrieving token: ', err);
-                });
-            }
-        });
-    </script>
+    /* ── Reset ───────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        <script>
-           let vh =  window.innerHeight * 0.01;
-           document.documentElement.style.setProperty("--vh", `${vh}px`);
-        </script>
+    html, body {
+      height: 100%;
+      background: var(--rvc-dark);
+      color: var(--rvc-text);
+      font-family: 'Sora', 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden; /* each page controls its own scroll */
+    }
 
-        <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.9.0/css/all.css">
+    #content {
+      height: calc(var(--vh, 1vh) * 100);
+      position: relative;
+    }
 
-        <style>
-            #content {
-                height: calc(var(--vh, 1vh) * 100);
-            }
-        </style>
+    /* ── Scrollbar ────────────────────────────────── */
+    ::-webkit-scrollbar       { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--rvc-border-l); border-radius: 4px; }
 
-        {% block head  %}{% endblock %}
-        
-    </head>
-    <body>
-        
-        <div id="content">
-            {% block content  %}{% endblock %}
-        </div>
+    /* ── SweetAlert2 — dark on-brand overrides ───── */
+    .swal2-popup {
+      font-family: 'Sora', 'Inter', sans-serif !important;
+      border-radius: 16px !important;
+      border: 1px solid var(--rvc-border-l) !important;
+    }
+    .swal2-toast {
+      border-radius: 12px !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,.55) !important;
+    }
+    .swal2-timer-progress-bar { background: var(--rvc-orange) !important; }
 
-        <script src="https://unpkg.com/bootoast@1.0.1/dist/bootoast.min.js"></script>
-        <link rel="stylesheet" href="https://unpkg.com/bootoast@1.0.1/dist/bootoast.min.css">
-        <script>
-            {% if messages %}
-            {% for message in messages %}
-            bootoast.toast({
-                position: 'centerBottom',
-                message: '{{ message }}',
-                type: '{{ message.tags }}',
-                timeout: 10000 
-            });
-            {% endfor %}
-            {% endif %}
-        </script>
-    </body>
+    /* ── Bootstrap dark form overrides ───────────── */
+    .form-control {
+      background-color: var(--rvc-card-l) !important;
+      border: 1px solid var(--rvc-border-l) !important;
+      border-radius: 10px !important;
+      color: var(--rvc-text) !important;
+      font-family: 'Sora', sans-serif !important;
+      font-size: .9rem !important;
+    }
+    .form-control:focus {
+      border-color: var(--rvc-orange) !important;
+      box-shadow: 0 0 0 3px rgba(249,115,22,.18) !important;
+      background-color: var(--rvc-card-l) !important;
+      color: var(--rvc-text) !important;
+    }
+    .form-control::placeholder { color: var(--rvc-muted) !important; }
+    label {
+      color: var(--rvc-muted-l) !important;
+      font-size: .78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    /* ── Responsive helpers ───────────────────────── */
+    /* Tablet / desktop: push content away from desktop sidebar (when added per-page) */
+    @media (min-width: 768px) {
+      :root { --tab-h: 0px; } /* bottom tabs hidden on desktop */
+    }
+    @media (min-width: 1024px) {
+      :root { --top-h: 60px; }
+    }
+  </style>
+
+  {% block head %}{% endblock %}
+</head>
+
+<body>
+  <div id="content">
+    {% block content %}{% endblock %}
+  </div>
+
+  <!-- ── SweetAlert2 Django message renderer ────── -->
+  {% if messages %}
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    /* Map Django message tags to SweetAlert2 icons */
+    var iconMap = { success:'success', error:'error', warning:'warning', info:'info', debug:'info' };
+
+    var queue = [
+      {% for message in messages %}
+      { title: "{{ message|escapejs }}", tag: "{{ message.tags }}" }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    ];
+
+    function showNext(i) {
+      if (i >= queue.length) return;
+      var m    = queue[i];
+      var icon = iconMap[m.tag] || 'info';
+      Swal.fire({
+        toast:             true,
+        position:          'bottom',
+        icon:              icon,
+        title:             m.title,
+        showConfirmButton: false,
+        timer:             4500,
+        timerProgressBar:  true,
+        didClose:          function() { showNext(i + 1); }
+      });
+    }
+
+    showNext(0);
+  });
+  </script>
+  {% endif %}
+
+</body>
 </html>

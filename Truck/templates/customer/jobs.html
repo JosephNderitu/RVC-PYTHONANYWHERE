@@ -1,120 +1,190 @@
 {% extends 'customer/base.html' %}
+{% load static %}
+
+{% block head_extra %}
+<style>
+.job-card {
+  display:block; text-decoration:none !important; color:inherit;
+  background:#fff; border:1px solid #E5E7EB; border-radius:14px;
+  padding:20px; margin-bottom:12px;
+  transition:all .22s; position:relative; overflow:hidden;
+}
+.job-card::before {
+  content:''; position:absolute; left:0; top:0; bottom:0;
+  width:4px; background:#E5E7EB; border-radius:4px 0 0 4px;
+  transition:background .22s;
+}
+.job-card:hover { box-shadow:0 8px 28px rgba(13,27,62,.1); transform:translateY(-2px); border-color:#0D1B3E; }
+.job-card:hover::before { background:#F97316; }
+.job-card:hover .jc-arrow { color:#F97316; transform:translateX(4px); }
+.jc-arrow { transition:all .22s; color:#CBD5E1; }
+
+.tab-pill {
+  padding:7px 20px; border-radius:30px; font-size:.875rem;
+  font-weight:600; text-decoration:none !important;
+  transition:all .2s;
+}
+.tab-pill.active { background:#0D1B3E; color:#fff; }
+.tab-pill:not(.active) { background:#F1F5F9; color:#6B7280; }
+.tab-pill:not(.active):hover { background:#E5E7EB; color:#374151; }
+
+.price-tag { font-size:1.4rem; font-weight:800; color:#0D1B3E; font-family:'Sora',sans-serif; }
+
+.pg-btn {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:36px; height:36px; border-radius:8px;
+  font-size:.8rem; font-weight:600;
+  text-decoration:none !important; transition:all .18s;
+}
+.pg-btn.active { background:#0D1B3E; color:#fff; }
+.pg-btn:not(.active) { background:#fff; color:#374151; border:1px solid #E5E7EB; }
+.pg-btn:not(.active):hover { background:#F1F5F9; }
+.pg-btn.disabled { background:#F9FAFB; color:#D1D5DB; pointer-events:none; }
+</style>
+{% endblock %}
 
 {% block main %}
 
-{% url 'customer:current_jobs' as current_jobs_url %}
-{% url 'customer:archived_jobs' as archived_jobs_url %}
+<!-- Page header -->
+<div class="mb-6">
+  <h1 class="text-2xl font-bold mb-1" style="color:#0D1B3E;font-family:'Sora',sans-serif;">My Jobs</h1>
+  <p class="text-sm text-gray-400">Track and manage all your shipments</p>
+</div>
 
-<!-- Tabs -->
-<ul class="nav nav-pills nav-fill">
-    <li class="nav-item">
-        <a class="nav-link {% if request.path == current_jobs_url %} active{% endif %}" href="{% url 'customer:current_jobs' %}">Current Jobs</a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link {% if request.path == archived_jobs_url %} active{% endif %}" href="{% url 'customer:archived_jobs' %}">Archived Jobs</a>
-    </li>
-</ul>
+<!-- Tab switcher -->
+<div class="flex items-center gap-3 mb-6">
+  {% url 'customer:current_jobs' as current_jobs_url %}
+  {% url 'customer:archived_jobs' as archived_jobs_url %}
+  <a href="{% url 'customer:current_jobs' %}"
+     class="tab-pill {% if request.path == current_jobs_url %}active{% endif %}">
+    <i class="fas fa-clock mr-1.5"></i>Current
+  </a>
+  <a href="{% url 'customer:archived_jobs' %}"
+     class="tab-pill {% if request.path == archived_jobs_url %}active{% endif %}">
+    <i class="fas fa-archive mr-1.5"></i>Archived
+  </a>
+</div>
 
-<!-- List of Jobs -->
-<div class="list-group mt-3">
-    {% if page_obj.object_list %}
-    
-    {% for job in page_obj.object_list %}
-    <a href="{% url 'customer:job' job.id %}" class="list-group-item list-group-item-action">
-        <div class="media">
-            <img src="{{ job.photo.url }}" alt="Job Image" class="rounded-lg mr-3" width="100" height="100">
-            <div class="media-body">
-                <div class="row">
-                    <div class="col-lg-9">
-                        <h5 class="mb-1">{{ job.names }}</h5>
-                        <p>{{ job.description }}</p>
-                        <div class="d-flex mb-4">
-                            <i class="fas fa-map-marker-alt"></i>
-                            <div class="ml-2">
-                                <b>{{ job.pickup_name }}</b><br>
-                                <small>{{ job.pickup_address }}</small>
-                            </div>
-                        </div>
-                        <div class="d-flex">
-                            <i class="fas fa-flag-checkered"></i>
-                            <div class="ml-2">
-                                <b>{{ job.delivery_name }}</b><br>
-                                <small>{{ job.delivery_address }}</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-3 text-right d-flex flex-column justify-content-between">
-                        <div>
-                            <span class="badge badge-warning mb-2">{{ job.get_status_display }}</span>
-                        </div>
-                        <h2 class="mb-1">${{ job.price }}</h2>
-                    </div>
-                </div>
-            </div>
+<!-- Job list -->
+{% if page_obj.object_list %}
+
+  {% for job in page_obj.object_list %}
+  {% with st=job.status %}
+  <a href="{% url 'customer:job' job.id %}" class="job-card">
+    <div class="flex gap-4">
+
+      <!-- Photo -->
+      <div class="flex-shrink-0">
+        <img src="{{ job.photo.url }}" alt="{{ job.names }}"
+             class="rounded-xl object-cover"
+             style="width:72px;height:72px;">
+      </div>
+
+      <!-- Details -->
+      <div class="flex-1 min-w-0">
+        <div class="flex items-start justify-between gap-3 mb-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h3 class="font-bold text-base" style="color:#0D1B3E;font-family:'Sora',sans-serif;">{{ job.names }}</h3>
+            <!-- Status badge -->
+            <span class="sb sb-{{ st }}">
+              {% if st == 'processing' %}<i class="fas fa-hourglass-half"></i>Waiting for courier
+              {% elif st == 'picking' %}<i class="fas fa-truck"></i>Courier en route
+              {% elif st == 'delivering' %}<i class="fas fa-shipping-fast"></i>Being delivered
+              {% elif st == 'completed' %}<i class="fas fa-check-circle"></i>Delivered
+              {% elif st == 'cancel' %}<i class="fas fa-times-circle"></i>Cancelled
+              {% else %}<i class="fas fa-pencil"></i>{{ job.get_status_display }}
+              {% endif %}
+            </span>
+          </div>
+          <div class="text-right flex-shrink-0">
+            <div class="price-tag">${{ job.price }}</div>
+            <div class="text-xs text-gray-400 mt-0.5">{{ job.distance }} mi</div>
+          </div>
         </div>
-    </a>
+
+        <p class="text-sm text-gray-400 mb-3 line-clamp-1">{{ job.description }}</p>
+
+        <div class="flex flex-wrap gap-4 text-xs text-gray-500">
+          <span class="flex items-center gap-1.5">
+            <span class="inline-block w-2 h-2 rounded-full" style="background:#2196F3;flex-shrink:0;"></span>
+            <span class="truncate max-w-xs">{{ job.pickup_address|truncatechars:40 }}</span>
+          </span>
+          <span class="flex items-center gap-1.5">
+            <span class="inline-block w-2 h-2 rounded-full" style="background:#F97316;flex-shrink:0;"></span>
+            <span class="truncate max-w-xs">{{ job.delivery_address|truncatechars:40 }}</span>
+          </span>
+        </div>
+
+        <div class="flex items-center justify-between mt-3">
+          <span class="text-xs text-gray-400">
+            <i class="fas fa-calendar mr-1"></i>{{ job.created_at|date:"M j, Y" }}
+          </span>
+          <span class="flex items-center gap-1 text-xs font-semibold jc-arrow" style="color:#CBD5E1;">
+            View details <i class="fas fa-arrow-right text-xs"></i>
+          </span>
+        </div>
+      </div>
+
+    </div>
+  </a>
+  {% endwith %}
+  {% endfor %}
+
+  <!-- Pagination -->
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="flex items-center justify-center gap-2 mt-6">
+    {% if page_obj.has_previous %}
+      <a href="?page=1"                                      class="pg-btn"><i class="fas fa-angle-double-left"></i></a>
+      <a href="?page={{ page_obj.previous_page_number }}"   class="pg-btn"><i class="fas fa-angle-left"></i></a>
+    {% else %}
+      <span class="pg-btn disabled"><i class="fas fa-angle-double-left"></i></span>
+      <span class="pg-btn disabled"><i class="fas fa-angle-left"></i></span>
+    {% endif %}
+
+    {% for num in page_obj.paginator.page_range %}
+      {% if page_obj.number == num %}
+        <span class="pg-btn active">{{ num }}</span>
+      {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <a href="?page={{ num }}" class="pg-btn">{{ num }}</a>
+      {% endif %}
     {% endfor %}
 
-    <!-- Pagination Controls -->
-    <nav aria-label="Page navigation example">
-        <ul class="pagination justify-content-center mt-4">
-            {% if page_obj.has_previous %}
-            <li class="page-item">
-                <a class="page-link" href="?page=1" aria-label="First">
-                    <span aria-hidden="true">&laquo;&laquo;</span>
-                </a>
-            </li>
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">
-                    <span aria-hidden="true">&laquo; Previous</span>
-                </a>
-            </li>
-            {% else %}
-            <li class="page-item disabled">
-                <span class="page-link">&laquo;&laquo;</span>
-            </li>
-            <li class="page-item disabled">
-                <span class="page-link">&laquo; Previous</span>
-            </li>
-            {% endif %}
-            
-            {% for num in page_obj.paginator.page_range %}
-                {% if page_obj.number == num %}
-                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                {% elif num > page_obj.number|add:'-5' and num < page_obj.number|add:'5' %}
-                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
-                {% endif %}
-            {% endfor %}
-            
-            {% if page_obj.has_next %}
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Next">
-                    <span aria-hidden="true">Next &raquo;</span>
-                </a>
-            </li>
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}" aria-label="Last">
-                    <span aria-hidden="true">&raquo;&raquo;</span>
-                </a>
-            </li>
-            {% else %}
-            <li class="page-item disabled">
-                <span class="page-link">Next &raquo;</span>
-            </li>
-            <li class="page-item disabled">
-                <span class="page-link">&raquo;&raquo;</span>
-            </li>
-            {% endif %}
-        </ul>
-    </nav>
-
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}"         class="pg-btn"><i class="fas fa-angle-right"></i></a>
+      <a href="?page={{ page_obj.paginator.num_pages }}"     class="pg-btn"><i class="fas fa-angle-double-right"></i></a>
     {% else %}
-    <div class="card">
-        <div class="card-body text-center">
-            Nothing to show here yet.
-        </div>
-    </div>
+      <span class="pg-btn disabled"><i class="fas fa-angle-right"></i></span>
+      <span class="pg-btn disabled"><i class="fas fa-angle-double-right"></i></span>
     {% endif %}
-</div>
+  </div>
+  {% endif %}
+
+{% else %}
+
+  <!-- Empty state -->
+  <div class="pc text-center py-20 px-8">
+    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-5"
+         style="background:#EEF2FF;">
+      <i class="fas fa-box-open text-2xl" style="color:#0D1B3E;"></i>
+    </div>
+    <h3 class="font-bold text-lg mb-2" style="color:#0D1B3E;font-family:'Sora',sans-serif;">No jobs yet</h3>
+    <p class="text-gray-400 text-sm mb-6 max-w-xs mx-auto">
+      {% if request.path == archived_jobs_url %}
+        Your completed and cancelled jobs will appear here.
+      {% else %}
+        Create your first shipment job to get started.
+      {% endif %}
+    </p>
+    {% url 'customer:archived_jobs' as archived_jobs_url %}
+    {% if request.path != archived_jobs_url %}
+    <a href="{% url 'customer:create_job' %}"
+       class="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white no-underline"
+       style="background:#F97316;">
+      <i class="fas fa-plus"></i> Create a Job
+    </a>
+    {% endif %}
+  </div>
+
+{% endif %}
 
 {% endblock %}

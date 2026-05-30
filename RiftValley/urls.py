@@ -11,6 +11,8 @@ from Truck import views
 from django.contrib.auth import views as auth_views
 from Truck.customer import views as customer_views
 from Truck.courier import views as courier_views, apis as courier_apis
+from Truck.driver_verification import api as verification_api 
+from Truck.goods_classification import api as gc_api
 
 
 customer_urlpatterns = [
@@ -21,6 +23,10 @@ customer_urlpatterns = [
     path('jobs/current/', customer_views.current_jobs_page, name="current_jobs"),  # Add trailing slash
     path('jobs/archived/', customer_views.archived_jobs_page, name="archived_jobs"),
     path('jobs/<job_id>/', customer_views.job_page, name="job"),
+    path('confirm/<uuid:job_id>/<uuid:token>/', customer_views.confirm_delivery_page, name="confirm_delivery"),
+    
+    path('api/classify-item/',                gc_api.classify_item,        name='classify_item'),
+    path('api/classify-item/status/<job_id>/',gc_api.classify_item_status, name='classify_item_status'),
 ]
 
 courier_urlpatterns = [
@@ -35,9 +41,25 @@ courier_urlpatterns = [
     path('jobs/archived/', courier_views.archived_jobs_page, name="archived_jobs"),
     path('profile/', courier_views.profile_page, name="profile"),
     path('payout_method/', courier_views.payout_method_page, name="payout_method"),
+    path('settings/', courier_views.settings_page, name='settings'),
+    
+    # ── Driver Verification ──────────────────────────────────────────────────
+    path('verification/', courier_views.verification_page, name='verification'),
     
     path('api/jobs/current/<id>/update/', courier_apis.current_job_update_api, name="current_job_update_api"),
     path('api/fcm-token/update/', courier_apis.fcm_token_update_api, name="fcm_token_update_api"),
+    # ✅ AFTER — proxy registered, browser calls /courier/api/osrm/ → Django → osrm:5000
+    path('api/courier-location/update/',       courier_apis.courier_location_update_api, name="courier_location_update_api"),
+    path('api/courier-location/<str:job_id>/', courier_apis.courier_location_api,        name="courier_location_api"),
+    path('api/osrm/',                          courier_apis.osrm_proxy,                  name="osrm_proxy"),  # ← THIS
+    path('api/ors-route/',      courier_apis.ors_route_proxy, name='ors_route_proxy'),
+    path('api/traffic-status/', courier_apis.traffic_status,  name='traffic_status'),
+    path('api/online-status/', courier_apis.online_status_api, name='online_status_api'),
+    
+    # ── Verification APIs ────────────────────────────────────────────────────
+    path('api/verification/submit/', verification_api.submit_verification_documents, name='verification_submit'),
+    # NEW — plain Django view, no DRF auth issues
+    path('api/verification/status/', courier_views.verification_status_api, name='verification_status'),
 ]
 
 
@@ -65,6 +87,7 @@ urlpatterns = [
     #terms and conditions and billing
     path('terms_and_conditions/', views.terms_and_conditions, name='terms_and_conditions'),
     path('billing/', views.billing, name='billing'),
+    path('contact/', views.contact_page, name='contact'),
     
     #dynamically showing success in our work
     path('fetch-stats/', views.fetch_stats, name='fetch_stats'),
@@ -72,6 +95,13 @@ urlpatterns = [
     #cookies section
     path('set_cookie_expiry/', views.set_cookie_expiry, name='set_cookie_expiry'),
     path('cookie-policy/', views.cookie_policy, name='cookie_policy'),
+    
+    #quota calculations
+    path('get-quote/', views.get_quote_page, name='get_quote'),
+    path('api/get-quote/', views.get_quote_api,  name='get_quote_api'),
+    path('api/nearest-couriers/', views.nearest_couriers_api,   name='nearest_couriers'),
+    path('api/route/', views.public_route_api,      name='public_route'),
+    path('api/ors-route/', views.public_ors_route_api,   name='public_ors_route'),
 
 ]
 

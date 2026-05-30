@@ -1,38 +1,358 @@
 {% extends 'courier/base.html' %}
 {% load bootstrap4 %}
+{% load static %}
+
+{% block title %}Payout Method | RVC Courier{% endblock %}
 
 {% block head %}
 <style>
-    .header{
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 60px;
-        display: flex;
-        align-items: center;
-        padding: 0 20px;
-        background-color: #ffc106;
-        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
-    }
+  html, body { overflow-y: auto !important; overflow-x: hidden; }
+  #content   { height: auto !important; min-height: 100vh; }
+
+  /* ── Top bar ────────────────────────────────────── */
+  .top-bar {
+    position: sticky; top: 0; left: 0; right: 0;
+    height: var(--top-h, 56px);
+    background: rgba(17,24,39,.98); border-bottom: 1px solid var(--rvc-border);
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 18px; z-index: 200;
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  }
+  .back-btn {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--rvc-card-l); border: 1px solid var(--rvc-border-l);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--rvc-muted-l); text-decoration: none; flex-shrink: 0;
+    transition: background .15s, color .15s;
+  }
+  .back-btn:hover { background: var(--rvc-border); color: var(--rvc-text); }
+  .top-title { font-size: .95rem; font-weight: 700; color: var(--rvc-text); font-family: 'Sora', sans-serif; }
+
+  .page-wrap { max-width: 520px; margin: 0 auto; padding: 24px 16px calc(var(--tab-h, 64px) + 36px); }
+
+  /* ══════════════════════════════════════════════════
+     PayPal brand colors
+     Primary:   #003087 (dark navy blue)
+     Secondary: #009cde (sky blue)
+     Gold:      #FF9600
+     Light bg:  #F5F7FA
+  ══════════════════════════════════════════════════ */
+
+  /* ── PayPal hero card ───────────────────────────── */
+  .pp-hero {
+    background: linear-gradient(135deg, #003087 0%, #0070BA 100%);
+    border-radius: 22px; padding: 32px 24px 26px;
+    text-align: center; margin-bottom: 16px;
+    position: relative; overflow: hidden;
+  }
+  .pp-hero::before {
+    content: ''; position: absolute;
+    top: -50px; right: -50px;
+    width: 200px; height: 200px; border-radius: 50%;
+    background: rgba(255,255,255,.04);
+  }
+  .pp-hero::after {
+    content: ''; position: absolute;
+    bottom: -30px; left: -30px;
+    width: 140px; height: 140px; border-radius: 50%;
+    background: rgba(255,255,255,.03);
+  }
+
+  /* PayPal logo text — using font styling to mimic the wordmark feel */
+  .pp-logo-wrap { margin-bottom: 18px; }
+  .pp-logo-icon { font-size: 48px; color: #fff; display: block; margin-bottom: 8px; }
+  .pp-wordmark {
+    display: inline-flex; align-items: center; gap: 0;
+    font-family: 'Sora', sans-serif;
+  }
+  .pp-word-pay  { font-size: 1.4rem; font-weight: 800; color: #fff; letter-spacing: -.02em; }
+  .pp-word-pal  { font-size: 1.4rem; font-weight: 800; color: #009cde; letter-spacing: -.02em; }
+
+  .pp-hero-sub { font-size: .85rem; color: rgba(255,255,255,.75); margin-top: 6px; line-height: 1.5; }
+
+  /* Current status chip */
+  .pp-status {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 18px; padding: 8px 18px;
+    border-radius: 24px; font-size: .8rem; font-weight: 700;
+  }
+  .pp-status.connected {
+    background: rgba(16,185,129,.2);
+    border: 1px solid rgba(16,185,129,.35);
+    color: #4ADE80;
+  }
+  .pp-status.not-connected {
+    background: rgba(255,255,255,.1);
+    border: 1px solid rgba(255,255,255,.2);
+    color: rgba(255,255,255,.7);
+  }
+  .pp-status-dot {
+    width: 8px; height: 8px; border-radius: 50';
+  }
+  .pp-status.connected     .pp-status-dot { background: #4ADE80; box-shadow: 0 0 6px #4ADE80; }
+  .pp-status.not-connected .pp-status-dot { background: rgba(255,255,255,.5); }
+
+  /* ── How it works ───────────────────────────────── */
+  .how-card {
+    background: var(--rvc-card); border: 1px solid var(--rvc-border);
+    border-radius: 16px; padding: 18px; margin-bottom: 16px;
+  }
+  .how-title { font-size: .72rem; font-weight: 700; color: var(--rvc-muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 14px; }
+  .how-step {
+    display: flex; align-items: flex-start; gap: 12px;
+    margin-bottom: 14px;
+  }
+  .how-step:last-child { margin-bottom: 0; }
+  .how-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(0,112,186,.15); border: 1px solid rgba(0,112,186,.25);
+    color: #009cde; font-size: .75rem; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .how-text .t { font-size: .84rem; font-weight: 600; color: var(--rvc-text); }
+  .how-text .s { font-size: .76rem; color: var(--rvc-muted); margin-top: 2px; }
+
+  /* ── Payout terms ───────────────────────────────── */
+  .terms-card {
+    background: var(--rvc-card); border: 1px solid var(--rvc-border);
+    border-radius: 16px; overflow: hidden; margin-bottom: 16px;
+  }
+  .terms-hdr {
+    padding: 13px 18px; border-bottom: 1px solid var(--rvc-border);
+    font-size: .72rem; font-weight: 700; color: var(--rvc-muted);
+    text-transform: uppercase; letter-spacing: .07em;
+  }
+  .terms-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 18px; font-size: .84rem;
+    border-bottom: 1px solid var(--rvc-border);
+  }
+  .terms-row:last-child { border-bottom: none; }
+  .t-label { color: var(--rvc-muted); }
+  .t-value { color: var(--rvc-text); font-weight: 600; text-align: right; }
+  .t-value.orange { color: var(--rvc-orange); font-weight: 800; font-family: 'Sora', sans-serif; }
+  .t-value.blue   { color: #009cde; font-weight: 700; }
+
+  /* ── Form card ──────────────────────────────────── */
+  .form-card {
+    background: var(--rvc-card); border: 1px solid var(--rvc-border);
+    border-radius: 18px; padding: 22px; margin-bottom: 14px;
+  }
+  .form-card-hdr {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 18px;
+    padding-bottom: 14px; border-bottom: 1px solid var(--rvc-border);
+  }
+  .form-card-hdr .pp-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(0,112,186,.12); border: 1px solid rgba(0,112,186,.2);
+    color: #009cde; padding: 4px 12px; border-radius: 20px;
+    font-size: .72rem; font-weight: 700;
+  }
+  .form-card-hdr .pp-badge i { font-size: .9rem; }
+
+  /* Form field */
+  .field-wrap { margin-bottom: 0; }
+  .field-label { display: block; font-size: .72rem; font-weight: 700; color: var(--rvc-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+
+  /* Bootstrap override inside form-card */
+  .form-card .form-group label { font-size: .72rem !important; font-weight: 700 !important; color: var(--rvc-muted) !important; text-transform: uppercase !important; letter-spacing: .06em !important; }
+  .form-card .form-control {
+    background: var(--rvc-card-l) !important; border: 1px solid var(--rvc-border-l) !important;
+    border-radius: 12px !important; padding: 13px 16px !important;
+    color: var(--rvc-text) !important; font-size: .92rem !important;
+    font-family: 'Sora', sans-serif !important;
+    transition: border-color .15s, box-shadow .15s !important;
+  }
+  .form-card .form-control:focus {
+    border-color: #0070BA !important;
+    box-shadow: 0 0 0 3px rgba(0,112,186,.2) !important;
+    background: var(--rvc-card-l) !important; color: var(--rvc-text) !important;
+  }
+  .form-card .form-control::placeholder { color: var(--rvc-muted) !important; }
+  .form-card .invalid-feedback { color: var(--rvc-red); font-size: .78rem; }
+  .form-card .is-invalid { border-color: var(--rvc-red) !important; }
+
+  /* ── PayPal connect button ──────────────────────── */
+  .pp-save-btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; padding: 15px;
+    background: linear-gradient(135deg, #0070BA 0%, #003087 100%);
+    color: #fff; border: none; border-radius: 13px;
+    font-size: .97rem; font-weight: 700; font-family: 'Sora', sans-serif;
+    cursor: pointer; transition: opacity .15s, transform .1s;
+    margin-top: 18px;
+    box-shadow: 0 6px 24px rgba(0,112,186,.4);
+    letter-spacing: .01em;
+  }
+  .pp-save-btn:hover  { opacity: .92; }
+  .pp-save-btn:active { transform: scale(.98); }
+  .pp-save-btn .pp-btn-logo { font-size: 1.05rem; }
+
+  /* ── Warning ────────────────────────────────────── */
+  .warning-card {
+    display: flex; align-items: flex-start; gap: 12px;
+    background: rgba(245,158,11,.06); border: 1px solid rgba(245,158,11,.2);
+    border-radius: 14px; padding: 14px 16px; margin-bottom: 14px;
+  }
+  .warning-card i { color: #F59E0B; font-size: 15px; margin-top: 2px; flex-shrink: 0; }
+  .warning-card p { font-size: .8rem; color: var(--rvc-muted-l); margin: 0; line-height: 1.55; }
+
+  /* ── Security badge ─────────────────────────────── */
+  .security-badge {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 0; font-size: .76rem; color: var(--rvc-muted);
+  }
+  .security-badge i { color: var(--rvc-green); }
+
+  /* ── Desktop sidebar ────────────────────────────── */
+  .desktop-nav { display: none; position: fixed; left: 0; top: 0; bottom: 0; width: 64px; background: rgba(17,24,39,.98); border-right: 1px solid var(--rvc-border); flex-direction: column; align-items: center; padding: 16px 0; gap: 6px; z-index: 300; }
+  .dn-logo { width: 38px; height: 38px; background: var(--rvc-orange); border-radius: 11px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .dn-logo i { font-size: 16px; color: #fff; }
+  .desktop-nav a { width: 46px; height: 46px; border-radius: 13px; display: flex; align-items: center; justify-content: center; color: var(--rvc-muted); font-size: 19px; text-decoration: none; transition: background .15s, color .15s; }
+  .desktop-nav a:hover  { background: var(--rvc-card-l); color: var(--rvc-muted-l); }
+  .desktop-nav a.active { background: rgba(249,115,22,.15); color: var(--rvc-orange); }
+  .dn-spacer { flex: 1; }
+
+  @media (min-width: 768px) {
+    .desktop-nav { display: flex; }
+    .top-bar     { left: 64px; }
+    .page-wrap   { margin-left: 80px; }
+  }
 </style>
-{% endblock  %}
+{% endblock %}
+
 {% block content %}
-<div class="header">
-    <a href="{% url 'courier:profile' %}" class="mr-2">
-        <i class="fas fa-chevron-left text-dark"></i>
-    </a>
-    <h5 class="mt-1 mb-0">Profile</h5>
+
+<div class="top-bar">
+  <a href="{% url 'courier:profile' %}" class="back-btn" title="Back to profile">
+    <i class="fas fa-chevron-left" style="font-size:13px;"></i>
+  </a>
+  <span class="top-title">Payout Method</span>
 </div>
 
-<div class="container-fluid" style="padding-top: 80px;">
-    <form method="POST">
-        {% csrf_token %}
-        {% bootstrap_form payout_form %}
-        <button type="submit" class="btn btn-block btn-warning">Save</button>
+<div class="page-wrap">
 
+  <!-- ── PayPal Hero ───────────────────────────────── -->
+  <div class="pp-hero">
+    <div class="pp-logo-wrap">
+      <i class="fab fa-paypal pp-logo-icon"></i>
+      <div class="pp-wordmark">
+        <span class="pp-word-pay">Pay</span><span class="pp-word-pal">Pal</span>
+      </div>
+    </div>
+    <div class="pp-hero-sub">
+      Link your PayPal account to receive your courier earnings directly every week.
+    </div>
+    <div class="pp-status {% if request.user.courier.paypal_email %}connected{% else %}not-connected{% endif %}">
+      <div class="pp-status-dot"></div>
+      {% if request.user.courier.paypal_email %}
+        Connected &mdash; {{ request.user.courier.paypal_email }}
+      {% else %}
+        Not connected &mdash; add your PayPal below
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── How payouts work ─────────────────────────── -->
+  <div class="how-card">
+    <div class="how-title">How Payouts Work</div>
+    <div class="how-step">
+      <div class="how-num">1</div>
+      <div class="how-text">
+        <div class="t">Complete deliveries</div>
+        <div class="s">Each completed job adds to your weekly earnings balance.</div>
+      </div>
+    </div>
+    <div class="how-step">
+      <div class="how-num">2</div>
+      <div class="how-text">
+        <div class="t">Every Monday, payouts are processed</div>
+        <div class="s">RiftValley Carriers sends 80% of your earnings to your PayPal.</div>
+      </div>
+    </div>
+    <div class="how-step">
+      <div class="how-num">3</div>
+      <div class="how-text">
+        <div class="t">Funds arrive in your PayPal wallet</div>
+        <div class="s">Transfer to your bank or spend directly via PayPal.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Earnings terms ───────────────────────────── -->
+  <div class="terms-card">
+    <div class="terms-hdr">Payout Terms</div>
+    <div class="terms-row">
+      <span class="t-label">Your earnings rate</span>
+      <span class="t-value orange">80% of job price</span>
+    </div>
+    <div class="terms-row">
+      <span class="t-label">Payment schedule</span>
+      <span class="t-value">Every Monday</span>
+    </div>
+    <div class="terms-row">
+      <span class="t-label">Method</span>
+      <span class="t-value blue"><i class="fab fa-paypal" style="margin-right:5px;"></i>PayPal</span>
+    </div>
+    <div class="terms-row">
+      <span class="t-label">Processing time</span>
+      <span class="t-value">1 &ndash; 3 business days</span>
+    </div>
+  </div>
+
+  <!-- ── PayPal email form ─────────────────────────── -->
+  <div class="form-card">
+    <div class="form-card-hdr">
+      <div style="flex:1;">
+        <div style="font-size:.9rem;font-weight:700;color:var(--rvc-text);font-family:'Sora',sans-serif;">
+          {% if request.user.courier.paypal_email %}Update PayPal Email{% else %}Connect Your PayPal{% endif %}
+        </div>
+        <div style="font-size:.75rem;color:var(--rvc-muted);margin-top:2px;">
+          Enter the email address linked to your PayPal account
+        </div>
+      </div>
+      <div class="pp-badge"><i class="fab fa-paypal"></i> PayPal</div>
+    </div>
+
+    <form method="POST" novalidate>
+      {% csrf_token %}
+      {% bootstrap_form payout_form %}
+      <button type="submit" class="pp-save-btn">
+        <i class="fab fa-paypal pp-btn-logo"></i>
+        {% if request.user.courier.paypal_email %}Update PayPal Account{% else %}Connect PayPal Account{% endif %}
+      </button>
     </form>
+  </div>
+
+  <!-- ── Warning ──────────────────────────────────── -->
+  <div class="warning-card">
+    <i class="fas fa-exclamation-triangle"></i>
+    <p>
+      Double-check your PayPal email before saving.
+      Payments sent to an incorrect address <strong>cannot be reversed</strong>.
+      Make sure the email matches your PayPal account exactly.
+    </p>
+  </div>
+
+  <!-- ── Security note ────────────────────────────── -->
+  <div class="security-badge">
+    <i class="fas fa-shield-alt"></i>
+    Your payout details are encrypted and stored securely.
+  </div>
 
 </div>
 
-{% endblock  %}
+{% include 'courier/bottom_tabs.html' %}
+
+<nav class="desktop-nav">
+  <div class="dn-logo"><i class="fas fa-truck"></i></div>
+  <a href="{% url 'courier:home' %}"           title="Home"><i class="fas fa-home"></i></a>
+  <a href="{% url 'courier:available_jobs' %}"  title="Jobs"><i class="fas fa-map-marked-alt"></i></a>
+  <a href="{% url 'courier:current_job' %}"     title="My Job"><i class="fas fa-truck"></i></a>
+  <a href="{% url 'courier:archived_jobs' %}"   title="Earnings"><i class="fas fa-dollar-sign"></i></a>
+  <div class="dn-spacer"></div>
+  <a href="{% url 'courier:profile' %}" class="active" title="Profile"><i class="fas fa-user-circle"></i></a>
+</nav>
+
+{% endblock %}

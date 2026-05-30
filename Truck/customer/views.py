@@ -1,124 +1,123 @@
 import requests
 import math
 from django.conf import settings
-#email views
 from django.core.mail import send_mail
 from datetime import datetime
 from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
-#end of email views
+from django.contrib.gis.geos import Point
+
 import stripe
-from django.shortcuts import render,redirect
+from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
-from Truck.models import Courier, Job, Transaction
+from Truck.models import *
 from django.core.paginator import Paginator
 
 from Truck.customer import forms
-from .forms import BasicUserForm, BasicCustomerForm, JobCreateStep1Form, JobCreateStep2Form, JobCreateStep1Form, JobCreateStep2Form, JobCreateStep3Form
+from Truck.customer.forms import (
+    BasicUserForm,
+    BasicCustomerForm,
+    JobCreateStep1Form,
+    JobCreateStep2Form,
+    JobCreateStep3Form,
+)
 from django.contrib import messages
-
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
 
-#distance geopy calculations
 from geopy.distance import geodesic
 from geopy.exc import GeopyError
+from Truck.distance_engine import compute_distance 
 
 stripe.api_key = settings.STRIPE_API_SECRET_KEY
-# Create your views here.
 
 
 @login_required()
 def home(request):
     return redirect(reverse('customer:profile'))
 
+
 @login_required(login_url="/sign_in/?next=/customer/")
 def profile_page(request):
     user_form = forms.BasicUserForm(instance=request.user)
     customer_form = forms.BasicCustomerForm(instance=request.user.customer)
     password_form = PasswordChangeForm(request.user)
-    
+
     if request.method == 'POST':
         if request.POST.get('action') == 'update_profile':
             user_form = forms.BasicUserForm(request.POST, instance=request.user)
-            customer_form =forms.BasicCustomerForm(request.POST, request.FILES, instance=request.user.customer )
+            customer_form = forms.BasicCustomerForm(request.POST, request.FILES, instance=request.user.customer)
             if user_form.is_valid() and customer_form.is_valid():
                 user_form.save()
                 customer_form.save()
-                
-                messages.success(request,'Your profile has been updated😊. RiftValley Carrier Value Your Presence😎')
+                messages.success(request, 'Your profile has been updated😊. RiftValley Carrier Value Your Presence😎')
                 return redirect(reverse('customer:profile'))
-            
+
         elif request.POST.get('action') == 'update_password':
             password_form = PasswordChangeForm(request.user, request.POST)
             if password_form.is_valid():
                 user = password_form.save()
                 update_session_auth_hash(request, user)
-                
-                messages.success(request,'Your password has been updated😊. RiftValley Carrier Value Your Presence😎')
+                messages.success(request, 'Your password has been updated😊. RiftValley Carrier Value Your Presence😎')
                 return redirect(reverse('customer:profile'))
             else:
-                messages.error(request,'Failed!☹️...Kindly Try Again Later')
-        
-    
-    return render(request,'customer/profile.html',{
-        'user_form':user_form,
-        "customer_form": customer_form,
+                messages.error(request, 'Failed!☹️...Kindly Try Again Later')
+
+    return render(request, 'customer/profile.html', {
+        'user_form': user_form,
+        'customer_form': customer_form,
         'messages': messages.get_messages(request),
-        "password_form": password_form
-        })
-    
+        'password_form': password_form,
+    })
+
 
 @login_required(login_url="/sign_in/?next=/customer/")
 def payment_method_page(request):
     current_customer = request.user.customer
-    
-    #remove existing card
+
     if request.method == "POST":
         stripe.PaymentMethod.detach(current_customer.stripe_payment_method_id)
         current_customer.stripe_payment_method_id = ""
         current_customer.stripe_card_last4 = ""
         current_customer.save()
         return redirect(reverse('customer:payment_method'))
-    
-    #save Stripe customer info
+
     if not current_customer.stripe_customer_id:
         customer = stripe.Customer.create()
         current_customer.stripe_customer_id = customer['id']
         current_customer.save()
-        
-    #get stripe payment method
+
     stripe_payment_method = stripe.PaymentMethod.list(
         customer=current_customer.stripe_customer_id,
         type="card",
     )
     print(stripe_payment_method)
-    
+
     if stripe_payment_method and len(stripe_payment_method.data) > 0:
         payment_method = stripe_payment_method.data[0]
         current_customer.stripe_payment_method_id = payment_method.id
-        current_customer.stripe_card_last4 =  payment_method.card.last4
+        current_customer.stripe_card_last4 = payment_method.card.last4
         current_customer.save()
     else:
         current_customer.stripe_payment_method_id = ""
-        current_customer.stripe_card_last4 =  ""
+        current_customer.stripe_card_last4 = ""
         current_customer.save()
-    
-    if not  current_customer.stripe_payment_method_id:
-        intent = stripe.SetupIntent.create(
-            customer = current_customer.stripe_customer_id,
-        )
-        return render(request, 'customer/payment_method.html',{
+
+    if not current_customer.stripe_payment_method_id:
+        intent = stripe.SetupIntent.create(customer=current_customer.stripe_customer_id)
+        return render(request, 'customer/payment_method.html', {
             "client_secret": intent.client_secret,
             "STRIPE_API_PUBLIC_KEY": settings.STRIPE_API_PUBLIC_KEY,
         })
     else:
-        return render(request,'customer/payment_method.html')
+        return render(request, 'customer/payment_method.html')
+
 
 @login_required(login_url="/sign_in/?next=/customer/")
 def create_job_page(request):
     current_customer = request.user.customer
+    categories = Category.objects.all().order_by('name')
 
     if not current_customer.stripe_payment_method_id:
         return redirect(reverse('customer:payment_method'))
@@ -136,7 +135,10 @@ def create_job_page(request):
         messages.warning(request, "You already have an active job.")
         return redirect(reverse('customer:current_jobs'))
 
-    creating_job, _ = Job.objects.get_or_create(Customer=current_customer, status=Job.CREATING_STATUS)
+    creating_job, _ = Job.objects.get_or_create(
+        Customer=current_customer,
+        status=Job.CREATING_STATUS,
+    )
 
     step1_form = JobCreateStep1Form(request.POST or None, request.FILES or None, instance=creating_job)
     step2_form = JobCreateStep2Form(request.POST or None, instance=creating_job)
@@ -144,29 +146,9 @@ def create_job_page(request):
 
     show_manual_distance = False
 
-    def get_coordinates(address):
-        url = f"https://nominatim.openstreetmap.org/search?format=json&q={address}"
-        response = requests.get(url).json()
-        if response:
-            return float(response[0]['lat']), float(response[0]['lon'])
-        return None
-
-    def haversine(coord1, coord2):
-        R = 6371  # Radius of the Earth in kilometers
-        lat1, lon1 = coord1
-        lat2, lon2 = coord2
-        dlat = math.radians(lat2 - lat1)
-        dlon = math.radians(lon2 - lon1)
-        a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        distance = R * c
-        return distance
-
-    def calculate_duration(distance_km):
-        DEFAULT_DURATION_PER_KM = 2  # in minutes, adjust this value as needed
-        return distance_km * DEFAULT_DURATION_PER_KM  # Duration in minutes
-
     if request.method == 'POST':
+
+        # ── Step 1 — item details ────────────────────────────────────────────
         if request.POST['step'] == '1':
             if step1_form.is_valid():
                 creating_job = step1_form.save(commit=False)
@@ -177,47 +159,132 @@ def create_job_page(request):
                     "step2_form": step2_form,
                     "step3_form": step3_form,
                     "job": creating_job,
-                    "step": 2
+                    "step": 2,
                 })
+
+        # ── Step 2 — pickup location ─────────────────────────────────────────
         elif request.POST['step'] == '2':
             if step2_form.is_valid():
-                step2_form.save()
+                job = step2_form.save(commit=False)
+                job.Customer = current_customer
+
+                lat = step2_form.cleaned_data.get('pickup_lat')
+                lng = step2_form.cleaned_data.get('pickup_lng')
+                if lat is not None and lng is not None:
+                    job.pickup_location = Point(lng, lat, srid=4326)
+
+                job.save()
                 return render(request, 'customer/create_job.html', {
                     "step1_form": step1_form,
                     "step2_form": step2_form,
                     "step3_form": step3_form,
                     "job": creating_job,
-                    "step": 3
+                    "step": 3,
                 })
+
+        # ── Step 3 — delivery location + distance ────────────────────────────
         elif request.POST['step'] == '3':
             if step3_form.is_valid():
-                step3_form.save()
+                job = step3_form.save(commit=False)
+                job.Customer = current_customer
+
+                lat = step3_form.cleaned_data.get('delivery_lat')
+                lng = step3_form.cleaned_data.get('delivery_lng')
+                if lat is not None and lng is not None:
+                    job.delivery_location = Point(lng, lat, srid=4326)
+
+                job.save()
+                creating_job.refresh_from_db()
+
                 manual_distance = step3_form.cleaned_data.get('manual_distance')
-                distance_unit = step3_form.cleaned_data.get('distance_unit')
+                distance_unit   = step3_form.cleaned_data.get('distance_unit')
 
                 if not manual_distance:
-                    try:
-                        pickup_coordinates = get_coordinates(creating_job.pickup_address)
-                        delivery_coordinates = get_coordinates(creating_job.delivery_address)
+                    # ── Use our distance engine ──────────────────────────────
+                    p_lat = creating_job.pickup_lat
+                    p_lng = creating_job.pickup_lng
+                    d_lat = creating_job.delivery_lat
+                    d_lng = creating_job.delivery_lng
 
-                        print(f"Pickup Coordinates: {pickup_coordinates}")  # Debug
-                        print(f"Delivery Coordinates: {delivery_coordinates}")  # Debug
+                    if all([p_lat, p_lng, d_lat, d_lng]):
+                        # ── Route + base price ─────────────────────────────────────
+                        result = compute_distance(
+                            p_lat, p_lng, d_lat, d_lng,
+                            vehicle_size=creating_job.size or 'medium',
+                        )
+ 
+                        if result['error']:
+                            messages.error(
+                                request,
+                                "Could not calculate distance automatically. "
+                                "Please enter it manually."
+                            )
+                            show_manual_distance = True
+                            return render(request, 'customer/create_job.html', {
+                                "step1_form": step1_form,
+                                "step2_form": step2_form,
+                                "step3_form": step3_form,
+                                "job":        creating_job,
+                                "step":       3,
+                                "show_manual_distance": show_manual_distance,
+                                "categories": categories,
+                            })
+ 
+                        # ── Apply goods type surcharge ─────────────────────────────
+                        from Truck.pricing_engine import GOODS_SENSITIVITY
+                        goods_key = creating_job.goods_type or 'standard'
+                        goods_cfg = GOODS_SENSITIVITY.get(goods_key, GOODS_SENSITIVITY['standard'])
+ 
+                        base_price       = result['price_usd']
+                        goods_surcharge  = round(base_price * goods_cfg['surcharge'], 2)
+                        final_price      = round(base_price + goods_surcharge, 2)
+ 
+                        # ── Store breakdown on job ─────────────────────────────────
+                        from Truck.pricing_engine import VEHICLE_CONFIG
+                        v = VEHICLE_CONFIG.get(creating_job.size or 'medium', VEHICLE_CONFIG['medium'])
+                        miles         = result['distance_miles']
+                        mileage_cost  = round(miles * v['rate_per_mile'], 2)
+                        fuel_surcharge = round(mileage_cost * v['fuel_surcharge'], 2)
+ 
+                        creating_job.distance            = miles
+                        creating_job.duration            = result['duration_min']
+                        creating_job.price               = final_price
+                        creating_job.price_base_fare     = v['base_fare']
+                        creating_job.price_mileage_cost  = mileage_cost
+                        creating_job.price_fuel_surcharge = fuel_surcharge
+                        creating_job.price_goods_surcharge = goods_surcharge
+                        creating_job.save()
+ 
+                        # ── Fetch weather at pickup location ──────────────────────────────
+                        from Truck.pricing_engine import get_weather_condition, WEATHER_CONFIG
+                        weather_key  = get_weather_condition(p_lat, p_lng)
+                        weather_cfg  = WEATHER_CONFIG.get(weather_key, WEATHER_CONFIG['clear'])
+                        weather_mult = weather_cfg['multiplier']
 
-                        if pickup_coordinates and delivery_coordinates:
-                            distance = haversine(pickup_coordinates, delivery_coordinates)
-                            print(f"Calculated Distance: {distance}")  # Debug
-                            if distance:
-                                creating_job.distance = round(distance, 2)
-                                creating_job.duration = int(calculate_duration(distance))
-                                creating_job.price = round((creating_job.distance * 1) + 20, 2)  # $1 per km
-                                creating_job.save()
-                            else:
-                                raise Exception("Failed to calculate distance.")
-                        else:
-                            raise Exception("Failed to fetch coordinates from OSM.")
-                    except Exception as e:
-                        print(e)
-                        messages.error(request, "Failed to calculate distance. Please enter the distance manually.")
+                        # Adjust duration for weather
+                        weather_adjusted_duration = int(round(result['duration_min'] * weather_mult))
+
+                        # Store on job
+                        creating_job.weather_condition      = weather_key
+                        creating_job.weather_label          = weather_cfg['label']
+                        creating_job.weather_icon           = weather_cfg['icon']
+                        creating_job.weather_eta_multiplier = weather_mult
+                        creating_job.duration               = weather_adjusted_duration
+                        creating_job.save()
+
+                        messages.info(
+                            request,
+                            f"Distance: {miles} mi via {result['method']} · "
+                            f"Est. {weather_adjusted_duration} min · "
+                            f"${final_price} USD"
+                            + (f" · {weather_cfg['label']} ({weather_mult}x ETA)" if weather_mult != 1.0 else "")
+                        )
+                    else:
+                        messages.error(
+                            request,
+                            "Pickup or delivery coordinates missing. "
+                            "Please re-select both locations on the map."
+                        )
                         show_manual_distance = True
                         return render(request, 'customer/create_job.html', {
                             "step1_form": step1_form,
@@ -228,27 +295,79 @@ def create_job_page(request):
                             "show_manual_distance": show_manual_distance,
                         })
                 else:
+                    # Manual distance entry — convert to miles
                     if distance_unit == 'miles':
-                        distance_in_km = manual_distance * 1.60934
+                        distance_miles = manual_distance
                     elif distance_unit == 'meters':
-                        distance_in_km = manual_distance / 1000
-                    else:
-                        distance_in_km = manual_distance
+                        distance_miles = (manual_distance / 1000) * 0.621371
+                    else:  # km
+                        distance_miles = manual_distance * 0.621371
 
-                    creating_job.distance = round(distance_in_km, 2)
-                    creating_job.duration = int(calculate_duration(distance_in_km))
-                    creating_job.price = round((creating_job.distance * 1) + 40, 2)  # $1 per km + $20 extra charge
+                    # Manual distance — same goods surcharge logic
+                    distance_miles = round(distance_miles, 2)
+ 
+                    from Truck.distance_engine import _compute_price, _compute_duration
+                    from Truck.pricing_engine import GOODS_SENSITIVITY, VEHICLE_CONFIG
+ 
+                    vehicle_size = creating_job.size or 'medium'
+                    base_price   = _compute_price(distance_miles, vehicle_size)
+ 
+                    goods_key    = creating_job.goods_type or 'standard'
+                    goods_cfg    = GOODS_SENSITIVITY.get(goods_key, GOODS_SENSITIVITY['standard'])
+                    goods_surcharge = round(base_price * goods_cfg['surcharge'], 2)
+                    final_price  = round(base_price + goods_surcharge, 2)
+ 
+                    v = VEHICLE_CONFIG.get(vehicle_size, VEHICLE_CONFIG['medium'])
+                    mileage_cost  = round(distance_miles * v['rate_per_mile'], 2)
+                    fuel_surcharge = round(mileage_cost * v['fuel_surcharge'], 2)
+ 
+                    creating_job.distance              = distance_miles
+                    creating_job.duration              = _compute_duration(distance_miles)
+                    creating_job.price                 = final_price
+                    creating_job.price_base_fare       = v['base_fare']
+                    creating_job.price_mileage_cost    = mileage_cost
+                    creating_job.price_fuel_surcharge  = fuel_surcharge
+                    creating_job.price_goods_surcharge = goods_surcharge
+                    # Weather for manual distance path
+                    from Truck.pricing_engine import get_weather_condition, WEATHER_CONFIG
+                    weather_key  = get_weather_condition(
+                        creating_job.pickup_lat, creating_job.pickup_lng
+                    )
+                    weather_cfg  = WEATHER_CONFIG.get(weather_key, WEATHER_CONFIG['clear'])
+                    weather_mult = weather_cfg['multiplier']
+                    creating_job.duration               = int(round(creating_job.duration * weather_mult))
+                    creating_job.weather_condition      = weather_key
+                    creating_job.weather_label          = weather_cfg['label']
+                    creating_job.weather_icon           = weather_cfg['icon']
+                    creating_job.weather_eta_multiplier = weather_mult
                     creating_job.save()
 
+                # Build price breakdown for Step 4 display
+                from Truck.pricing_engine import VEHICLE_CONFIG, GOODS_SENSITIVITY
+                _v = VEHICLE_CONFIG.get(creating_job.size or 'medium', VEHICLE_CONFIG['medium'])
+                _g = GOODS_SENSITIVITY.get(creating_job.goods_type or 'standard', GOODS_SENSITIVITY['standard'])
+                price_breakdown = {
+                    'vehicle_name':        _v['name'],
+                    'goods_name':          _g['name'],
+                    'goods_surcharge_pct': int(_g['surcharge'] * 100),
+                    'base_fare':           creating_job.price_base_fare,
+                    'mileage_rate':        _v['rate_per_mile'],
+                    'mileage_cost':        creating_job.price_mileage_cost,
+                    'fuel_surcharge':      creating_job.price_fuel_surcharge,
+                    'goods_surcharge':     creating_job.price_goods_surcharge,
+                    'total':               creating_job.price,
+                }
                 return render(request, 'customer/create_job.html', {
-                    "step1_form": step1_form,
-                    "step2_form": step2_form,
-                    "step3_form": step3_form,
-                    "GOOGLE_MAP_API_KEY": settings.GOOGLE_MAP_API_KEY,
-                    "job": creating_job,
-                    "step": 4  # Move to the next step
+                    "step1_form":      step1_form,
+                    "step2_form":      step2_form,
+                    "step3_form":      step3_form,
+                    "job":             creating_job,
+                    "step":            4,
+                    "categories":      categories,
+                    "price_breakdown": price_breakdown,
                 })
 
+        # ── Step 4 — payment ─────────────────────────────────────────────────
         elif request.POST['step'] == '4':
             if creating_job.price:
                 try:
@@ -260,52 +379,58 @@ def create_job_page(request):
                         off_session=True,
                         confirm=True,
                     )
-
                     Transaction.objects.create(
                         stripe_payment_intent_id=payment_intent['id'],
                         job=creating_job,
                         amount=creating_job.price,
                     )
-
                     creating_job.status = Job.PROCESSING_STATUS
                     creating_job.save()
                     
-                    job_created_time = creating_job.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                    # ── Trigger nearest courier auto-assignment ───────────────────────────
+                    try:
+                        from Truck.tasks import auto_assign_job
+                        import time
+                        result = auto_assign_job.delay(str(creating_job.id), [], time.time())
+                        import logging
+                        logging.getLogger(__name__).info(
+                            "auto_assign_job queued for job %s | task_id=%s",
+                            creating_job.id, result.id
+                        )
+                    except Exception as exc:
+                        import logging
+                        logging.getLogger(__name__).warning(
+                            "Failed to queue auto_assign_job for job %s: %s", creating_job.id, exc
+                        )
+                        # Non-fatal: job is still created, courier can manually browse and accept
 
-                    # Send email to the owner
-                    # Render the email body from an HTML template
+                    job_created_time = creating_job.created_at.strftime('%Y-%m-%d %H:%M:%S')
                     email_body = render_to_string('emails/new_job_notification.html', {
-                        'full_name': current_customer.user.get_full_name(),
-                        'job': creating_job,
-                        'site_url': 'https://josephnderitu.github.io/myportfolio/',  # replace with your actual site URL
-                        'pickup_name': creating_job.pickup_name,
-                        'pickup_phone': creating_job.pickup_phone,
-                        'pickup_address': creating_job.pickup_address,  # Add pickup address
-                        'delivery_address': creating_job.delivery_address,  # Add delivery address
-                        'job_image_url': creating_job.photo.url if creating_job.photo else None,
+                        'full_name':        current_customer.user.get_full_name(),
+                        'job':              creating_job,
+                        'site_url':         'https://josephnderitu.github.io/myportfolio/',
+                        'pickup_name':      creating_job.pickup_name,
+                        'pickup_phone':     creating_job.pickup_phone,
+                        'pickup_address':   creating_job.pickup_address,
+                        'delivery_address': creating_job.delivery_address,
+                        'job_image_url':    creating_job.photo.url if creating_job.photo else None,
                         'job_created_time': job_created_time,
                     })
-
-                    # Send email to the owner
                     email = EmailMessage(
-                        'New Job Created',
-                        email_body,
-                        settings.DEFAULT_FROM_EMAIL,
-                        [settings.OWNER_EMAIL],
+                        'New Job Created', email_body,
+                        settings.DEFAULT_FROM_EMAIL, [settings.OWNER_EMAIL],
                     )
-                    email.content_subtype = 'html'  # Specify that the email content is HTML
+                    email.content_subtype = 'html'
                     email.send(fail_silently=False)
-                    
-                    
-                    # Send invoice email to the customer
+
                     invoice_body = render_to_string('emails/invoice.html', {
-                        'customer_name': current_customer.user.get_full_name(),
-                        'job': creating_job,
+                        'customer_name':    current_customer.user.get_full_name(),
+                        'job':              creating_job,
                         'job_created_time': job_created_time,
-                        'current_year': datetime.now().year,
+                        'current_year':     datetime.now().year,
                     })
                     invoice_email = EmailMessage(
-                        'Your Invoice for Job #{}'.format(creating_job.id),
+                        f'Invoice for Job #{creating_job.id}',
                         invoice_body,
                         settings.DEFAULT_FROM_EMAIL,
                         [current_customer.user.email],
@@ -314,27 +439,47 @@ def create_job_page(request):
                     invoice_email.send(fail_silently=False)
 
                 except stripe.error.CardError as e:
-                    error = e.error
-                    print("Code is: %s" % error.code)
-                    payment_intent_id = error.payment_intent['id']
-                    payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+                    messages.error(request, f"Payment failed: {e.error.message}")
 
-    current_step = 1 if not creating_job.pickup_name else 2
-    current_step = 3 if creating_job.delivery_name else current_step
-    current_step = 4 if creating_job.price else current_step
+    # ── GET — resume at correct step ─────────────────────────────────────────
+    current_step = 1
+    if creating_job.pickup_name:
+        current_step = 2
+    if creating_job.delivery_name:
+        current_step = 3
+    if creating_job.price:
+        current_step = 4
+
+    # Build price breakdown only when landing on step 4
+    price_breakdown = None
+    if current_step == 4 and creating_job.price:
+        from Truck.pricing_engine import VEHICLE_CONFIG, GOODS_SENSITIVITY
+        _v = VEHICLE_CONFIG.get(creating_job.size or 'medium', VEHICLE_CONFIG['medium'])
+        _g = GOODS_SENSITIVITY.get(creating_job.goods_type or 'standard', GOODS_SENSITIVITY['standard'])
+        price_breakdown = {
+            'vehicle_name':        _v['name'],
+            'goods_name':          _g['name'],
+            'goods_surcharge_pct': int(_g['surcharge'] * 100),
+            'base_fare':           creating_job.price_base_fare,
+            'mileage_rate':        _v['rate_per_mile'],
+            'mileage_cost':        creating_job.price_mileage_cost,
+            'fuel_surcharge':      creating_job.price_fuel_surcharge,
+            'goods_surcharge':     creating_job.price_goods_surcharge,
+            'total':               creating_job.price,
+        }
 
     return render(request, 'customer/create_job.html', {
-        "job": creating_job,
-        "step": current_step,
-        "step1_form": step1_form,
-        "step2_form": step2_form,
-        "step3_form": step3_form,
-        "GOOGLE_MAP_API_KEY": settings.GOOGLE_MAP_API_KEY,
+        "job":                  creating_job,
+        "step":                 current_step,
+        "step1_form":           step1_form,
+        "step2_form":           step2_form,
+        "step3_form":           step3_form,
         "show_manual_distance": show_manual_distance,
+        "categories":           categories,
+        "price_breakdown":      price_breakdown,
     })
 
-
-@login_required(login_url="/sign_in/?next=/customer/")    
+@login_required(login_url="/sign_in/?next=/customer/")
 def current_jobs_page(request):
     jobs = Job.objects.filter(
         Customer=request.user.customer,
@@ -343,9 +488,9 @@ def current_jobs_page(request):
             Job.PICKING_STATUS,
             Job.DELIVERING_STATUS,
         ]
-    ).order_by('-created_at')  # Order by creation date descending
-    
-    paginator = Paginator(jobs, 2)  # Show 2 jobs per page (adjust per your preference)
+    ).order_by('-created_at')
+
+    paginator = Paginator(jobs, 2)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -354,7 +499,8 @@ def current_jobs_page(request):
         "current_jobs": True,
     })
 
-@login_required(login_url="/sign_in/?next=/customer/")    
+
+@login_required(login_url="/sign_in/?next=/customer/")
 def archived_jobs_page(request):
     jobs = Job.objects.filter(
         Customer=request.user.customer,
@@ -362,9 +508,9 @@ def archived_jobs_page(request):
             Job.COMPLETED_STATUS,
             Job.CANCELED_STATUS,
         ]
-    ).order_by('-created_at')  # Order by creation date descending
-    
-    paginator = Paginator(jobs, 2)  # Show 2 jobs per page (adjust per your preference)
+    ).order_by('-created_at')
+
+    paginator = Paginator(jobs, 2)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -373,20 +519,51 @@ def archived_jobs_page(request):
         "archived_jobs": True,
     })
 
+
 @login_required(login_url="/sign_in/?next=/customer/")
 def job_page(request, job_id):
-    job = Job.objects.get(id =  job_id)
-    
+    job = Job.objects.get(id=job_id)
+
     if request.method == "POST" and job.status == Job.PROCESSING_STATUS:
         job.status = Job.CANCELED_STATUS
         job.save()
         return redirect(reverse('customer:archived_jobs'))
-    
-    
-    return render(request, 'customer/job.html',{
-        "job" : job,
-        "GOOGLE_MAP_API_KEY": settings.GOOGLE_MAP_API_KEY,
+
+    return render(request, 'customer/job.html', {
+        "job": job,
+        "OSRM_BASE_URL": settings.OSRM_BASE_URL,
     })
     
+# ── Delivery confirmation (no login required — token is the auth) ────────────
+def confirm_delivery_page(request, job_id, token):
+    """
+    Customer clicks the WhatsApp link → confirms receipt.
+    URL: /customer/confirm/{job_id}/{token}/
+    No login required — UUID token authenticates the request.
+    """
+    from django.utils import timezone as tz
+    try:
+        job = Job.objects.select_related(
+            'Customer__user', 'courier__user'
+        ).get(id=job_id, confirmation_token=token)
+    except Job.DoesNotExist:
+        return render(request, 'customer/confirm_delivery.html', {'invalid': True})
 
+    if request.method == 'POST' and not job.customer_confirmed:
+        job.customer_confirmed = True
+        job.confirmed_at       = tz.now()
+        job.save(update_fields=['customer_confirmed', 'confirmed_at'])
 
+        # Send thank-you WhatsApp
+        try:
+            from Truck.notifications import send_whatsapp
+            send_whatsapp(
+                job.Customer.phone_number,
+                f"✅ *RiftValley Carriers*\n\n"
+                f"Thank you for confirming receipt of *{job.names}*! "
+                f"We hope to serve you again soon. 🙏",
+            )
+        except Exception:
+            pass
+
+    return render(request, 'customer/confirm_delivery.html', {'job': job})

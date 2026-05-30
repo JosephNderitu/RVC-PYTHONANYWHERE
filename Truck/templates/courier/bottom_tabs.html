@@ -1,52 +1,204 @@
+{% url "courier:available_jobs" as available_jobs_url %}
+{% url "courier:current_job"   as current_job_url   %}
+{% url "courier:archived_jobs" as archived_jobs_url  %}
+{% url "courier:profile"       as profile_url        %}
+
 <style>
-    .bottom-tabs{
-       position: fixed; 
-       bottom: 0;
-       left: 0;
-       right: 0;
-       height: 60px;
-       display: flex;
-       background-color: white;
-       box-shadow: 0 1px 5px rgba(0,0,0,0.2);
-       text-align: center;
+/* ══════════════════════════════════════════════════
+   RVC Courier — Bottom Tab Bar
+   5 tabs: Home · Jobs · [My Job] · Earnings · Profile
+   Centre tab is elevated with orange pill icon.
+   Active = orange. Hidden on desktop (sidebar used).
+   ══════════════════════════════════════════════════ */
 
-    }
-    .bottom-tabs>a{
-        flex: 1;
-        padding: 5px;
-        color: #BFBFBF;
-        text-decoration: none;
+.btab-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  /* Slightly taller to accommodate the elevated centre icon */
+  height: calc(var(--tab-h, 64px) + 4px);
+  z-index: 400;
 
-    }
-    .bottom-tabs>a>span{
-        font-size: 13px;
-        font-weight:  bold;
-        display: block;
-    }
-    .bottom-tabs>a>1{
-        font-size: 20px;
-    }
-    .bottom-tabs>a.active{
-        color: blue;
-    }
+  background: rgba(17, 24, 39, 0.98);
+  border-top: 1px solid rgba(46, 58, 85, 0.9);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+
+  display: flex;
+  align-items: stretch;
+
+  /* Notched phone bottom inset */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Individual tab item ─────────────────────────── */
+.btab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+
+  color: var(--rvc-muted, #64748B);
+  text-decoration: none !important;
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+
+  position: relative;
+  transition: color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.btab-item i {
+  font-size: 18px;
+  line-height: 1;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.btab-item:hover {
+  color: var(--rvc-muted-l, #94A3B8);
+  text-decoration: none;
+}
+.btab-item:hover i { transform: translateY(-1px); }
+
+/* Active state */
+.btab-item.active            { color: var(--rvc-orange, #F97316); }
+.btab-item.active i          { color: var(--rvc-orange, #F97316); }
+
+/* Orange indicator line at top edge */
+.btab-item.active::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 18%; right: 18%;
+  height: 2px;
+  background: var(--rvc-orange, #F97316);
+  border-radius: 0 0 3px 3px;
+  box-shadow: 0 0 8px rgba(249, 115, 22, 0.55);
+}
+
+/* Disabled / placeholder tabs */
+.btab-item.btab-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ── Centre "My Job" — elevated orange pill ──────── */
+.btab-item.btab-center {
+  /* Remove default active indicator — icon handles it */
+  position: relative;
+}
+.btab-item.btab-center::before { display: none !important; }
+
+.btab-center-pill {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: var(--rvc-orange, #F97316);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Elevates above the bar */
+  margin-top: -22px;
+  margin-bottom: 2px;
+
+  border: 3px solid var(--rvc-dark, #0B0F1A);
+  box-shadow: 0 4px 20px rgba(249, 115, 22, 0.45);
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+  flex-shrink: 0;
+}
+.btab-center-pill i {
+  font-size: 18px !important;
+  color: #fff !important;
+  transform: none !important;
+}
+.btab-item.btab-center:hover .btab-center-pill {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 28px rgba(249, 115, 22, 0.55);
+}
+.btab-item.btab-center.active .btab-center-pill {
+  background: var(--rvc-orange-d, #EA6C0A);
+  box-shadow: 0 6px 24px rgba(234, 108, 10, 0.6);
+}
+
+.btab-center-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ── Responsive ──────────────────────────────────── */
+
+/* Small phones (< 360px) — shrink font + icons */
+@media (max-width: 359px) {
+  .btab-item          { font-size: 0.52rem; gap: 2px; }
+  .btab-item i        { font-size: 16px; }
+  .btab-center-pill   { width: 44px; height: 44px; margin-top: -18px; }
+  .btab-center-pill i { font-size: 16px !important; }
+}
+
+/* Tablet portrait (480–767px) — slightly larger */
+@media (min-width: 480px) and (max-width: 767px) {
+  .btab-item          { font-size: 0.63rem; }
+  .btab-item i        { font-size: 20px; }
+  .btab-center-pill   { width: 54px; height: 54px; margin-top: -24px; }
+  .btab-center-pill i { font-size: 20px !important; }
+}
+
+/* Desktop (768px+) — hide; each page renders its own sidebar nav */
+@media (min-width: 768px) {
+  .btab-bar { display: none; }
+}
 </style>
 
-{% url "courier:available_jobs" as available_jobs_url %}
-{% url "courier:current_job" as current_job_url %}
-{% url "courier:archived_jobs" as archived_jobs_url %}
-{% url "courier:profile" as profile_url %}
+<nav class="btab-bar" role="navigation" aria-label="Courier main navigation">
 
-<div class="bottom-tabs d-flex">
-    <a href="{% url "courier:available_jobs" %}" class="{% if request.path == available_jobs_url  %}active{% endif %}">
-       <i class="fas fa-map-marked-alt"></i>
-       <span>Available Jobs</span>
-    </a>
-    <a href="{% url "courier:current_job" %}" class="{% if request.path == current_job_url or request.path == archived_jobs_url %}active{% endif %}">
-        <i class="fas fa-archive"></i>
-        <span>My Jobs</span>
-     </a>
-     <a href="{% url "courier:profile" %}" class="{% if request.path == profile_url %}active{% endif %}">
-        <i class="fas fa-user"></i>
-        <span>Profile</span>
-     </a>
-</div>
+  <!-- 1. Home / Dashboard -->
+  <!-- URL: courier:home — will show dashboard once that page is built -->
+  <a href="{% url 'courier:home' %}"
+     class="btab-item {% if request.path == '/' or request.path == '/courier/' %}active{% endif %}"
+     aria-label="Home dashboard">
+    <i class="fas fa-home"></i>
+    <span>Home</span>
+  </a>
+
+  <!-- 2. Available Jobs -->
+  <a href="{{ available_jobs_url }}"
+     class="btab-item {% if request.path == available_jobs_url %}active{% endif %}"
+     aria-label="Available jobs map">
+    <i class="fas fa-map-marked-alt"></i>
+    <span>Jobs</span>
+  </a>
+
+  <!-- 3. My Job — centre elevated (most used during a shift) -->
+  <a href="{{ current_job_url }}"
+     class="btab-item btab-center {% if request.path == current_job_url %}active{% endif %}"
+     aria-label="My current active job">
+    <div class="btab-center-pill">
+      <i class="fas fa-truck"></i>
+    </div>
+    <span class="btab-center-label">My Job</span>
+  </a>
+
+  <!-- 4. Earnings / History -->
+  <a href="{{ archived_jobs_url }}"
+     class="btab-item {% if request.path == archived_jobs_url %}active{% endif %}"
+     aria-label="Earnings and job history">
+    <i class="fas fa-dollar-sign"></i>
+    <span>Earnings</span>
+  </a>
+
+  <!-- 5. Profile & Settings -->
+  <a href="{{ profile_url }}"
+     class="btab-item {% if request.path == profile_url %}active{% endif %}"
+     aria-label="My profile and settings">
+    <i class="fas fa-user-circle"></i>
+    <span>Profile</span>
+  </a>
+
+</nav>

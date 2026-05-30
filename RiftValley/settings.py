@@ -9,25 +9,27 @@ https://docs.djangoproject.com/en/5.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
+import environ
 import os
 from pathlib import Path
 
 from whitenoise.storage import CompressedManifestStaticFilesStorage
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+env = environ.Env(DEBUG=(bool, True))
+environ.Env.read_env(BASE_DIR / '.env')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-019yyjws5m8cc+$8x**(+$#k0)$!jug=+h2rvb#p5e3ee6ecy='
+SECRET_KEY = env('SECRET_KEY', default='django-insecure-019yyjws5m8cc+$8x**(+$#k0)$!jug=+h2rvb#p5e3ee6ecy=')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = ['RiftValleyCarrier.pythonanywhere.com']
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -40,6 +42,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.gis',       # ← add this
+    'rest_framework',
+    'rest_framework_gis',
     'Truck',
     'bootstrap4',
     'social_django',
@@ -84,11 +89,14 @@ WSGI_APPLICATION = 'RiftValley.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
+# ── Database: switch from SQLite to PostGIS ──────────────────────────────────
+import dj_database_url
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=env('DATABASE_URL'),
+        engine='django.contrib.gis.db.backends.postgis',
+    )
 }
 
 
@@ -145,21 +153,53 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Match the actual login URL in your urls.py
 LOGIN_URL = '/sign_in/'
 LOGIN_REDIRECT_URL = '/'
 
+# Ensure sessions persist properly
+SESSION_COOKIE_NAME = 'rvc_sessionid'  # custom name avoids conflicts with other local projects
+
 
 AUTHENTICATION_BACKENDS = [
-    'social_core.backends.facebook.FacebookOAuth2',
+    'social_core.backends.google.GoogleOAuth2',
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-SOCIAL_AUTH_FACEBOOK_KEY = "7448007858649860"
-SOCIAL_AUTH_FACEBOOK_SECRET = "c4b7a040a0ce0fee313f7aeccfeaf05d"
-SOCIAL_AUTH_FACEBOOK_SCOPE = ['EMAIL']
-SOCIAL_AUTH_FACEBOOK_PROFILE_EXTRA_PARAMS = {
-    'fields':'id, name, email'
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY    = os.getenv('GOOGLE_CLIENT_ID', '')
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
+ 
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+    'openid',
+]
+ # After Google login, redirect user to the correct portal
+SOCIAL_AUTH_LOGIN_REDIRECT_URL  = '/'
+SOCIAL_AUTH_GOOGLE_OAUTH2_AUTH_EXTRA_ARGUMENTS = {
+    'access_type': 'offline',
+    'prompt': 'select_account',  # always show account chooser
 }
+
+# Pipeline — keeps default but you can extend it to auto-create Customer profile
+SOCIAL_AUTH_PIPELINE = (
+    'social_core.pipeline.social_auth.social_details',
+    'social_core.pipeline.social_auth.social_uid',
+    'social_core.pipeline.social_auth.auth_allowed',
+    'social_core.pipeline.social_auth.social_user',
+    'social_core.pipeline.user.get_username',
+    'social_core.pipeline.user.create_user',
+    'social_core.pipeline.social_auth.associate_user',
+    'social_core.pipeline.social_auth.load_extra_data',
+    'social_core.pipeline.user.user_details',
+    'Truck.pipeline.create_customer_profile',
+)
+
+SOCIAL_AUTH_ALLOWED_REDIRECT_HOSTS = [
+    'localhost:8000',
+    '127.0.0.1:8000',
+]
+SOCIAL_AUTH_GOOGLE_OAUTH2_WHITELISTED_DOMAINS = []
 #stripe configuration
 STRIPE_API_PUBLIC_KEY = "pk_test_51P7iQvH8HmEJ2HLLyRBv8smOWYlHBxDIQ97M3GfxOW5KMDINXLG64rCn8wzvwbiUJWJGpY4WPsGx7PG2gQw78laF0019acYxQg"
 STRIPE_API_SECRET_KEY = "sk_test_51P7iQvH8HmEJ2HLLpfyWM4BV9Ghi88xDz8uTEmrkLkqm3HU7hCI2av1f3TvzxOMi9a1rgkzNtTvgljXBLE5ii3r500ECCZtr8T"
@@ -175,18 +215,25 @@ PAYPAL_CLIENT_SECRET = "ECzjHyP3wjj8xismmtBYgkGB72fo2gnug5dw7GZOOGpVkHEyYxzi7IFV
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# ── Twilio WhatsApp ────────────────────────────────────────
+TWILIO_ACCOUNT_SID    = os.environ.get('TWILIO_ACCOUNT_SID', '')
+TWILIO_AUTH_TOKEN     = os.environ.get('TWILIO_AUTH_TOKEN', '')
+TWILIO_WHATSAPP_FROM  = os.environ.get('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886')
+SITE_URL              = os.environ.get('SITE_URL', 'http://localhost:8000')
 
 #Email setup codes for password reset
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'gikurujoseph53@gmail.com'
-EMAIL_HOST_PASSWORD = 'lsov xexn glub dixu'
+EMAIL_BACKEND    = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST       = env('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT       = env.int('EMAIL_PORT', default=587)
+EMAIL_USE_TLS    = env.bool('EMAIL_USE_TLS', default=True)
+EMAIL_HOST_USER  = env('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
+ADMIN_EMAIL      = os.getenv('ADMIN_EMAIL', '')
+ADMIN_WHATSAPP   = os.getenv('ADMIN_WHATSAPP', '')
 
 #email setup (invoice and job acceptance) to Customer and (job created) to owner.
-DEFAULT_FROM_EMAIL = 'gikurujoseph53@gmail.com'
-OWNER_EMAIL = 'joseph.gikuru@students.jkuat.ac.ke'
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='J&N Collections <noreply@example.com>')
+OWNER_EMAIL = env('OWNER_EMAIL', default='joseph.gikuru@students.jkuat.ac.ke')
 
 NOTIFICATION_URL = "https://RiftValleyCarrier.pythonanywhere.com/"
 
@@ -197,3 +244,62 @@ CSRF_TRUSTED_ORIGINS = [
     # Add any other ngrok URLs if necessary  running ngrok command./ngrok http 8000
 
 ]
+
+# ── Celery ───────────────────────────────────────────────────────────────────
+CELERY_BROKER_URL = env('REDIS_URL', default='redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+
+# ── Google Maps (already in your project) ───────────────────────────────────
+GOOGLE_MAP_API_KEY = env('GOOGLE_MAP_API_KEY', default='')
+
+# ── OSRM (Phase 2) ─────────────────────────────────────────────────────────
+OSRM_BASE_URL = env('OSRM_BASE_URL', default='http://osrm:5000')
+#OSRM_BASE_URL = os.environ.get('OSRM_BASE_URL', 'http://osrm:5000')
+
+# RiftValley/settings.py — add these session settings
+
+# ── Session configuration ─────────────────────────────────────────────────────
+# Keep couriers logged in for 30 days — critical for mobile courier use
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30        # 30 days in seconds
+
+# Do NOT expire when browser closes — courier might switch apps while driving
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
+# Save session on every request so the 30-day timer resets with activity
+SESSION_SAVE_EVERY_REQUEST = True
+
+# On localhost (http) this MUST be False — True means cookie only sent over https
+SESSION_COOKIE_SECURE = False
+
+# Makes session cookie inaccessible to JavaScript (security best practice)
+SESSION_COOKIE_HTTPONLY = True
+
+# SameSite Lax allows normal navigation while blocking CSRF from external sites
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+# ── CSRF configuration ────────────────────────────────────────────────────────
+# Same logic — False for http localhost, True in production
+CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_HTTPONLY = False    # Must be False so JS can read it for fetch() calls
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+# ── Celery Beat — 2AM daily zone regeneration ──────────────
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'regenerate-delivery-zones-daily': {
+        'task':     'Truck.tasks.generate_zones_task',
+        'schedule': crontab(hour=2, minute=0),
+        'kwargs':   {'demo_mode': False, 'clear_existing': True},
+    },
+}
+
+# ── Driver Verification ────────────────────────────────────────────────────────
+# Set True during development to skip InsightFace (faster, no model download needed)
+# Set False in production for full face matching
+SKIP_FACE_VERIFICATION = True    # ← change to False when ready for production
+ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImFiZmY3MDYwMzE0ODQ1ZTE5YjQ1OWM1MTAzOWNjZjAwIiwiaCI6Im11cm11cjY0In0='
+# Used for: real-time traffic speed overlay on courier maps
+TOMTOM_API_KEY = 'cdWakEzXi7JHegRHwwIEYh2Aw12cH2v8', 

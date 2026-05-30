@@ -1,38 +1,137 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block content%}
+{% block body_class %}customer-portal{% endblock %}
 
-{% url 'customer:create_job' as create_job_url %}
-{% url 'customer:profile' as profile_url %}
-{% url 'customer:current_jobs' as current_jobs_url %}
-{% url 'customer:archived_jobs' as archived_jobs_url %}
-{% url 'customer:payment_method' as payment_method_url %}
+{% block head %}
+<style>
+/* ── Portal globals ──────────────────────────────────────── */
+body.customer-portal { background:#F1F5F9 !important; font-family:'Sora',sans-serif; }
 
-<div class= "container bg-light mt-4 pt-3 pb-3">
-    <div class="row">
-        <div class="col-lg-4">
-           <div class="text-center" >
-            <img src="{% if request.user.customer.avatar %}{{ request.user.customer.avatar.url }}{% else %}{% static '/images/avatar.png' %}{% endif %}" alt="" class="rounded-circle mb-2" width="100" height="100">
-            <h4>{{ request.user.get_full_name }}</h4>
-            <p class="text-secondary">{{ request.user.email }}</p>
-           </div>
+/* ── Sidebar ─────────────────────────────────────────────── */
+.ps { width:248px; flex-shrink:0; background:#0D1B3E; border-radius:16px;
+      position:sticky; top:84px; height:fit-content;
+      max-height:calc(100vh - 100px); overflow-y:auto; }
+.ps::-webkit-scrollbar { width:3px; }
+.ps::-webkit-scrollbar-thumb { background:rgba(255,255,255,.15); border-radius:2px; }
 
-           <div class="list-group mt-5">
-            <a href="{% url 'customer:create_job'%}" class="list-group-item list-group-item-action {% if request.path == create_job_url %} active {% endif %}">Create a job</a>
-            <a href="{% url 'customer:current_jobs'%}" class="list-group-item list-group-item-action {% if request.path == current_jobs_url or request.path == archived_jobs_url %} active {% endif %}">My jobs</a>
-            <a href="{% url 'customer:profile'%}" class="list-group-item list-group-item-action {% if request.path == profile_url %} active {% endif %}">Profile information</a>
-            <a href="{% url 'customer:payment_method'%}" class="list-group-item list-group-item-action {% if request.path == payment_method_url %} active {% endif %}">Payment Method</a>
-           </div>
+.ps-link {
+  display:flex; align-items:center; gap:11px;
+  padding:10px 18px; color:rgba(255,255,255,.6);
+  font-size:.875rem; font-weight:500;
+  text-decoration:none !important;
+  border-left:3px solid transparent;
+  transition:all .18s;
+}
+.ps-link:hover { color:#fff; background:rgba(255,255,255,.06); }
+.ps-link.active { color:#F97316; background:rgba(249,115,22,.1); border-left-color:#F97316; font-weight:600; }
+.ps-link i { width:17px; text-align:center; font-size:.85rem; }
 
-        </div>
-        <div class="col-lg-8">
-            {% block main %}
+/* ── Portal card ─────────────────────────────────────────── */
+.pc { background:#fff; border:1px solid #E5E7EB; border-radius:14px; overflow:hidden; }
+.pc:hover { box-shadow:0 8px 28px rgba(13,27,62,.09); }
 
-            {% endblock %}
+/* ── Page header strip ───────────────────────────────────── */
+.ph { background:#0D1B3E; border-radius:14px; padding:20px 24px; margin-bottom:20px; }
 
-        </div>
+/* ── Status badges ───────────────────────────────────────── */
+.sb { display:inline-flex; align-items:center; gap:5px;
+      padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:700; }
+.sb-processing { background:#FEF3C7; color:#B45309; }
+.sb-picking    { background:#DBEAFE; color:#1D4ED8; }
+.sb-delivering { background:#D1FAE5; color:#065F46; }
+.sb-completed  { background:#D1FAE5; color:#065F46; }
+.sb-cancel     { background:#FEE2E2; color:#991B1B; }
+.sb-creating   { background:#EEF2FF; color:#4338CA; }
+
+/* ── Mobile drawer ───────────────────────────────────────── */
+#pd-bg  { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1040; }
+#pd     { position:fixed; top:0; left:-268px; bottom:0; width:248px;
+          background:#0D1B3E; z-index:1041; overflow-y:auto; padding-top:72px;
+          transition:left .26s cubic-bezier(.4,0,.2,1); }
+#pd.open { left:0; }
+#pd-bg.open { display:block; }
+</style>
+{% block head_extra %}{% endblock %}
+{% endblock %}
+
+{% block content %}
+
+<!-- Mobile drawer -->
+<div id="pd-bg" onclick="this.classList.remove('open');document.getElementById('pd').classList.remove('open')"></div>
+<div id="pd">
+  <div class="px-5 py-4" style="border-bottom:1px solid rgba(255,255,255,.1);">
+    <div class="flex flex-col items-center text-center">
+      <img src="{% if request.user.customer.avatar %}{{ request.user.customer.avatar.url }}{% else %}{% static '/images/avatar.png' %}{% endif %}"
+           class="rounded-full mb-2" style="width:60px;height:60px;object-fit:cover;border:2px solid #F97316;">
+      <div class="text-white text-sm font-semibold">{{ request.user.get_full_name }}</div>
+      <div class="text-xs" style="color:rgba(255,255,255,.45);">{{ request.user.email }}</div>
     </div>
+  </div>
+  <nav class="py-2">
+    {% url 'customer:create_job' as cju %}{% url 'customer:current_jobs' as cjo %}{% url 'customer:archived_jobs' as ajo %}{% url 'customer:profile' as pru %}{% url 'customer:payment_method' as pmu %}
+    <a href="{% url 'customer:create_job' %}"     class="ps-link {% if request.path == cju %}active{% endif %}"><i class="fas fa-plus-circle"></i>Create a Job</a>
+    <a href="{% url 'customer:current_jobs' %}"   class="ps-link {% if request.path == cjo or request.path == ajo %}active{% endif %}"><i class="fas fa-box"></i>My Jobs</a>
+    <a href="{% url 'customer:profile' %}"        class="ps-link {% if request.path == pru %}active{% endif %}"><i class="fas fa-user"></i>Profile</a>
+    <a href="{% url 'customer:payment_method' %}" class="ps-link {% if request.path == pmu %}active{% endif %}"><i class="fas fa-credit-card"></i>Payment</a>
+    <div style="border-top:1px solid rgba(255,255,255,.08);margin:10px 14px;"></div>
+    <a href="/" class="ps-link"><i class="fas fa-house"></i>Back to Home</a>
+  </nav>
 </div>
 
+<!-- Portal wrapper -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+  <!-- Mobile top bar -->
+  <div class="flex items-center justify-between mb-5 lg:hidden">
+    <div class="flex items-center gap-3">
+      <img src="{% if request.user.customer.avatar %}{{ request.user.customer.avatar.url }}{% else %}{% static '/images/avatar.png' %}{% endif %}"
+           class="rounded-full" style="width:36px;height:36px;object-fit:cover;">
+      <div>
+        <div class="font-semibold text-sm" style="color:#0D1B3E;">{{ request.user.get_full_name }}</div>
+        <div class="text-xs text-gray-400">Customer Portal</div>
+      </div>
+    </div>
+    <button onclick="document.getElementById('pd').classList.toggle('open');document.getElementById('pd-bg').classList.toggle('open')"
+            class="px-3 py-2 rounded-lg text-sm font-bold text-white" style="background:#0D1B3E;border:none;">
+      <i class="fas fa-bars mr-1"></i>Menu
+    </button>
+  </div>
+
+  <div class="flex gap-6 items-start">
+
+    <!-- Desktop sidebar -->
+    <div class="ps hidden lg:block">
+      <div class="px-5 py-6 text-center" style="border-bottom:1px solid rgba(255,255,255,.08);">
+        <img src="{% if request.user.customer.avatar %}{{ request.user.customer.avatar.url }}{% else %}{% static '/images/avatar.png' %}{% endif %}"
+             class="rounded-full mx-auto mb-3" style="width:68px;height:68px;object-fit:cover;border:2px solid #F97316;">
+        <div class="text-white font-bold text-sm">{{ request.user.get_full_name }}</div>
+        <div class="text-xs mt-0.5" style="color:rgba(255,255,255,.4);">{{ request.user.email }}</div>
+      </div>
+      <nav class="py-2">
+        {% url 'customer:create_job' as cju %}{% url 'customer:current_jobs' as cjo %}{% url 'customer:archived_jobs' as ajo %}{% url 'customer:profile' as pru %}{% url 'customer:payment_method' as pmu %}
+        <div class="px-4 pt-2 pb-1" style="color:rgba(255,255,255,.28);font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;">Jobs</div>
+        <a href="{% url 'customer:create_job' %}"     class="ps-link {% if request.path == cju %}active{% endif %}"><i class="fas fa-plus-circle"></i>Create a Job</a>
+        <a href="{% url 'customer:current_jobs' %}"   class="ps-link {% if request.path == cjo or request.path == ajo %}active{% endif %}"><i class="fas fa-box"></i>My Jobs</a>
+        <div class="px-4 pt-3 pb-1" style="color:rgba(255,255,255,.28);font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;">Account</div>
+        <a href="{% url 'customer:profile' %}"        class="ps-link {% if request.path == pru %}active{% endif %}"><i class="fas fa-user"></i>Profile</a>
+        <a href="{% url 'customer:payment_method' %}" class="ps-link {% if request.path == pmu %}active{% endif %}"><i class="fas fa-credit-card"></i>Payment Method</a>
+        <div style="border-top:1px solid rgba(255,255,255,.07);margin:10px 14px;"></div>
+        <a href="/" class="ps-link"><i class="fas fa-house"></i>Back to Home</a>
+      </nav>
+      <div class="px-4 pb-4">
+        <div class="text-center py-2.5 rounded-xl" style="background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.2);">
+          <div class="text-xs font-bold" style="color:#F97316;">CUSTOMER PORTAL</div>
+          <div class="text-xs" style="color:rgba(255,255,255,.35);">Rift Valley Carriers</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="flex-1 min-w-0">
+      {% block main %}{% endblock %}
+    </div>
+
+  </div>
+</div>
 {% endblock %}

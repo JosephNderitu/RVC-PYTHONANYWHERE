@@ -1,0 +1,740 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Contact Us — RiftValley Carriers{% endblock %}
+
+{% block head %}
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+{% endblock %}
+
+{% block content %}
+<style>
+/* ── Reset & base ─────────────────────────────────────────────── */
+*{box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;color:#111827;background:#fff;}
+
+/* ── Variables ────────────────────────────────────────────────── */
+:root{
+  --navy:#0D1B3E;
+  --orange:#F97316;
+  --orange-light:#FFF7ED;
+  --orange-border:rgba(249,115,22,.3);
+  --grey:#6B7280;
+  --lgrey:#F3F4F6;
+  --border:#E5E7EB;
+  --shadow:0 4px 6px rgba(0,0,0,.04),0 12px 40px rgba(13,27,62,.08);
+  --radius:16px;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────── */
+.ct-hero{
+  background:linear-gradient(110deg,var(--navy) 0%,#1a3060 60%,#1a3060 100%);
+  padding:72px 20px 60px;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+}
+.ct-hero::before{
+  content:'';position:absolute;top:-80px;right:-80px;
+  width:320px;height:320px;
+  background:radial-gradient(circle,rgba(249,115,22,.15) 0%,transparent 70%);
+  border-radius:50%;pointer-events:none;
+}
+.ct-hero::after{
+  content:'';position:absolute;bottom:-60px;left:-60px;
+  width:240px;height:240px;
+  background:radial-gradient(circle,rgba(255,255,255,.04) 0%,transparent 70%);
+  border-radius:50%;pointer-events:none;
+}
+.ct-badge{
+  display:inline-flex;align-items:center;gap:7px;
+  background:rgba(249,115,22,.18);border:1px solid var(--orange-border);
+  color:#FB923C;font-family:'Sora',sans-serif;font-size:.75rem;
+  font-weight:700;padding:5px 14px;border-radius:20px;
+  text-transform:uppercase;letter-spacing:.06em;margin-bottom:18px;
+}
+.ct-hero h1{
+  font-family:'Sora',sans-serif;font-size:clamp(1.8rem,4vw,2.8rem);
+  font-weight:800;color:#fff;margin:0 0 14px;letter-spacing:-.02em;
+}
+.ct-hero p{font-size:1rem;color:rgba(255,255,255,.65);max-width:520px;margin:0 auto 28px;line-height:1.7;}
+
+/* Online status pill */
+.status-pill{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+  color:#fff;font-size:.8rem;padding:6px 14px;border-radius:20px;backdrop-filter:blur(8px);
+}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.status-dot.online{background:#22C55E;box-shadow:0 0 0 3px rgba(34,197,94,.3);}
+.status-dot.away{background:#F97316;box-shadow:0 0 0 3px rgba(249,115,22,.3);}
+
+/* ── Layout wrapper ───────────────────────────────────────────── */
+.ct-wrap{max-width:1200px;margin:0 auto;padding:0 20px;}
+
+/* ── Channel cards ────────────────────────────────────────────── */
+.channels{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:16px;margin:-36px auto 52px;max-width:1200px;padding:0 20px;
+}
+.channel-card{
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+  padding:22px 20px;display:flex;align-items:flex-start;gap:14px;
+  box-shadow:var(--shadow);transition:transform .2s,box-shadow .2s,border-color .2s;
+  text-decoration:none;color:inherit;
+}
+.channel-card:hover{transform:translateY(-3px);border-color:var(--orange);box-shadow:0 8px 32px rgba(13,27,62,.12);text-decoration:none;color:inherit;}
+.ch-icon{
+  width:42px;height:42px;border-radius:10px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;
+}
+.ch-label{font-family:'Sora',sans-serif;font-size:.72rem;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;}
+.ch-value{font-size:.9rem;font-weight:600;color:var(--navy);}
+.ch-sub{font-size:.75rem;color:var(--grey);margin-top:2px;}
+
+/* ── Main grid ────────────────────────────────────────────────── */
+.ct-grid{
+  display:grid;grid-template-columns:1fr 420px;
+  gap:32px;max-width:1200px;margin:0 auto 60px;padding:0 20px;
+}
+@media(max-width:860px){.ct-grid{grid-template-columns:1fr;}}
+
+/* ── Card base ────────────────────────────────────────────────── */
+.ct-card{
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+  padding:32px;box-shadow:var(--shadow);
+}
+.ct-card-title{
+  font-family:'Sora',sans-serif;font-size:1.15rem;font-weight:800;
+  color:var(--navy);margin:0 0 6px;
+}
+.ct-card-sub{font-size:.85rem;color:var(--grey);margin:0 0 24px;line-height:1.5;}
+
+/* ── Form fields ──────────────────────────────────────────────── */
+.f-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:480px){.f-row{grid-template-columns:1fr;}}
+.f-group{margin-bottom:18px;}
+.f-label{display:block;font-size:.8rem;font-weight:600;color:#374151;margin-bottom:6px;font-family:'Sora',sans-serif;}
+.f-label .req{color:var(--orange);margin-left:2px;}
+.f-wrap{position:relative;}
+.f-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#9CA3AF;font-size:13px;pointer-events:none;}
+.f-input,.f-select,.f-textarea{
+  width:100%;padding:11px 13px 11px 38px;
+  border:1.5px solid var(--border);border-radius:10px;
+  font-size:.88rem;font-family:'Inter',sans-serif;color:#111827;
+  background:#FAFAFA;transition:border-color .2s,box-shadow .2s,background .2s;outline:none;
+}
+.f-input:focus,.f-select:focus,.f-textarea:focus{
+  border-color:var(--orange);background:#fff;
+  box-shadow:0 0 0 3px rgba(249,115,22,.12);
+}
+.f-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B7280' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px;}
+.f-textarea{padding:12px 13px 12px 38px;resize:vertical;min-height:120px;line-height:1.6;}
+
+/* ── Urgent toggle ────────────────────────────────────────────── */
+.urgent-wrap{
+  border:2px solid var(--border);border-radius:12px;padding:16px;
+  margin-bottom:20px;transition:border-color .3s,background .3s;cursor:pointer;
+}
+.urgent-wrap.active{border-color:#DC2626;background:#FEF2F2;}
+.urgent-inner{display:flex;align-items:center;gap:14px;}
+.urgent-icon{
+  width:40px;height:40px;border-radius:10px;background:var(--lgrey);
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+  color:var(--grey);transition:background .3s,color .3s;flex-shrink:0;
+}
+.urgent-wrap.active .urgent-icon{background:#DC2626;color:#fff;}
+.urgent-text h4{font-family:'Sora',sans-serif;font-size:.9rem;font-weight:700;color:var(--navy);margin:0 0 2px;}
+.urgent-text p{font-size:.78rem;color:var(--grey);margin:0;}
+.urgent-toggle-ui{
+  margin-left:auto;width:44px;height:24px;background:#D1D5DB;border-radius:12px;
+  position:relative;transition:background .3s;flex-shrink:0;
+}
+.urgent-toggle-ui::after{
+  content:'';position:absolute;left:3px;top:3px;
+  width:18px;height:18px;border-radius:50%;background:#fff;
+  transition:transform .3s;box-shadow:0 1px 3px rgba(0,0,0,.2);
+}
+.urgent-wrap.active .urgent-toggle-ui{background:#DC2626;}
+.urgent-wrap.active .urgent-toggle-ui::after{transform:translateX(20px);}
+.urgent-note{display:none;margin-top:10px;padding:8px 12px;background:rgba(220,38,38,.08);border-radius:8px;font-size:.77rem;color:#991B1B;}
+.urgent-wrap.active .urgent-note{display:flex;align-items:center;gap:6px;}
+
+/* ── Submit button ────────────────────────────────────────────── */
+.btn-send{
+  width:100%;padding:13px;background:var(--orange);color:#fff;border:none;
+  border-radius:10px;font-family:'Sora',sans-serif;font-size:.95rem;font-weight:700;
+  cursor:pointer;box-shadow:0 4px 14px rgba(249,115,22,.35);
+  transition:background .2s,transform .1s,box-shadow .2s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn-send:hover{background:#EA6C0A;transform:translateY(-1px);box-shadow:0 6px 20px rgba(249,115,22,.45);}
+.btn-send:active{transform:translateY(0);}
+.btn-send.urgent-mode{background:#DC2626;box-shadow:0 4px 14px rgba(220,38,38,.4);}
+.btn-send.urgent-mode:hover{background:#B91C1C;}
+
+/* ── Success state ────────────────────────────────────────────── */
+.success-card{
+  background:#fff;border:1px solid #BBF7D0;border-radius:var(--radius);
+  padding:40px;text-align:center;box-shadow:var(--shadow);
+}
+.success-icon{width:64px;height:64px;background:#DCFCE7;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#16A34A;font-size:24px;margin:0 auto 18px;}
+.ticket-chip{
+  display:inline-block;background:var(--orange-light);border:1px solid var(--orange-border);
+  color:#C2410C;font-family:'Sora',sans-serif;font-size:.9rem;font-weight:800;
+  padding:8px 20px;border-radius:20px;margin:14px 0 6px;letter-spacing:.04em;
+}
+.urgent-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  background:#FEF2F2;border:1px solid #FECACA;
+  color:#DC2626;font-family:'Sora',sans-serif;font-size:.78rem;font-weight:700;
+  padding:5px 12px;border-radius:20px;
+}
+
+/* ── Info sidebar ─────────────────────────────────────────────── */
+.info-block{margin-bottom:24px;}
+.info-block:last-child{margin-bottom:0;}
+.info-title{font-family:'Sora',sans-serif;font-size:.78rem;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;}
+.hours-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:.83rem;}
+.hours-row:last-child{border-bottom:none;}
+.hours-day{color:var(--navy);font-weight:500;}
+.hours-time{color:var(--grey);}
+.hours-row.today .hours-day{color:var(--orange);font-weight:700;}
+.hours-row.today .hours-time{color:var(--orange);}
+
+/* ── Map ──────────────────────────────────────────────────────── */
+#contact-map{height:180px;border-radius:10px;overflow:hidden;border:1px solid var(--border);}
+
+/* ── Chatbot placeholder ──────────────────────────────────────── */
+.chatbot-section{
+  max-width:1200px;margin:0 auto 60px;padding:0 20px;
+}
+.chatbot-card{
+  background:linear-gradient(135deg,var(--navy) 0%,#1a3060 100%);
+  border-radius:var(--radius);padding:36px 40px;
+  display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;
+  position:relative;overflow:hidden;
+}
+@media(max-width:600px){.chatbot-card{grid-template-columns:1fr;}}
+.chatbot-card::before{
+  content:'';position:absolute;top:-40px;right:60px;
+  width:180px;height:180px;
+  background:radial-gradient(circle,rgba(249,115,22,.18) 0%,transparent 70%);
+  border-radius:50%;
+}
+.chatbot-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(249,115,22,.2);border:1px solid rgba(249,115,22,.35);
+  color:#FB923C;font-size:.7rem;font-weight:700;padding:4px 12px;
+  border-radius:20px;text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;
+}
+.chatbot-card h2{font-family:'Sora',sans-serif;font-size:1.4rem;font-weight:800;color:#fff;margin:0 0 8px;}
+.chatbot-card p{font-size:.88rem;color:rgba(255,255,255,.6);margin:0 0 0;line-height:1.6;}
+.chatbot-preview{
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+  border-radius:14px;padding:16px;width:220px;backdrop-filter:blur(8px);flex-shrink:0;
+}
+@media(max-width:600px){.chatbot-preview{width:100%;}}
+.chat-bubble{
+  background:rgba(255,255,255,.1);border-radius:10px 10px 10px 2px;
+  padding:10px 14px;font-size:.8rem;color:rgba(255,255,255,.8);margin-bottom:10px;
+}
+.chat-bubble.user{
+  background:var(--orange);color:#fff;border-radius:10px 10px 2px 10px;margin-left:20px;text-align:right;
+}
+.chat-input-fake{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);
+  border-radius:8px;padding:8px 10px;font-size:.75rem;color:rgba(255,255,255,.4);
+}
+.chat-send-fake{
+  width:26px;height:26px;background:var(--orange);border-radius:6px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  color:#fff;font-size:10px;opacity:.5;
+}
+.coming-soon-badge{
+  display:inline-flex;align-items:center;gap:6px;margin-top:16px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+  color:rgba(255,255,255,.7);font-size:.78rem;padding:6px 14px;border-radius:8px;
+}
+
+/* ── FAQ ──────────────────────────────────────────────────────── */
+.faq-section{max-width:1200px;margin:0 auto 60px;padding:0 20px;}
+.faq-header{text-align:center;margin-bottom:36px;}
+.s-bar{display:block;width:44px;height:3px;background:var(--orange);border-radius:2px;margin:0 auto 16px;}
+.faq-header h2{font-family:'Sora',sans-serif;font-size:1.7rem;font-weight:800;color:var(--navy);margin:0 0 8px;}
+.faq-header p{font-size:.9rem;color:var(--grey);}
+.faq-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+@media(max-width:700px){.faq-grid{grid-template-columns:1fr;}}
+.faq-item{
+  border:1px solid var(--border);border-radius:0;margin:-1px 0 0 -1px;
+  transition:z-index .1s;cursor:pointer;
+}
+.faq-item:first-child{border-radius:var(--radius) var(--radius) 0 0;}
+.faq-grid .faq-item:nth-child(1){border-radius:var(--radius) 0 0 0;}
+.faq-grid .faq-item:nth-child(2){border-radius:0 var(--radius) 0 0;}
+.faq-item:hover{z-index:1;border-color:var(--orange);}
+.faq-q{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:18px 20px;font-family:'Sora',sans-serif;font-size:.9rem;font-weight:700;color:var(--navy);
+}
+.faq-q i{color:var(--grey);font-size:.75rem;transition:transform .25s;flex-shrink:0;}
+.faq-item.open .faq-q i{transform:rotate(180deg);color:var(--orange);}
+.faq-item.open .faq-q{color:var(--orange);}
+.faq-a{
+  display:none;padding:0 20px 18px;font-size:.85rem;color:var(--grey);line-height:1.7;
+  border-top:1px solid var(--border);
+}
+.faq-item.open .faq-a{display:block;}
+
+/* ── Alerts ───────────────────────────────────────────────────── */
+.alert-success{background:#ECFDF5;border:1px solid #A7F3D0;border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:10px;color:#065F46;font-size:.85rem;margin-bottom:20px;}
+.alert-error  {background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:10px;color:#991B1B;font-size:.85rem;margin-bottom:20px;}
+
+/* ── Errors on field ──────────────────────────────────────────── */
+.f-error{font-size:.76rem;color:#DC2626;margin-top:4px;}
+
+@media(max-width:600px){
+  .ct-card{padding:22px 18px;}
+  .chatbot-card{padding:24px 20px;}
+}
+</style>
+
+<!-- ══════════ HERO ══════════ -->
+<section class="ct-hero">
+  <div>
+    <div class="ct-badge"><i class="fas fa-headset"></i> Support &amp; Contact</div>
+    <h1>How can we help you?</h1>
+    <p>Our team is ready to assist with deliveries, billing, technical issues, or anything else you need. Urgent messages reach us immediately.</p>
+
+    <!-- Live admin status indicator -->
+    <div id="support-status" class="status-pill">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Checking availability…</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ CHANNEL CARDS ══════════ -->
+<div class="channels">
+  <a href="mailto:{{ admin_email|default:'support@riftvalleycarriers.com' }}" class="channel-card">
+    <div class="ch-icon" style="background:#0D1B3E;"><i class="fas fa-envelope"></i></div>
+    <div>
+      <div class="ch-label">Email us</div>
+      <div class="ch-value">support@rvc.com</div>
+      <div class="ch-sub">Response within 2 hours</div>
+    </div>
+  </a>
+
+  <a href="https://wa.me/14155238886" target="_blank" rel="noopener" class="channel-card">
+    <div class="ch-icon" style="background:#25D366;"><i class="fab fa-whatsapp"></i></div>
+    <div>
+      <div class="ch-label">WhatsApp</div>
+      <div class="ch-value">+1 415 523 8886</div>
+      <div class="ch-sub">Fastest response channel</div>
+    </div>
+  </a>
+
+  <div class="channel-card" style="cursor:default;">
+    <div class="ch-icon" style="background:#F97316;"><i class="fas fa-map-pin"></i></div>
+    <div>
+      <div class="ch-label">Coverage Area</div>
+      <div class="ch-value">Georgia, USA</div>
+      <div class="ch-sub">+ surrounding states</div>
+    </div>
+  </div>
+
+  <div class="channel-card" style="cursor:default;">
+    <div class="ch-icon" style="background:#7C3AED;"><i class="fas fa-clock"></i></div>
+    <div>
+      <div class="ch-label">Support Hours</div>
+      <div class="ch-value">Mon–Fri 9AM–6PM</div>
+      <div class="ch-sub">Eastern Time (ET)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MAIN GRID ══════════ -->
+<div class="ct-grid">
+
+  <!-- ── LEFT: Contact form ────────────────────────────────── -->
+  <div>
+
+    {% if submitted %}
+    <!-- Success state -->
+    <div class="success-card">
+      <div class="success-icon"><i class="fas fa-check"></i></div>
+      <h2 style="font-family:'Sora',sans-serif;font-size:1.3rem;font-weight:800;color:#0D1B3E;margin:0 0 8px;">Message received!</h2>
+      <p style="color:#6B7280;font-size:.88rem;margin:0 0 4px;">Your ticket number is:</p>
+      <div class="ticket-chip">{{ ticket_number }}</div>
+      <p style="color:#6B7280;font-size:.83rem;margin:8px 0 16px;">A confirmation has been sent to <strong>{{ submitted_email }}</strong>. We'll reply to this email.</p>
+
+      {% if submitted_urgent %}
+      <div style="margin-bottom:16px;">
+        <span class="urgent-chip"><i class="fas fa-bolt"></i> Marked as urgent — admin notified immediately</span>
+      </div>
+      {% endif %}
+
+      <p style="font-size:.82rem;color:#9CA3AF;">Keep your ticket number for reference when following up.</p>
+      <a href="{% url 'contact' %}" style="display:inline-block;margin-top:18px;padding:10px 24px;background:#0D1B3E;color:#fff;border-radius:10px;font-family:'Sora',sans-serif;font-size:.88rem;font-weight:700;text-decoration:none;">Send another message</a>
+    </div>
+
+    {% else %}
+    <div class="ct-card" id="contact-form-card">
+      <h2 class="ct-card-title">Send us a message</h2>
+      <p class="ct-card-sub">Fill in the form below. For urgent delivery or billing issues, toggle the urgent flag — we'll respond immediately.</p>
+
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="alert-{{ msg.tags }}"><i class="fas fa-{% if 'success' in msg.tags %}check-circle{% else %}exclamation-circle{% endif %}"></i> {{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="POST" id="contact-form">
+        {% csrf_token %}
+
+        <!-- Name + Email -->
+        <div class="f-row">
+          <div class="f-group">
+            <label class="f-label" for="id_name">Full name <span class="req">*</span></label>
+            <div class="f-wrap">
+              <span class="f-icon"><i class="fas fa-user"></i></span>
+              <input type="text" name="name" id="id_name" class="f-input"
+                     placeholder="Joseph Gikuru"
+                     value="{{ form.name.value|default:'' }}" required>
+            </div>
+            {% for e in form.name.errors %}<div class="f-error">{{ e }}</div>{% endfor %}
+          </div>
+          <div class="f-group">
+            <label class="f-label" for="id_email">Email address <span class="req">*</span></label>
+            <div class="f-wrap">
+              <span class="f-icon"><i class="fas fa-envelope"></i></span>
+              <input type="email" name="email" id="id_email" class="f-input"
+                     placeholder="you@example.com"
+                     value="{{ form.email.value|default:'' }}" required>
+            </div>
+            {% for e in form.email.errors %}<div class="f-error">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+
+        <!-- Phone + Category -->
+        <div class="f-row">
+          <div class="f-group">
+            <label class="f-label" for="id_phone">Phone number</label>
+            <div class="f-wrap">
+              <span class="f-icon"><i class="fas fa-phone"></i></span>
+              <input type="tel" name="phone" id="id_phone" class="f-input"
+                     placeholder="+1 404 000 0000"
+                     value="{{ form.phone.value|default:'' }}">
+            </div>
+          </div>
+          <div class="f-group">
+            <label class="f-label" for="id_category">Category <span class="req">*</span></label>
+            <div class="f-wrap">
+              <span class="f-icon"><i class="fas fa-tag"></i></span>
+              <select name="category" id="id_category" class="f-select" required>
+                <option value="">Select a category…</option>
+                <option value="delivery">Delivery Issue</option>
+                <option value="billing">Billing &amp; Payments</option>
+                <option value="tracking">Tracking &amp; GPS</option>
+                <option value="courier">Courier Enquiry</option>
+                <option value="technical">Technical Support</option>
+                <option value="general">General Enquiry</option>
+                <option value="feedback">Feedback</option>
+              </select>
+            </div>
+            {% for e in form.category.errors %}<div class="f-error">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+
+        <!-- Subject -->
+        <div class="f-group">
+          <label class="f-label" for="id_subject">Subject <span class="req">*</span></label>
+          <div class="f-wrap">
+            <span class="f-icon"><i class="fas fa-pen"></i></span>
+            <input type="text" name="subject" id="id_subject" class="f-input"
+                   placeholder="Brief description of your issue"
+                   value="{{ form.subject.value|default:'' }}" required>
+          </div>
+          {% for e in form.subject.errors %}<div class="f-error">{{ e }}</div>{% endfor %}
+        </div>
+
+        <!-- Message -->
+        <div class="f-group">
+          <label class="f-label" for="id_message">Message <span class="req">*</span></label>
+          <div class="f-wrap">
+            <span class="f-icon" style="top:14px;transform:none;"><i class="fas fa-comment"></i></span>
+            <textarea name="message" id="id_message" class="f-textarea"
+                      placeholder="Describe your issue in detail. The more information you provide, the faster we can help…"
+                      required>{{ form.message.value|default:'' }}</textarea>
+          </div>
+          {% for e in form.message.errors %}<div class="f-error">{{ e }}</div>{% endfor %}
+        </div>
+
+        <!-- Urgent toggle -->
+        <div class="urgent-wrap" id="urgent-wrap" onclick="toggleUrgent()">
+          <input type="hidden" name="is_urgent" id="id_is_urgent" value="0">
+          <div class="urgent-inner">
+            <div class="urgent-icon"><i class="fas fa-bolt"></i></div>
+            <div class="urgent-text">
+              <h4>Mark as Urgent</h4>
+              <p>Admin notified immediately via email &amp; WhatsApp</p>
+            </div>
+            <div class="urgent-toggle-ui"></div>
+          </div>
+          <div class="urgent-note">
+            <i class="fas fa-exclamation-circle"></i>
+            Urgent messages are escalated immediately. Please only use this for time-sensitive issues.
+          </div>
+        </div>
+
+        <button type="submit" class="btn-send" id="submit-btn">
+          <i class="fas fa-paper-plane" id="btn-icon"></i>
+          <span id="btn-text">Send Message</span>
+        </button>
+
+        <p style="font-size:.75rem;color:#9CA3AF;text-align:center;margin-top:12px;">
+          <i class="fas fa-lock" style="margin-right:4px;"></i>
+          Your information is secure and will never be shared with third parties.
+        </p>
+      </form>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- ── RIGHT: Info sidebar ─────────────────────────────────── -->
+  <div>
+
+    <!-- Map -->
+    <div class="ct-card" style="padding:20px;margin-bottom:24px;">
+      <div class="info-title">Coverage Area</div>
+      <div id="contact-map"></div>
+      <p style="font-size:.78rem;color:#9CA3AF;margin:10px 0 0;text-align:center;">
+        <i class="fas fa-circle-dot" style="color:#F97316;margin-right:4px;"></i>
+        Georgia &amp; surrounding southeastern states
+      </p>
+    </div>
+
+    <!-- Support hours -->
+    <div class="ct-card" style="margin-bottom:24px;">
+      <div class="info-title">Support Hours</div>
+      <div id="hours-list"></div>
+    </div>
+
+    <!-- Ticket info -->
+    <div class="ct-card" style="background:var(--orange-light);border-color:var(--orange-border);">
+      <div style="display:flex;align-items:flex-start;gap:12px;">
+        <div style="width:36px;height:36px;background:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;flex-shrink:0;"><i class="fas fa-ticket"></i></div>
+        <div>
+          <div style="font-family:'Sora',sans-serif;font-size:.9rem;font-weight:700;color:#0D1B3E;margin-bottom:4px;">Ticket System</div>
+          <p style="font-size:.8rem;color:#92400E;margin:0;line-height:1.6;">Every message gets a unique ticket number (e.g. <strong>RVC26-XK9F2</strong>). Use this when following up so we can find your case instantly.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════ AI CHATBOT PLACEHOLDER ══════════ -->
+<div class="chatbot-section">
+  <div class="chatbot-card">
+    <div style="position:relative;z-index:1;">
+      <div class="chatbot-badge"><i class="fas fa-robot"></i> AI Assistant</div>
+      <h2>Instant answers with our AI Support Bot</h2>
+      <p>Ask anything about your delivery, tracking, pricing, or account. Our AI assistant — trained on RiftValley Carriers data — will answer instantly, 24/7, without waiting for a human agent.</p>
+      <div class="coming-soon-badge">
+        <i class="fas fa-clock"></i> Coming soon — launching Q3 2026
+      </div>
+    </div>
+    <div class="chatbot-preview" style="position:relative;z-index:1;">
+      <div class="chat-bubble">Hi! I'm the RVC Assistant. How can I help with your delivery today?</div>
+      <div class="chat-bubble user">Where is my shipment?</div>
+      <div class="chat-bubble">I can see your job #RVC26-XK9F2 is currently in transit. Your courier is 4.2 miles away with an ETA of 12 minutes…</div>
+      <div class="chat-input-fake">
+        <span>Ask a question…</span>
+        <div class="chat-send-fake"><i class="fas fa-arrow-right"></i></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ FAQ ══════════ -->
+<div class="faq-section">
+  <div class="faq-header">
+    <span class="s-bar"></span>
+    <h2>Frequently Asked Questions</h2>
+    <p>Quick answers to common questions — no need to contact us for these.</p>
+  </div>
+
+  <div class="faq-grid">
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        How do I track my delivery in real time?
+        <i class="fas fa-chevron-down"></i>
+      </div>
+      <div class="faq-a">Log in to your customer portal and open the job from "My Jobs". The tracking map shows your courier's live GPS position and updates every 5 seconds with a live ETA countdown.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        How is the delivery price calculated?
+        <i class="fas fa-chevron-down"></i>
+      </div>
+      <div class="faq-a">Pricing uses a base fare of $50.00 plus $2.50 per mile, with an 8% fuel surcharge on the mileage cost. The route distance is computed via our self-hosted OSRM road network engine — not straight-line estimates. The minimum fare is $75.00.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        What areas do you currently serve?
+        <i class="fas fa-chevron-down"></i>
+      </div>
+      <div class="faq-a">We operate primarily in Georgia and the surrounding southeastern states including Tennessee, Kentucky, Alabama, South Carolina, and North Carolina. Our OSRM routing covers all these areas for accurate mileage pricing.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        How do couriers get paid?
+        <i class="fas fa-chevron-down"></i>
+      </div>
+      <div class="faq-a">Couriers receive payouts directly to their PayPal account. Payments are processed by admin after the customer confirms delivery. You can set your payout email in the courier portal under "Payout Method".</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        My courier hasn't arrived — what should I do?
+        <i class="fas fa-chevron-down"></i>
+      </div>
+      <div class="faq-a">First check the live tracking map for your courier's current location. If the tracker shows no movement for over 30 minutes, use the contact form above and mark it as Urgent. We'll escalate immediately to reassign or contact your courier directly.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        How do I become a verified courier?
+        <i class="fas fa-chevron-down"></i>
+      </div>
+      <div class="faq-a">Sign up via the Courier portal. You'll be prompted to upload your driver's licence photo. Our ML pipeline (PaddleOCR + InsightFace) verifies the document automatically. Most verifications complete in under 2 minutes. You can also upload a selfie for face verification.</div>
+    </div>
+
+  </div>
+</div>
+
+
+<script>
+// ── Urgent toggle ─────────────────────────────────────────────
+var urgentActive = false;
+
+function toggleUrgent() {
+  urgentActive = !urgentActive;
+  var wrap  = document.getElementById('urgent-wrap');
+  var input = document.getElementById('id_is_urgent');
+  var btn   = document.getElementById('submit-btn');
+  var btnIcon = document.getElementById('btn-icon');
+  var btnText = document.getElementById('btn-text');
+  var card    = document.getElementById('contact-form-card');
+
+  wrap.classList.toggle('active', urgentActive);
+  input.value = urgentActive ? '1' : '0';
+
+  if (urgentActive) {
+    btn.classList.add('urgent-mode');
+    btnIcon.className = 'fas fa-bolt';
+    btnText.textContent = 'Send Urgent Message';
+    card.style.borderColor = '#DC2626';
+    card.style.boxShadow = '0 4px 6px rgba(0,0,0,.04),0 12px 40px rgba(220,38,38,.12)';
+  } else {
+    btn.classList.remove('urgent-mode');
+    btnIcon.className = 'fas fa-paper-plane';
+    btnText.textContent = 'Send Message';
+    card.style.borderColor = '';
+    card.style.boxShadow = '';
+  }
+}
+
+// ── Admin status indicator ────────────────────────────────────
+(function() {
+  var now = new Date();
+  var dayET = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  var dow  = dayET.getDay();   // 0=Sun, 6=Sat
+  var hour = dayET.getHours();
+  var min  = dayET.getMinutes();
+  var time = hour + min / 60;
+  var online = dow >= 1 && dow <= 5 && time >= 9 && time < 18;
+  var dot  = document.getElementById('status-dot');
+  var txt  = document.getElementById('status-text');
+  if (online) {
+    dot.className = 'status-dot online';
+    txt.textContent = 'Support online — we\'ll respond shortly';
+  } else {
+    dot.className = 'status-dot away';
+    txt.textContent = 'Support away — we\'ll reply next business day';
+  }
+})();
+
+// ── Support hours list ────────────────────────────────────────
+(function() {
+  var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var hours = [
+    { label:'Monday',    time:'9:00 AM – 6:00 PM ET' },
+    { label:'Tuesday',   time:'9:00 AM – 6:00 PM ET' },
+    { label:'Wednesday', time:'9:00 AM – 6:00 PM ET' },
+    { label:'Thursday',  time:'9:00 AM – 6:00 PM ET' },
+    { label:'Friday',    time:'9:00 AM – 6:00 PM ET' },
+    { label:'Saturday',  time:'Closed' },
+    { label:'Sunday',    time:'Closed' },
+  ];
+  var todayName = days[new Date().getDay()];
+  var list = document.getElementById('hours-list');
+  hours.forEach(function(h) {
+    var isToday = h.label === todayName;
+    var row = document.createElement('div');
+    row.className = 'hours-row' + (isToday ? ' today' : '');
+    row.innerHTML = '<span class="hours-day">' + h.label + (isToday ? ' (Today)' : '') + '</span>'
+                  + '<span class="hours-time">' + h.time + '</span>';
+    list.appendChild(row);
+  });
+})();
+
+// ── Leaflet map ───────────────────────────────────────────────
+var map = L.map('contact-map', { zoomControl:false, dragging:false, scrollWheelZoom:false })
+  .setView([33.749, -84.388], 7);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  { attribution:'© OpenStreetMap', maxZoom:18 }).addTo(map);
+
+var covIcon = L.divIcon({
+  className:'',
+  html:'<div style="background:#F97316;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(249,115,22,.5);"></div>',
+  iconSize:[16,16], iconAnchor:[8,8]
+});
+// Coverage area dots
+[
+  [33.749, -84.388, 'Atlanta, GA'],
+  [32.080, -81.099, 'Savannah, GA'],
+  [33.948, -83.380, 'Athens, GA'],
+  [32.085, -81.970, 'Augusta, GA'],
+  [36.165, -86.784, 'Nashville, TN'],
+  [38.252, -85.758, 'Louisville, KY'],
+].forEach(function(pt) {
+  L.marker([pt[0], pt[1]], { icon:covIcon }).addTo(map).bindPopup(pt[2]);
+});
+
+// ── FAQ accordion ─────────────────────────────────────────────
+function toggleFaq(el) {
+  var item = el.parentElement;
+  var isOpen = item.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.faq-item').forEach(function(i) { i.classList.remove('open'); });
+  if (!isOpen) item.classList.add('open');
+}
+
+// ── Form submit feedback ──────────────────────────────────────
+document.getElementById('contact-form').addEventListener('submit', function() {
+  var btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
+});
+</script>
+{% endblock %}

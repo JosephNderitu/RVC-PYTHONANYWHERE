@@ -1,0 +1,120 @@
+# docker-compose.yml
+
+services:
+
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: rvc_postgis
+    environment:
+      POSTGRES_DB: rvc_spatial
+      POSTGRES_USER: rvc_user
+      POSTGRES_PASSWORD: rvc_pass_2026
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rvc_user -d rvc_spatial"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: rvc_redis
+    ports:
+      - "6379:6379"
+
+  web:
+    build: .
+    container_name: rvc_web
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DEBUG=True
+      - HF_HUB_OFFLINE=1
+      - TRANSFORMERS_OFFLINE=1
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+
+  celery:
+    build: .
+    container_name: rvc_celery
+    command: python -m celery -A RiftValley worker --loglevel=info
+    volumes:
+      - .:/app
+      - paddleocr_models:/root/.paddleocr 
+      - hf_cache:/root/.cache/huggingface    # ← CLIP model cache
+      - ul_cache:/root/.config/Ultralytics   # ← YOLOv8 model cache
+    working_dir: /app
+    environment:
+      - DATABASE_URL=postgis://rvc_user:rvc_pass_2026@db:5432/rvc_spatial
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+  celery-beat:
+    build: .
+    container_name: rvc_celery_beat
+    command: python -m celery -A RiftValley beat --loglevel=info
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - DATABASE_URL=postgis://rvc_user:rvc_pass_2026@db:5432/rvc_spatial
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:v5.27.1
+    container_name: rvc_osrm
+    volumes:
+      - ./osrm_data:/data
+    ports:
+      - "5000:5000"
+    command: >
+      sh -c "
+        if [ ! -f /data/southeast.osrm.ebg ]; then
+          if [ ! -f /data/southeast.osm.pbf ]; then
+            echo '=================================================='
+            echo 'ERROR: /data/southeast.osm.pbf not found!'
+            echo 'Run prepare_osrm_data.ps1 first to download and'
+            echo 'merge the southeastern US road network data.'
+            echo '=================================================='
+            exit 1
+          fi
+          echo 'Processing southeastern US road network...'
+          echo 'This takes 10-20 minutes on first run. Please wait.'
+          osrm-extract -p /opt/car.lua /data/southeast.osm.pbf &&
+          osrm-partition /data/southeast.osrm &&
+          osrm-customize /data/southeast.osrm &&
+          echo 'OSRM processing complete.'
+        fi &&
+        echo 'Starting OSRM server (southeastern US coverage)...' &&
+        osrm-routed --algorithm mld --max-table-size 10000 /data/southeast.osrm
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- 'http://localhost:5000/route/v1/driving/-84.388,33.749;-81.0998,32.0835?overview=false' | grep -q 'Ok' && exit 0 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+volumes:
+  postgis_data:
+  paddleocr_models:
+  hf_cache:
+  ul_cache:

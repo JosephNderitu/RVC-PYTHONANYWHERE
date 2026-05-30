@@ -1,0 +1,881 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Get an Instant Quote — RiftValley Carriers{% endblock %}
+
+{% block head %}
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+/* ── Layout ────────────────────────────────────────────────── */
+.quote-grid {
+  display:grid;
+  grid-template-columns:1fr;
+  gap:20px;
+  max-width:1280px;
+  margin:0 auto;
+  padding:28px 16px;
+}
+@media(min-width:1024px){
+  .quote-grid {
+    grid-template-columns:1fr 340px;
+    gap:28px;
+    padding:40px 24px;
+  }
+  .price-col { order:0; }
+  .form-col  { order:0; }
+}
+.price-sidebar { position:static; }
+@media(min-width:1024px){
+  .price-sidebar { position:sticky; top:88px; }
+}
+
+/* ── Vehicle cards ─────────────────────────────────────────── */
+.v-card input[type=radio] { display:none; }
+.v-card label {
+  display:block;border:2px solid #E5E7EB;border-radius:14px;
+  padding:14px 10px;text-align:center;cursor:pointer;
+  transition:all .2s;background:#fff;height:100%;
+}
+.v-card label:hover { border-color:#F97316; }
+.v-card input:checked + label {
+  border-color:#F97316;background:#FFF7ED;
+  box-shadow:0 0 0 3px rgba(249,115,22,.15);
+}
+.v-icon {
+  width:44px;height:44px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;color:#fff;margin:0 auto 10px;
+}
+
+/* ── Goods pills ───────────────────────────────────────────── */
+.g-pill input[type=radio] { display:none; }
+.g-pill label {
+  display:flex;align-items:center;gap:6px;
+  padding:7px 13px;border:1.5px solid #E5E7EB;border-radius:20px;
+  cursor:pointer;font-size:.8rem;font-weight:600;color:#374151;
+  transition:all .2s;background:#fff;white-space:nowrap;
+}
+.g-pill label:hover { border-color:#F97316;color:#F97316; }
+.g-pill input:checked + label {
+  border-color:#F97316;background:#FFF7ED;color:#C2410C;
+}
+
+/* ── Price value animation ─────────────────────────────────── */
+.price-val {
+  font-size:2.8rem;font-weight:800;color:#0D1B3E;
+  font-family:'Sora',sans-serif;letter-spacing:-.03em;transition:all .3s;
+}
+@media(min-width:1024px){ .price-val{ font-size:3rem; } }
+.price-val.pop { animation:popIn .35s ease; }
+@keyframes popIn{0%{transform:scale(1)}50%{transform:scale(1.08);color:#F97316}100%{transform:scale(1)}}
+
+/* ── Breakdown rows ────────────────────────────────────────── */
+.br-row {
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 0;font-size:.82rem;border-bottom:1px solid #F3F4F6;
+}
+.br-row:last-child { border-bottom:none;font-weight:700;font-size:.88rem; }
+.br-pos { color:#059669; }
+.br-neg { color:#2563EB; }
+
+/* ── Condition badges ──────────────────────────────────────── */
+.cond-badge {
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:20px;font-size:.72rem;
+  font-weight:700;font-family:'Sora',sans-serif;
+}
+
+/* ── Autocomplete ──────────────────────────────────────────── */
+.ac-wrap { position:relative; }
+.ac-list {
+  position:absolute;top:100%;left:0;right:0;z-index:9999;
+  background:#fff;border:1px solid #E5E7EB;border-top:none;
+  border-radius:0 0 10px 10px;max-height:220px;overflow-y:auto;
+  box-shadow:0 8px 24px rgba(0,0,0,.1);display:none;
+}
+.ac-list.open { display:block; }
+.ac-item { padding:10px 14px;font-size:.83rem;cursor:pointer;border-bottom:1px solid #F9FAFB; }
+.ac-item:hover { background:#FFF7ED; }
+.ac-item:last-child { border-bottom:none; }
+.ac-main { font-weight:600;color:#0D1B3E; }
+.ac-sub  { font-size:.73rem;color:#9CA3AF;margin-top:2px; }
+
+/* ── Map ───────────────────────────────────────────────────── */
+#quote-map { height:240px;border-radius:12px;overflow:hidden;border:1px solid #E5E7EB; }
+@media(min-width:640px){ #quote-map{ height:280px; } }
+@media(min-width:1024px){ #quote-map{ height:300px; } }
+
+/* ── Courier availability card ─────────────────────────────── */
+.courier-avatar {
+  width:34px;height:34px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.72rem;font-weight:700;color:#fff;
+  border:2px solid #fff;margin-right:-8px;flex-shrink:0;
+}
+.ping-dot {
+  width:10px;height:10px;border-radius:50%;background:#22C55E;
+  box-shadow:0 0 0 3px rgba(34,197,94,.3);flex-shrink:0;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Hero ──────────────────────────────────────────────────── -->
+<div style="background:linear-gradient(110deg,#0D1B3E 0%,#1a3060 100%);padding:48px 16px 44px;">
+  <div style="max-width:800px;margin:0 auto;text-align:center;">
+    <div class="d-inline-flex align-items-center gap-2 mb-3 px-3 py-2 rounded-full"
+         style="background:rgba(249,115,22,.18);color:#FB923C;border:1px solid rgba(249,115,22,.3);font-size:.82rem;font-weight:700;">
+      <i class="fas fa-calculator"></i> Instant Price Calculator
+    </div>
+    <h1 class="text-white mb-3"
+        style="font-family:'Sora',sans-serif;font-size:clamp(1.6rem,4vw,2.5rem);
+               font-weight:800;letter-spacing:-.03em;">
+      How much will my delivery cost?
+    </h1>
+    <p style="color:rgba(255,255,255,.65);font-size:.95rem;max-width:480px;margin:0 auto;line-height:1.7;">
+      Live estimate in seconds. Includes real-time traffic, weather,
+      vehicle class, and goods sensitivity. No account needed.
+    </p>
+  </div>
+</div>
+
+<!-- ── Main grid ──────────────────────────────────────────────── -->
+<div class="quote-grid">
+
+  <!-- ═══ LEFT — Form + Map ═══ -->
+  <div class="form-col">
+
+    <!-- Addresses -->
+    <div class="rvc-card p-4 p-sm-5 mb-4">
+      <div class="fw-bold mb-4" style="color:#0D1B3E;font-family:'Sora',sans-serif;font-size:.95rem;">
+        <i class="fas fa-map-marked-alt mr-2" style="color:#F97316;"></i>Route
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label fw-semibold" style="font-size:.82rem;color:#374151;">
+          <i class="fas fa-circle mr-1" style="color:#2196F3;font-size:.55rem;vertical-align:middle;"></i>
+          Pickup address
+        </label>
+        <div class="ac-wrap">
+          <input type="text" id="pickup-q" class="form-control"
+                 placeholder="e.g. 123 Peachtree St NE, Atlanta, GA"
+                 autocomplete="off">
+          <div id="pickup-ac" class="ac-list"></div>
+        </div>
+        <input type="hidden" id="pickup-lat">
+        <input type="hidden" id="pickup-lng">
+        <input type="hidden" id="pickup-addr">
+      </div>
+
+      <div>
+        <label class="form-label fw-semibold" style="font-size:.82rem;color:#374151;">
+          <i class="fas fa-map-marker-alt mr-1" style="color:#F97316;font-size:.72rem;"></i>
+          Delivery address
+        </label>
+        <div class="ac-wrap">
+          <input type="text" id="delivery-q" class="form-control"
+                 placeholder="e.g. 789 River Rd, Savannah, GA"
+                 autocomplete="off">
+          <div id="delivery-ac" class="ac-list"></div>
+        </div>
+        <input type="hidden" id="delivery-lat">
+        <input type="hidden" id="delivery-lng">
+        <input type="hidden" id="delivery-addr">
+      </div>
+    </div>
+
+    <!-- Vehicle type -->
+    <div class="rvc-card p-4 p-sm-5 mb-4">
+      <div class="fw-bold mb-3" style="color:#0D1B3E;font-family:'Sora',sans-serif;font-size:.95rem;">
+        <i class="fas fa-truck mr-2" style="color:#F97316;"></i>Vehicle type
+      </div>
+      <div class="row g-2 g-sm-3">
+        {% for v in vehicle_sizes %}
+        <div class="col-4 v-card">
+          <input type="radio" name="vehicle_size" id="v-{{ v.value }}"
+                 value="{{ v.value }}" {% if forloop.counter == 2 %}checked{% endif %}
+                 onchange="onOptionChange()">
+          <label for="v-{{ v.value }}">
+            <div class="v-icon"
+                 style="background:{% if v.value == 'small' %}#2563EB{% elif v.value == 'medium' %}#059669{% else %}#D97706{% endif %};">
+              <i class="fas {{ v.icon }}"></i>
+            </div>
+            <div class="fw-bold mb-1" style="font-size:.82rem;color:#0D1B3E;font-family:'Sora',sans-serif;">
+              {{ v.name }}
+            </div>
+            <div class="text-muted mb-1" style="font-size:.7rem;line-height:1.3;">{{ v.subtitle }}</div>
+            <div style="font-size:.72rem;font-weight:700;color:#F97316;">From {{ v.from_price }}</div>
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Goods type -->
+    <div class="rvc-card p-4 p-sm-5 mb-4">
+      <div class="fw-bold mb-3" style="color:#0D1B3E;font-family:'Sora',sans-serif;font-size:.95rem;">
+        <i class="fas fa-box-open mr-2" style="color:#F97316;"></i>Goods type
+        <span class="fw-normal text-muted" style="font-size:.73rem;"> — affects handling surcharge</span>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        {% for g in goods_types %}
+        <div class="g-pill">
+          <input type="radio" name="goods_type" id="g-{{ g.value }}"
+                 value="{{ g.value }}" {% if forloop.first %}checked{% endif %}
+                 onchange="onOptionChange()">
+          <label for="g-{{ g.value }}">
+            <i class="fas {{ g.icon }}" style="font-size:.72rem;"></i>
+            {{ g.name }}
+            <span class="text-muted fw-normal" style="font-size:.68rem;">{{ g.note }}</span>
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Calculate button (mobile only — price card has one on desktop) -->
+    <div class="d-lg-none mb-4">
+      <button onclick="calculateQuote()" id="calc-btn-mobile"
+              class="w-100 btn fw-bold py-3 rounded-xl"
+              style="background:#F97316;color:#fff;font-family:'Sora',sans-serif;font-size:.92rem;">
+        <i class="fas fa-calculator mr-2"></i>Calculate Price
+      </button>
+    </div>
+
+    <!-- Map -->
+    <div class="rvc-card p-4 mb-4">
+      <div class="fw-bold mb-3" style="color:#0D1B3E;font-family:'Sora',sans-serif;font-size:.9rem;">
+        <i class="fas fa-route mr-2" style="color:#F97316;"></i>Route preview
+      </div>
+      <div id="quote-map"></div>
+      <div id="map-hint" class="text-center mt-2" style="font-size:.74rem;color:#9CA3AF;">
+        Enter both addresses to see the route
+      </div>
+      <div id="route-source" class="text-center mt-1 d-none" style="font-size:.71rem;color:#9CA3AF;">
+        <i class="fas fa-route mr-1"></i><span id="route-source-text"></span>
+      </div>
+    </div>
+
+    <!-- Courier availability card (hidden until pickup is set) -->
+    <div id="courier-card" class="rvc-card p-4 mb-4 d-none">
+      <div class="fw-bold mb-3" style="color:#0D1B3E;font-family:'Sora',sans-serif;font-size:.9rem;">
+        <i class="fas fa-users mr-2" style="color:#059669;"></i>Nearby Couriers
+      </div>
+
+      <!-- Loading -->
+      <div id="cc-loading" class="d-flex align-items-center gap-2 text-muted" style="font-size:.82rem;">
+        <div class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px;color:#F97316;"></div>
+        Checking courier availability near pickup...
+      </div>
+
+      <!-- No couriers -->
+      <div id="cc-empty" class="d-none">
+        <div class="d-flex align-items-center gap-2 p-3 rounded-xl"
+             style="background:#FFF7ED;border:1px solid #FED7AA;">
+          <i class="fas fa-info-circle" style="color:#D97706;"></i>
+          <div style="font-size:.82rem;color:#92400E;">
+            No couriers currently available within 50 miles of this pickup.
+            New couriers join regularly.
+          </div>
+        </div>
+      </div>
+
+      <!-- Result -->
+      <div id="cc-result" class="d-none">
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+          <div class="d-flex align-items-center gap-2">
+            <div class="ping-dot"></div>
+            <div>
+              <div class="fw-bold" style="font-size:.88rem;color:#0D1B3E;font-family:'Sora',sans-serif;">
+                <span id="cc-count">0</span> couriers available nearby
+              </div>
+              <div class="text-muted" style="font-size:.73rem;">
+                Within 50 miles of pickup location
+              </div>
+            </div>
+          </div>
+          <div id="cc-avatars" class="d-flex align-items-center"></div>
+        </div>
+
+        <div class="row g-2">
+          <div class="col-6">
+            <div class="p-3 rounded-xl text-center" style="background:#F0FDF4;border:1px solid #D1FAE5;">
+              <div class="fw-bold" id="cc-nearest" style="font-size:1.1rem;color:#059669;font-family:'Sora',sans-serif;">
+                --
+              </div>
+              <div class="text-muted" style="font-size:.72rem;">Nearest courier</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="p-3 rounded-xl text-center" style="background:#EFF6FF;border:1px solid #BFDBFE;">
+              <div class="fw-bold" id="cc-eta" style="font-size:1.1rem;color:#1D4ED8;font-family:'Sora',sans-serif;">
+                --
+              </div>
+              <div class="text-muted" style="font-size:.72rem;">Est. pickup time</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <!-- /form-col -->
+
+
+  <!-- ═══ RIGHT — Price card ═══ -->
+  <div class="price-col price-sidebar">
+    <div class="rvc-card p-4 p-sm-5">
+
+      <!-- Empty state -->
+      <div id="pr-empty" class="text-center py-4">
+        <div class="mx-auto mb-3 d-flex align-items-center justify-content-center rounded-xl"
+             style="width:52px;height:52px;background:#F1F5F9;color:#9CA3AF;font-size:21px;">
+          <i class="fas fa-calculator"></i>
+        </div>
+        <div class="fw-bold mb-1" style="font-size:.92rem;color:#374151;font-family:'Sora',sans-serif;">
+          Ready to calculate
+        </div>
+        <div class="text-muted mb-4" style="font-size:.8rem;">
+          Enter addresses and click Calculate Price
+        </div>
+        <button onclick="calculateQuote()" id="calc-btn"
+                class="btn fw-bold w-100 py-3 rounded-xl d-none d-lg-flex align-items-center justify-content-center gap-2"
+                style="background:#F97316;color:#fff;font-family:'Sora',sans-serif;">
+          <i class="fas fa-calculator"></i>Calculate Price
+        </button>
+      </div>
+
+      <!-- Loading -->
+      <div id="pr-loading" class="d-none text-center py-5">
+        <div class="spinner-border mb-3" style="color:#F97316;width:34px;height:34px;border-width:3px;" role="status">
+          <span class="visually-hidden">Loading</span>
+        </div>
+        <div class="fw-bold" style="font-size:.88rem;color:#374151;font-family:'Sora',sans-serif;"
+             id="pr-loading-text">Calculating route...</div>
+        <div class="text-muted mt-1" style="font-size:.73rem;" id="pr-loading-sub">
+          Checking traffic and weather conditions
+        </div>
+      </div>
+
+      <!-- Rate limited -->
+      <div id="pr-ratelimit" class="d-none text-center py-4">
+        <i class="fas fa-clock mb-3 d-block" style="font-size:26px;color:#D97706;"></i>
+        <div class="fw-bold mb-2" style="font-size:.88rem;color:#92400E;">Too many requests</div>
+        <div class="text-muted" style="font-size:.8rem;" id="rl-msg">Please wait before trying again.</div>
+      </div>
+
+      <!-- Error -->
+      <div id="pr-error" class="d-none">
+        <div class="rounded-xl p-3 mb-3" style="background:#FEF2F2;border:1px solid #FECACA;">
+          <div class="d-flex align-items-center gap-2">
+            <i class="fas fa-exclamation-circle flex-shrink-0" style="color:#DC2626;font-size:13px;"></i>
+            <div id="pr-error-msg" style="font-size:.82rem;color:#991B1B;font-weight:600;"></div>
+          </div>
+        </div>
+        <button onclick="calculateQuote()"
+                class="btn btn-sm w-100 fw-bold"
+                style="background:#F97316;color:#fff;border-radius:8px;">
+          <i class="fas fa-redo mr-1"></i>Try Again
+        </button>
+      </div>
+
+      <!-- Result -->
+      <div id="pr-result" class="d-none">
+
+        <div class="text-center mb-4 pb-4" style="border-bottom:2px solid #F3F4F6;">
+          <div class="text-muted mb-1" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;font-weight:600;">
+            Estimated price
+          </div>
+          <div class="price-val" id="pr-price">$0.00</div>
+          <div class="text-muted mt-1" style="font-size:.75rem;">
+            <span id="pr-distance">-</span> mi
+            &nbsp;·&nbsp;
+            <span id="pr-duration">-</span> min est.
+          </div>
+          <div class="text-muted mt-1" style="font-size:.7rem;" id="pr-valid"></div>
+        </div>
+
+        <!-- Condition badges -->
+        <div class="d-flex flex-wrap gap-2 mb-4">
+          <span class="cond-badge" id="badge-traffic">
+            <i class="fas fa-traffic-light" style="font-size:.62rem;"></i>
+            <span id="badge-traffic-text"></span>
+          </span>
+          <span class="cond-badge" id="badge-weather">
+            <i id="badge-weather-icon" class="fas fa-sun" style="font-size:.62rem;"></i>
+            <span id="badge-weather-text"></span>
+          </span>
+          <span class="cond-badge" id="badge-time">
+            <i class="fas fa-clock" style="font-size:.62rem;"></i>
+            <span id="badge-time-text"></span>
+          </span>
+        </div>
+
+        <!-- Breakdown -->
+        <div class="mb-4">
+          <button class="d-flex align-items-center justify-content-between w-100 mb-2 btn p-0 text-start"
+                  onclick="toggleBreakdown()">
+            <span style="font-size:.82rem;color:#374151;font-weight:600;">
+              <i class="fas fa-receipt mr-1" style="color:#F97316;"></i>Price breakdown
+            </span>
+            <i class="fas fa-chevron-down" id="bd-chevron"
+               style="font-size:.68rem;color:#9CA3AF;transition:transform .2s;"></i>
+          </button>
+          <div id="breakdown-body" style="display:none;">
+            <div class="br-row"><span class="text-muted">Base fare</span><span id="bd-base">-</span></div>
+            <div class="br-row"><span class="text-muted">Mileage cost</span><span id="bd-mileage">-</span></div>
+            <div class="br-row"><span class="text-muted">Fuel surcharge (8%)</span><span id="bd-fuel">-</span></div>
+            <div class="br-row" id="bd-traffic-row"><span class="text-muted">Traffic adj.</span><span id="bd-traffic" class="br-pos">-</span></div>
+            <div class="br-row" id="bd-weather-row"><span class="text-muted">Weather adj.</span><span id="bd-weather" class="br-pos">-</span></div>
+            <div class="br-row" id="bd-time-row"><span class="text-muted">Time of day</span><span id="bd-time">-</span></div>
+            <div class="br-row" id="bd-goods-row"><span class="text-muted">Goods surcharge</span><span id="bd-goods" class="br-pos">-</span></div>
+            <div class="br-row" id="bd-haul-row" style="display:none;"><span class="text-muted">Long haul discount</span><span id="bd-haul" class="br-neg">-</span></div>
+            <div class="br-row" id="bd-min-row" style="display:none;"><span class="text-muted">Minimum fare applied</span><span class="br-pos">Yes</span></div>
+            <div class="br-row pt-2 mt-1" style="border-top:2px solid #E5E7EB;">
+              <span>Estimated total</span>
+              <span id="bd-total" style="color:#F97316;">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Disclaimer -->
+        <div class="rounded-xl p-3 mb-4" style="background:#F8FAFC;border:1px solid #E5E7EB;">
+          <div style="font-size:.72rem;color:#6B7280;line-height:1.6;">
+            <i class="fas fa-info-circle mr-1" style="color:#F97316;"></i>
+            This is an <strong>estimate</strong>. Final price confirmed at booking and may vary
+            based on actual conditions.
+          </div>
+        </div>
+
+        <!-- Book button -->
+        <button onclick="bookDelivery()"
+                class="d-flex align-items-center justify-content-center gap-2 w-100 py-3
+                       rounded-xl text-white fw-bold border-0"
+                style="background:#F97316;box-shadow:0 4px 14px rgba(249,115,22,.4);
+                       font-family:'Sora',sans-serif;font-size:.92rem;">
+          <i class="fas fa-truck-fast"></i>
+          Book This Delivery
+        </button>
+
+        <button onclick="resetQuote()" class="btn btn-sm w-100 mt-2"
+                style="color:#6B7280;font-size:.76rem;">
+          <i class="fas fa-redo mr-1"></i>Recalculate
+        </button>
+
+        <!-- Desktop calculate button (shown in empty state already handled above) -->
+        <button onclick="calculateQuote()"
+                class="btn fw-bold w-100 mt-2 py-2 rounded-xl d-none d-lg-flex align-items-center justify-content-center gap-2"
+                id="calc-btn-desktop-bottom"
+                style="background:#F1F5F9;color:#374151;font-size:.8rem;display:none!important;">
+          <i class="fas fa-redo"></i>Recalculate with new options
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Route method tag -->
+    <div id="route-method-wrap" class="d-none text-center mt-2" style="font-size:.7rem;color:#9CA3AF;">
+      <i class="fas fa-route mr-1"></i><span id="route-method-text"></span>
+    </div>
+  </div>
+  <!-- /price-col -->
+
+</div>
+<!-- /quote-grid -->
+
+<script>
+var acTimers = {};
+var pickupSet   = false;
+var deliverySet = false;
+var quoteData   = null;
+var routeLine   = null;
+var fallbackLine = null;
+var pMarker     = null;
+var dMarker     = null;
+var courierMarkers = [];
+
+// ── Leaflet map ──────────────────────────────────────────────────
+var map = L.map('quote-map', {zoomControl:true}).setView([33.749,-84.388], 9);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  {attribution:'&copy; OpenStreetMap',maxZoom:19}).addTo(map);
+
+function mkDot(color, size, border) {
+  size = size || 20; border = border || '#fff';
+  return L.divIcon({
+    className:'',
+    html:'<div style="background:'+color+';width:'+size+'px;height:'+size+'px;'
+        +'border-radius:50%;border:3px solid '+border+';'
+        +'box-shadow:0 2px 6px rgba(0,0,0,.28);"></div>',
+    iconSize:[size,size], iconAnchor:[size/2,size/2]
+  });
+}
+
+function haversineMi(lat1,lng1,lat2,lng2) {
+  var R=3958.8, dLat=(lat2-lat1)*Math.PI/180, dLng=(lat2-lat1)*Math.PI/180;
+  dLng=(lng2-lng1)*Math.PI/180;
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)
+      + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)
+      * Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function clearRouteLines() {
+  if (routeLine)    { map.removeLayer(routeLine);    routeLine=null; }
+  if (fallbackLine) { map.removeLayer(fallbackLine); fallbackLine=null; }
+}
+
+function drawRoute(plat,plng,dlat,dlng) {
+  clearRouteLines();
+  if (pMarker) { map.removeLayer(pMarker); pMarker=null; }
+  if (dMarker) { map.removeLayer(dMarker); dMarker=null; }
+  pMarker = L.marker([plat,plng], {icon:mkDot('#2196F3',22)}).addTo(map).bindPopup('Pickup');
+  dMarker = L.marker([dlat,dlng], {icon:mkDot('#F97316',22)}).addTo(map).bindPopup('Delivery');
+
+  var geodesicMi = haversineMi(plat,plng,dlat,dlng);
+
+  // Try OSRM first
+  fetch('/api/route/?plat='+plat+'&plng='+plng+'&dlat='+dlat+'&dlng='+dlng)
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if (d.code==='Ok' && d.routes && d.routes.length) {
+        var osrmMi = d.routes[0].distance / 1609.344;
+        if (osrmMi >= geodesicMi * 0.85) {
+          var lls = d.routes[0].geometry.coordinates.map(function(c){return[c[1],c[0]];});
+          routeLine = L.polyline(lls, {color:'#F97316',weight:5,opacity:.85,lineJoin:'round'}).addTo(map);
+          map.fitBounds(routeLine.getBounds(), {padding:[30,30]});
+          setRouteSource('OSRM road network');
+          document.getElementById('map-hint').style.display='none';
+          return;
+        }
+      }
+      tryORS(plat,plng,dlat,dlng,geodesicMi);
+    })
+    .catch(function(){ tryORS(plat,plng,dlat,dlng,geodesicMi); });
+}
+
+function tryORS(plat,plng,dlat,dlng,geodesicMi) {
+  fetch('/api/ors-route/?plat='+plat+'&plng='+plng+'&dlat='+dlat+'&dlng='+dlng)
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if (d.geometry) {
+        var lls = d.geometry.coordinates.map(function(c){return[c[1],c[0]];});
+        routeLine = L.polyline(lls, {color:'#F97316',weight:4,opacity:.8,dashArray:'12,4'}).addTo(map);
+        map.fitBounds(routeLine.getBounds(), {padding:[30,30]});
+        setRouteSource('OpenRouteService (fallback)');
+        document.getElementById('map-hint').style.display='none';
+      } else {
+        drawStraight(plat,plng,dlat,dlng);
+      }
+    })
+    .catch(function(){ drawStraight(plat,plng,dlat,dlng); });
+}
+
+function drawStraight(plat,plng,dlat,dlng) {
+  fallbackLine = L.polyline([[plat,plng],[dlat,dlng]], {
+    color:'#F97316',weight:3,opacity:.6,dashArray:'10,8'
+  }).addTo(map);
+  map.fitBounds(fallbackLine.getBounds(), {padding:[40,40]});
+  setRouteSource('Straight-line estimate (road routing unavailable)');
+  document.getElementById('map-hint').style.display='none';
+}
+
+function setRouteSource(text) {
+  document.getElementById('route-source').classList.remove('d-none');
+  document.getElementById('route-source-text').textContent = text;
+  document.getElementById('route-method-wrap').classList.remove('d-none');
+  document.getElementById('route-method-text').textContent = text;
+}
+
+// ── Nearby couriers ───────────────────────────────────────────────
+var COURIER_COLORS = ['#7C3AED','#059669','#2563EB','#DC2626','#D97706'];
+
+function loadNearbyCouriers(lat, lng) {
+  document.getElementById('courier-card').classList.remove('d-none');
+  document.getElementById('cc-loading').classList.remove('d-none');
+  document.getElementById('cc-empty').classList.add('d-none');
+  document.getElementById('cc-result').classList.add('d-none');
+
+  // Clear old courier markers
+  courierMarkers.forEach(function(m){ map.removeLayer(m); });
+  courierMarkers = [];
+
+  fetch('/api/nearest-couriers/?lat='+lat+'&lng='+lng)
+    .then(function(r){return r.json();})
+    .then(function(d){
+      document.getElementById('cc-loading').classList.add('d-none');
+      if (!d.count) {
+        document.getElementById('cc-empty').classList.remove('d-none');
+        return;
+      }
+
+      document.getElementById('cc-result').classList.remove('d-none');
+      document.getElementById('cc-count').textContent = d.count;
+      document.getElementById('cc-nearest').textContent =
+        d.nearest_miles ? d.nearest_miles.toFixed(1)+' mi away' : '-';
+      document.getElementById('cc-eta').textContent =
+        d.eta_min ? '~'+d.eta_min+' min' : '-';
+
+      // Avatars
+      var avatarHtml = '';
+      (d.couriers||[]).slice(0,4).forEach(function(c,i){
+        var bg = COURIER_COLORS[i % COURIER_COLORS.length];
+        avatarHtml += '<div class="courier-avatar" style="background:'+bg+';z-index:'+(10-i)+';">'+c.initials+'</div>';
+      });
+      if (d.count > 4) avatarHtml += '<div class="courier-avatar" style="background:#6B7280;">+'+( d.count-4)+'</div>';
+      document.getElementById('cc-avatars').innerHTML = avatarHtml;
+
+      // Plot couriers on map (small teal dots)
+      (d.couriers||[]).forEach(function(c,i){
+        var m = L.marker([c.lat, c.lng], {
+          icon: L.divIcon({
+            className:'',
+            html:'<div style="background:#0891B2;width:12px;height:12px;border-radius:50%;'
+                +'border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);"></div>',
+            iconSize:[12,12], iconAnchor:[6,6]
+          })
+        }).addTo(map).bindPopup('Courier - '+c.distance_miles+' mi away');
+        courierMarkers.push(m);
+      });
+    })
+    .catch(function(){
+      document.getElementById('cc-loading').classList.add('d-none');
+      document.getElementById('cc-empty').classList.remove('d-none');
+    });
+}
+
+// ── Autocomplete ─────────────────────────────────────────────────
+function onInput(type) {
+  clearTimeout(acTimers[type]);
+  var val = document.getElementById(type+'-q').value.trim();
+  var box = document.getElementById(type+'-ac');
+  if (val.length < 3) { box.innerHTML=''; box.classList.remove('open'); return; }
+  box.innerHTML='<div class="ac-item" style="color:#9CA3AF;font-style:italic;">Searching...</div>';
+  box.classList.add('open');
+  acTimers[type] = setTimeout(function(){ fetchAC(type,val); }, 350);
+}
+
+function fetchAC(type, q) {
+  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=us&q='+encodeURIComponent(q),
+    {headers:{'Accept-Language':'en'}})
+    .then(function(r){return r.json();})
+    .then(function(d){ renderAC(type,d); })
+    .catch(function(){
+      document.getElementById(type+'-ac').innerHTML='<div class="ac-item" style="color:#DC2626;">Search failed.</div>';
+    });
+}
+
+function renderAC(type, data) {
+  var box  = document.getElementById(type+'-ac');
+  var rows = (data||[]).filter(function(i){
+    return ['postcode','country','continent'].indexOf(i.type)<0;
+  });
+  if (!rows.length) {
+    box.innerHTML='<div class="ac-item" style="color:#9CA3AF;">No US results.</div>'; return;
+  }
+  box.innerHTML = rows.map(function(item){
+    var pts = item.display_name.split(',');
+    return '<div class="ac-item" onclick="selectAC(\''+type+'\','+item.lat+','+item.lon+',\''+esc(item.display_name)+'\')">'
+         + '<div class="ac-main">'+esc(pts[0].trim())+'</div>'
+         + '<div class="ac-sub">'+esc(pts.slice(1,4).join(', ').trim())+'</div></div>';
+  }).join('');
+  box.classList.add('open');
+}
+
+function selectAC(type, lat, lng, fullName) {
+  var box   = document.getElementById(type+'-ac');
+  var short = fullName.split(',').slice(0,3).join(', ').trim();
+  box.innerHTML=''; box.classList.remove('open');
+  document.getElementById(type+'-q').value    = short;
+  document.getElementById(type+'-lat').value  = lat;
+  document.getElementById(type+'-lng').value  = lng;
+  document.getElementById(type+'-addr').value = short;
+
+  if (type==='pickup') {
+    pickupSet = true;
+    loadNearbyCouriers(lat, lng);
+  }
+  if (type==='delivery') { deliverySet = true; }
+
+  // Draw route when both are set
+  if (pickupSet && deliverySet) {
+    var plat=parseFloat(document.getElementById('pickup-lat').value);
+    var plng=parseFloat(document.getElementById('pickup-lng').value);
+    var dlat=parseFloat(document.getElementById('delivery-lat').value);
+    var dlng=parseFloat(document.getElementById('delivery-lng').value);
+    drawRoute(plat,plng,dlat,dlng);
+    calculateQuote();
+  } else if (type==='pickup') {
+    // Just show pickup marker
+    if (pMarker) map.removeLayer(pMarker);
+    pMarker = L.marker([lat,lng],{icon:mkDot('#2196F3',22)}).addTo(map).bindPopup('Pickup');
+    map.setView([lat,lng], 12);
+    document.getElementById('map-hint').style.display='none';
+  }
+}
+
+document.addEventListener('click', function(e){
+  ['pickup','delivery'].forEach(function(t){
+    var w=document.getElementById(t+'-q'); if(!w) return;
+    var wr=w.closest('.ac-wrap');
+    if(wr && !wr.contains(e.target)){
+      var b=document.getElementById(t+'-ac');
+      if(b){ b.innerHTML=''; b.classList.remove('open'); }
+    }
+  });
+});
+['pickup','delivery'].forEach(function(t){
+  var inp=document.getElementById(t+'-q'); if(!inp) return;
+  inp.addEventListener('input',function(){ onInput(t); });
+  inp.addEventListener('keydown',function(e){
+    if(e.key!=='Enter') return;
+    e.preventDefault();
+    var first=document.querySelector('#'+t+'-ac .ac-item');
+    if(first) first.click();
+  });
+});
+
+// ── Option change ─────────────────────────────────────────────────
+function onOptionChange() { if(quoteData) calculateQuote(); }
+
+// ── Calculate ─────────────────────────────────────────────────────
+function calculateQuote() {
+  var plat=document.getElementById('pickup-lat').value;
+  var plng=document.getElementById('pickup-lng').value;
+  var dlat=document.getElementById('delivery-lat').value;
+  var dlng=document.getElementById('delivery-lng').value;
+  if(!plat||!plng||!dlat||!dlng){
+    alert('Please enter both pickup and delivery addresses first.');
+    return;
+  }
+  var vehicleSize=document.querySelector('input[name="vehicle_size"]:checked').value;
+  var goodsType  =document.querySelector('input[name="goods_type"]:checked').value;
+
+  showState('loading');
+  document.getElementById('pr-loading-text').textContent='Calculating route...';
+  document.getElementById('pr-loading-sub').textContent ='Checking real-time traffic and weather';
+
+  fetch('/api/get-quote/', {
+    method:'POST', credentials:'same-origin',
+    headers:{'Content-Type':'application/json','X-CSRFToken':csrf()},
+    body:JSON.stringify({
+      pickup_lat:   parseFloat(plat), pickup_lng:  parseFloat(plng),
+      delivery_lat: parseFloat(dlat), delivery_lng:parseFloat(dlng),
+      vehicle_size: vehicleSize, goods_type: goodsType,
+    }),
+  })
+  .then(function(r){
+    if(r.status===429) return r.json().then(function(d){throw {rateLimit:true,msg:d.error};});
+    return r.json();
+  })
+  .then(function(d){
+    if(d.error){ showError(d.error); return; }
+    quoteData=d;
+    renderResult(d);
+  })
+  .catch(function(err){
+    if(err && err.rateLimit) showRateLimit(err.msg);
+    else showError('Could not calculate price. Please check your connection and try again.');
+  });
+}
+
+function renderResult(d) {
+  var el=document.getElementById('pr-price');
+  el.textContent='$'+d.price_usd.toFixed(2);
+  el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+
+  document.getElementById('pr-distance').textContent=d.distance_miles.toFixed(1);
+  document.getElementById('pr-duration').textContent=d.duration_min;
+  document.getElementById('pr-valid').textContent   ='Quote valid until '+d.valid_until;
+
+  setBadge('badge-traffic',d.traffic_label,d.traffic_color);
+  setBadge('badge-weather',d.weather_label,d.weather_color,'badge-weather-icon',d.weather_icon);
+  setBadge('badge-time',   d.time_label,   d.time_color);
+
+  var b=d.breakdown;
+  document.getElementById('bd-base').textContent   ='$'+b.base_fare.toFixed(2);
+  document.getElementById('bd-mileage').textContent='$'+b.mileage_cost.toFixed(2);
+  document.getElementById('bd-fuel').textContent   ='$'+b.fuel_surcharge.toFixed(2);
+  setAdj('bd-traffic-row','bd-traffic',b.traffic_adj);
+  setAdj('bd-weather-row','bd-weather',b.weather_adj);
+  setAdj('bd-time-row',   'bd-time',   b.time_adj);
+  setAdj('bd-goods-row',  'bd-goods',  b.goods_surcharge);
+  document.getElementById('bd-haul-row').style.display=b.long_haul_disc<0?'flex':'none';
+  document.getElementById('bd-haul').textContent='-$'+Math.abs(b.long_haul_disc).toFixed(2);
+  document.getElementById('bd-min-row').style.display=d.min_fare_applied?'flex':'none';
+  document.getElementById('bd-total').textContent='$'+b.total.toFixed(2);
+
+  showState('result');
+}
+
+function setBadge(id, label, color, iconId, iconClass) {
+  var el=document.getElementById(id);
+  el.style.background=color+'22'; el.style.color=color;
+  document.getElementById(id+'-text').textContent=label;
+  if(iconId && iconClass) document.getElementById(iconId).className='fas '+iconClass;
+}
+
+function setAdj(rowId, valId, amount) {
+  var row=document.getElementById(rowId), val=document.getElementById(valId);
+  if(Math.abs(amount)<0.01){ row.style.display='none'; return; }
+  row.style.display='flex';
+  val.textContent=(amount>0?'+':'-')+'$'+Math.abs(amount).toFixed(2);
+  val.className  ='br-'+(amount>0?'pos':'neg');
+}
+
+// ── Book ──────────────────────────────────────────────────────────
+function bookDelivery() {
+  var isLoggedIn={% if request.user.is_authenticated %}true{% else %}false{% endif %};
+  try {
+    sessionStorage.setItem('rvc_quote_prefill', JSON.stringify({
+      pickup_lat:   document.getElementById('pickup-lat').value,
+      pickup_lng:   document.getElementById('pickup-lng').value,
+      pickup_addr:  document.getElementById('pickup-addr').value,
+      delivery_lat: document.getElementById('delivery-lat').value,
+      delivery_lng: document.getElementById('delivery-lng').value,
+      delivery_addr:document.getElementById('delivery-addr').value,
+      vehicle_size: document.querySelector('input[name="vehicle_size"]:checked').value,
+      estimated_price: quoteData ? quoteData.price_usd : null,
+    }));
+  } catch(ex){}
+  window.location.href = isLoggedIn ? '/customer/create_job/' : '/sign_up/?next=/customer/create_job/';
+}
+
+// ── State management ──────────────────────────────────────────────
+function showState(s) {
+  ['pr-empty','pr-loading','pr-result','pr-error','pr-ratelimit'].forEach(function(id){
+    document.getElementById(id).classList.add('d-none');
+  });
+  document.getElementById('pr-'+s).classList.remove('d-none');
+  if(s==='empty'){
+    var btn=document.getElementById('calc-btn');
+    if(btn) btn.classList.remove('d-none');
+  }
+}
+function showError(msg)    { document.getElementById('pr-error-msg').textContent=msg; showState('error'); }
+function showRateLimit(msg){ document.getElementById('rl-msg').textContent=msg;       showState('ratelimit'); }
+function resetQuote()      { quoteData=null; showState('empty'); }
+
+function toggleBreakdown() {
+  var body=document.getElementById('breakdown-body');
+  var icon=document.getElementById('bd-chevron');
+  var open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  icon.style.transform=open?'rotate(0)':'rotate(180deg)';
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function csrf(){
+  var c=document.cookie.split(';').find(function(x){return x.trim().startsWith('csrftoken=');});
+  return c?c.trim().split('=')[1]:'';
+}
+
+// Show desktop calc button on load
+document.addEventListener('DOMContentLoaded', function(){
+  var btn=document.getElementById('calc-btn'); if(btn) btn.classList.remove('d-none');
+});
+</script>
+{% endblock %}
