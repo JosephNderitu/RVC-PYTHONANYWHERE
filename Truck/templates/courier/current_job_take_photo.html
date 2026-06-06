@@ -260,11 +260,43 @@ function upload_photo() {
     }
 
     var uploadName = "{% if job.status == 'picking' %}pickup{% else %}delivery{% endif %}_photo";
-    var formdata   = new FormData();
-    formdata.append(uploadName, blob, uploadName + '.png');
-
     var updateUrl  = "{% url 'courier:current_job_update_api' job.id %}";
     var csrfToken  = getCookie('csrftoken');
+    var jobId      = "{{ job.id }}";
+    var photoType  = "{% if job.status == 'picking' %}pickup{% else %}delivery{% endif %}";
+
+    /* ── OFFLINE: queue photo to IndexedDB ── */
+    if (!navigator.onLine) {
+      var reader = new FileReader();
+      reader.onloadend = function() {
+        RvcDB.savePhoto(jobId, photoType, reader.result, updateUrl, csrfToken)
+          .then(function() {
+            setUploading(false);
+            if (window.Swal) {
+              Swal.fire({
+                toast: true, position: 'bottom', icon: 'warning',
+                title: "You're offline — photo queued",
+                text:  'It will upload automatically when you reconnect.',
+                showConfirmButton: false,
+                timer: 5000, timerProgressBar: true,
+              });
+            }
+            setTimeout(function() {
+              window.location.href = "{% url 'courier:current_job' %}";
+            }, 2500);
+          })
+          .catch(function(err) {
+            showError('Failed to queue photo: ' + err.message);
+            setUploading(false);
+          });
+      };
+      reader.readAsDataURL(blob);
+      return;
+    }
+
+    /* ── ONLINE: normal upload ── */
+    var formdata = new FormData();
+    formdata.append(uploadName, blob, uploadName + '.png');
 
     fetch(updateUrl, {
       method:      'POST',
@@ -296,7 +328,28 @@ function upload_photo() {
       showError('Upload failed: ' + err.message);
       setUploading(false);
     });
+
   }, 'image/png');
 }
+
+/* Phase 4 — flush queued photos when connection returns */
+window.addEventListener('online', function() {
+  if (window.RvcOffline && window.RvcOffline.flushPhotoQueue) {
+    window.RvcOffline.flushPhotoQueue();
+  }
+});
+ 
+/* Show queued-photos badge on load */
+if (window.RvcOffline && window.RvcOffline.updatePhotoSyncBadge) {
+  document.addEventListener('DOMContentLoaded', function() {
+    window.RvcOffline.updatePhotoSyncBadge();
+  });
+}
+/* Phase 4 — flush queued photos on reconnect */
+window.addEventListener('online', function() {
+  if (window.RvcOffline && window.RvcOffline.flushPhotoQueue) {
+    window.RvcOffline.flushPhotoQueue();
+  }
+});
 </script>
 {% endblock %}

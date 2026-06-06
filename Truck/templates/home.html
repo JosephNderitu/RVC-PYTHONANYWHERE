@@ -49,7 +49,16 @@ body { background:#fff; color:#111827; }
 .fleet-card { border-top:4px solid #F97316; }
 
 /* ─── Team photo overlay ─────────────────────────────────── */
-.team-img { width:100%;height:210px;object-fit:cover;object-position:top;border-radius:12px 12px 0 0;display:block; }
+.team-img {
+  width: 100%;
+  height: 260px;                  /* taller box = less aggressive zoom */
+  object-fit: cover;
+  object-position: center 15%;   /* anchors slightly above centre — keeps face + shoulders in frame */
+  border-radius: 12px 12px 0 0;
+  display: block;
+  transform: scale(0.95);        /* pulls back the zoom slightly */
+  transform-origin: top center;
+}
 .team-overlay {
   position:absolute;bottom:0;left:0;right:0;padding:14px 18px;
   background:linear-gradient(0deg,rgba(13,27,62,.88) 0%,transparent 100%);
@@ -361,15 +370,15 @@ body { background:#fff; color:#111827; }
       <!-- Member 1 -->
       <div class="rvc-card overflow-hidden">
         <div class="relative">
-          <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&q=80"
-               alt="Sarah Kimani" class="team-img">
+          <img src="{% static "images/OR-manager.png" %}"
+               alt="Micheal Gacheru" class="team-img">
           <div class="team-overlay">
-            <div class="text-white font-bold text-base">Sarah Kimani</div>
+            <div class="text-white font-bold text-base">Micheal Gacheru</div>
             <div class="font-semibold text-sm" style="color:#F97316;">Operations Director</div>
           </div>
         </div>
         <div class="p-5">
-          <p class="text-gray-500 text-sm leading-relaxed">Oversees daily operations, ensuring seamless coordination between customers and couriers. Sarah brings 8 years of logistics leadership to keep every delivery on track.</p>
+          <p class="text-gray-500 text-sm leading-relaxed">Oversees daily operations, ensuring seamless coordination between customers and couriers. Micheal brings 8 years of logistics leadership to keep every delivery on track.</p>
         </div>
       </div>
 
@@ -466,8 +475,8 @@ body { background:#fff; color:#111827; }
 
       <!-- Photo -->
       <div class="lg:w-5/12 flex-shrink-0">
-        <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?w=800&q=80"
-             alt="John Mwangi — CEO & Founder"
+        <img src="{% static "images/CEO.jpeg" %}"
+             alt="Samuel Muchunu — CEO & Founder"
              style="width:100%;height:100%;min-height:360px;object-fit:cover;object-position:top center;display:block;">
       </div>
 
@@ -480,9 +489,9 @@ body { background:#fff; color:#111827; }
 
         <!-- Founder chip -->
         <div class="flex items-center gap-4 p-4 rounded-xl mb-8" style="background:#F8FAFC;border:1px solid #E5E7EB;">
-          <div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0" style="background:#0D1B3E;">JM</div>
+          <div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0" style="background:#0D1B3E;">SM</div>
           <div>
-            <div class="font-bold text-sm" style="color:#0D1B3E;">John Mwangi</div>
+            <div class="font-bold text-sm" style="color:#0D1B3E;">Samuel Muchunu</div>
             <div class="text-gray-500 text-xs">CEO &amp; Founder, RiftValley Carriers</div>
             <div class="text-gray-400 text-xs mt-0.5">Visionary leader with 10+ years in logistics</div>
           </div>
