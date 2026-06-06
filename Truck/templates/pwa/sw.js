@@ -1,17 +1,5 @@
 {% load static %}
-/*
- * RiftValley Carriers — Service Worker
- * =====================================================
- * Scope: /  (covers /courier/ and /customer/)
- * Strategy matrix:
- *   - Static assets  → Cache First  (CSS, JS, fonts, images)
- *   - Courier pages  → Network First with offline fallback
- *   - API calls      → Network First, queue offline POSTs
- *   - Maps/tiles     → Cache First (Leaflet tiles)
- * =====================================================
- */
-
-const SW_VERSION  = 'rvc-sw-v1.0.0';
+const SW_VERSION  = 'rvc-sw-v2.0.0';
 const STATIC_CACHE  = `${SW_VERSION}-static`;
 const PAGES_CACHE   = `${SW_VERSION}-pages`;
 const API_CACHE     = `${SW_VERSION}-api`;
@@ -26,7 +14,7 @@ const STATIC_ASSETS = [
   '/courier/',
   '/courier/jobs/current/',
   '/courier/jobs/available/',
-  '/offline/',           /* offline fallback page (we'll create this) */
+  '/offline/',
 ];
 
 /* ── Courier pages to cache on first visit ───────────────── */
@@ -62,7 +50,6 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then(cache => {
-        /* Cache what we can — don't fail install if one asset is missing */
         return Promise.allSettled(
           STATIC_ASSETS.map(url =>
             cache.add(url).catch(err =>
@@ -161,12 +148,12 @@ self.addEventListener('push', event => {
     const data = event.data.json();
     event.waitUntil(
       self.registration.showNotification(data.title || 'RVC Courier', {
-        body:    data.body || 'You have a new update.',
-        icon:    '{% static "images/logo.png" %}',
-        badge:   '{% static "images/logo.png" %}',
-        tag:     'rvc-notification',
+        body:     data.body || 'You have a new update.',
+        icon:     '{% static "images/logo.png" %}',
+        badge:    '{% static "images/logo.png" %}',
+        tag:      'rvc-notification',
         renotify: true,
-        data:    { url: data.url || '/courier/' },
+        data:     { url: data.url || '/courier/' },
       })
     );
   } catch (e) {
@@ -237,10 +224,8 @@ async function courierPageStrategy(request) {
     }
     return response;
   } catch {
-    /* Try exact cached page first */
     const cached = await cache.match(request);
     if (cached) return cached;
-    /* Fall back to offline page */
     const offline = await caches.match('/offline/');
     if (offline) return offline;
     return new Response('<h1>You are offline</h1><p>Please reconnect to continue.</p>', {
@@ -258,10 +243,9 @@ async function tileStrategy(request) {
   try {
     const response = await fetch(request);
     if (response.ok) {
-      /* Enforce tile cache size limit */
       const keys = await cache.keys();
       if (keys.length >= MAX_TILE_ENTRIES) {
-        cache.delete(keys[0]); /* evict oldest */
+        cache.delete(keys[0]);
       }
       cache.put(request, response.clone());
     }
@@ -271,23 +255,30 @@ async function tileStrategy(request) {
   }
 }
 
-/** Flush queued offline job status updates via IndexedDB queue */
+/**
+ * Flush queued offline job status updates via IndexedDB syncQueue.
+ * FIX: removed await tx.done — vanilla IDB transactions have no .done property.
+ * The transaction auto-commits once all pending requests are resolved.
+ */
 async function flushOfflineStatusUpdates() {
-  /* Reads from the rvc-sync-queue IndexedDB store (written by courier-offline.js) */
-  const db = await openSyncDB();
-  const tx  = db.transaction('syncQueue', 'readwrite');
+  const db    = await openSyncDB();
+  const tx    = db.transaction('syncQueue', 'readwrite');
   const store = tx.objectStore('syncQueue');
 
   return new Promise((resolve, reject) => {
     const req = store.getAll();
     req.onsuccess = async () => {
-      const items = req.result;
+      const items  = req.result;
       const failed = [];
+
       for (const item of items) {
         try {
           const res = await fetch(item.url, {
             method:      'POST',
-            headers:     { 'Content-Type': 'application/json', 'X-CSRFToken': item.csrf },
+            headers:     {
+              'Content-Type': 'application/json',
+              'X-CSRFToken':  item.csrf,
+            },
             body:        JSON.stringify(item.body),
             credentials: 'include',
           });
@@ -301,9 +292,12 @@ async function flushOfflineStatusUpdates() {
           failed.push(item.id);
         }
       }
-      await tx.done;
+
+      /* NOTE: await tx.done removed — not valid in vanilla IndexedDB.
+         The transaction commits automatically when all operations complete. */
+
       if (failed.length) {
-        console.warn('[RVC SW] Failed to sync', failed.length, 'item(s) — will retry next sync');
+        console.warn('[RVC SW] Failed to sync', failed.length, 'item(s) — will retry');
         reject(new Error('Partial sync failure'));
       } else {
         resolve();
@@ -313,19 +307,49 @@ async function flushOfflineStatusUpdates() {
   });
 }
 
-/** Minimal IndexedDB open for the sync queue */
+/**
+ * Open the shared offline IndexedDB.
+ * Version 2 adds photoQueue (Phase 4) and routeCache (Phase 5).
+ * Existing version 1 data (jobCache, syncQueue) is preserved on upgrade.
+ */
 function openSyncDB() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open('rvc-offline-db', 1);
+    const req = indexedDB.open('rvc-offline-db', 2);
+
     req.onupgradeneeded = e => {
       const db = e.target.result;
+
+      /* ── Version 1 stores — create only if missing ── */
       if (!db.objectStoreNames.contains('syncQueue')) {
-        db.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true });
+        db.createObjectStore('syncQueue', {
+          keyPath: 'id', autoIncrement: true,
+        });
       }
       if (!db.objectStoreNames.contains('jobCache')) {
         db.createObjectStore('jobCache', { keyPath: 'id' });
       }
+
+      /* ── Version 2 stores — Phase 4 + Phase 5 ── */
+      if (!db.objectStoreNames.contains('photoQueue')) {
+        /*
+         * Stores offline photo uploads as base64 data URLs.
+         * Flushed by courier-offline.js flushPhotoQueue() on reconnect.
+         * Shape: { id, job_id, photo_type, photo_b64, update_url, csrf, queued_at }
+         */
+        db.createObjectStore('photoQueue', {
+          keyPath: 'id', autoIncrement: true,
+        });
+      }
+      if (!db.objectStoreNames.contains('routeCache')) {
+        /*
+         * Stores the last-fetched route GeoJSON for the active job.
+         * Read by courier-offline.js drawOfflineRoute() when map tiles fail.
+         * Shape: { id (job_id), geometry, distance, duration, source, cached_at }
+         */
+        db.createObjectStore('routeCache', { keyPath: 'id' });
+      }
     };
+
     req.onsuccess = e => resolve(e.target.result);
     req.onerror   = e => reject(e.target.error);
   });
