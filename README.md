@@ -73,13 +73,13 @@ This repository contains the **Geospatial Computing** component, powering road r
 
 | Customer Step 1 | Customer Step 2 | Customer Step 3 |
 |:---:|:---:|:---:|
-| <img src="readme_images/customer-step1.png" width="260"/> | <img src="readme_images/customer-step2.png" width="260"/> | <img src="readme_images/customer-step3.png" width="260"/> |
-| Item Details & AI Classification | Pickup Location | OSRM Route & Price |
+| <img src="readme_images/create_job_step2.png" width="260"/> | <img src="readme_images/create_job_step3.png" width="260"/> | <img src="readme_images/create_job_step3.png" width="260"/> | <img src="readme_images/create_job final step.png" width="260"/> |
+| ickup Location | Delivery Location | OSRM Route & Price | checkout page |
 
 | Tracking Page | Courier Dashboard | Geofencing |
 |:---:|:---:|:---:|
-| <img src="readme_images/tracking.png" width="260"/> | <img src="readme_images/courier-dashboard.png" width="260"/> | <img src="readme_images/geofencing.png" width="260"/> |
-| Live Courier & ETA | Live GPS Tracking | Zone Entry/Exit Detection |
+| <img src="readme_images/customer_liveTracking.png" width="260"/> | <img src="readme_images/courier_select_jobPage.png" width="260"/> | <img src="readme_images/systemArch.png" width="260"/> | <img src="readme_images/courier_tracking.png" width="260"/> |
+| Customer Live Tracking & ETA | Live Courier & ETA | system Architecture | Live GPS Tracking |
 
 </div>
 
@@ -172,9 +172,9 @@ python gps_replay.py --route atlanta_savannah --speed 5
 <div align="center">
 
 [![GitHub](https://img.shields.io/badge/GitHub-JosephNderitu-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/JosephNderitu/RVC-PYTHONANYWHERE)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Joseph%20Nderitu-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/joseph-nderitu)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Joseph%20Nderitu-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/joseph-gikuru-48574926b)
 [![Email](https://img.shields.io/badge/Email-gikurujoseph53%40gmail.com-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:gikurujoseph53@gmail.com)
 
-**MIT License** • 2026 Rift Valley Carriers latest update
+**MIT License** • 2026 Rift Valley Carriers latest
 
 </div>
