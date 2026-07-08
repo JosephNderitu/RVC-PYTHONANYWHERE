@@ -175,6 +175,6 @@ python gps_replay.py --route atlanta_savannah --speed 5
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Joseph%20Nderitu-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/joseph-nderitu)
 [![Email](https://img.shields.io/badge/Email-gikurujoseph53%40gmail.com-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:gikurujoseph53@gmail.com)
 
-**MIT License** • 2026 Rift Valley Carriers
+**MIT License** • 2026 Rift Valley Carriers latest update
 
 </div>
