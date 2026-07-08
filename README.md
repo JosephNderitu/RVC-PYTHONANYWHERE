@@ -1,295 +1,246 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RVC Geospatial Logistics Platform</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      background: #ffffff;
-      color: #1e293b;
-      line-height: 1.7;
-      padding: 40px 20px;
-      max-width: 1000px;
-      margin: 0 auto;
-    }
-    .badge {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      margin-right: 6px;
-    }
-    .badge-blue { background: #e0f2fe; color: #0369a1; }
-    .badge-green { background: #dcfce7; color: #15803d; }
-    .badge-orange { background: #fef3c7; color: #b45309; }
-    .badge-purple { background: #f3e8ff; color: #7c3aed; }
-    .badge-red { background: #fee2e2; color: #b91c1c; }
-    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; color: #0f172a; }
-    h2 { font-size: 20px; font-weight: 600; margin: 32px 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; color: #0f172a; }
-    h3 { font-size: 16px; font-weight: 600; margin: 20px 0 10px 0; color: #1e293b; }
-    p { margin-bottom: 12px; color: #334155; }
-    .subtitle { font-size: 16px; color: #64748b; margin-bottom: 24px; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
-    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin: 16px 0; }
-    .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; }
-    .card i { color: #1e40af; width: 24px; margin-right: 8px; }
-    .metric { background: #f1f5f9; border-radius: 8px; padding: 12px 16px; text-align: center; }
-    .metric .value { font-size: 24px; font-weight: 700; color: #0f172a; }
-    .metric .label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
-    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
-    th { background: #f1f5f9; text-align: left; padding: 10px 14px; font-weight: 600; color: #0f172a; border-bottom: 2px solid #e2e8f0; }
-    td { padding: 10px 14px; border-bottom: 1px solid #e2e8f0; }
-    .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin: 16px 0; }
-    .gallery-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; text-align: center; }
-    .gallery-item .placeholder { background: #e2e8f0; height: 140px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 13px; }
-    .gallery-item .caption { padding: 8px 12px; font-size: 13px; font-weight: 500; color: #1e293b; }
-    .code-block { background: #0f172a; color: #e2e8f0; padding: 14px 18px; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 13px; overflow-x: auto; margin: 12px 0; }
-    .code-block .comment { color: #94a3b8; }
-    .footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 14px; }
-    .footer a { color: #1e40af; text-decoration: none; }
-    .footer a:hover { text-decoration: underline; }
-    .tech-icons i { font-size: 28px; margin-right: 12px; color: #334155; }
-    @media (max-width: 768px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
-  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 </head>
-<body>
+<body class="bg-white text-slate-800 font-sans antialiased py-10 px-4 max-w-4xl mx-auto">
 
-<!-- ========== HEADER ========== -->
-<h1><i class="fas fa-truck" style="color: #1e40af; margin-right: 12px;"></i> RVC Geospatial Logistics Platform</h1>
-<p class="subtitle">An Intelligent, Resilience-Optimized Logistics Platform for Real-Time Dynamic Dispatch</p>
-
-<p>
-  <span class="badge badge-blue"><i class="fab fa-python"></i> Python 3.11</span>
-  <span class="badge badge-green"><i class="fab fa-django"></i> Django 4.2</span>
-  <span class="badge badge-blue"><i class="fas fa-database"></i> PostGIS 3.4</span>
-  <span class="badge badge-orange"><i class="fas fa-route"></i> OSRM 5.27</span>
-  <span class="badge badge-purple"><i class="fab fa-docker"></i> Docker</span>
-  <span class="badge badge-red"><i class="fas fa-code"></i> MIT</span>
-</p>
-
-<hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;">
-
-<!-- ========== OVERVIEW ========== -->
-<h2><i class="fas fa-info-circle" style="color: #1e40af; margin-right: 10px;"></i> Overview</h2>
-
-<p><strong>Rift Valley Carriers (RVC)</strong> is a full-stack geospatial logistics and courier dispatch platform designed for trucking operations across Georgia and surrounding U.S. states. The platform unifies courier coordination, delivery routing, and fleet management into an intelligent web-based system.</p>
-
-<p>This repository contains the <strong>Geospatial Computing</strong> component, powering road routing, automated dispatch, geofencing, service area enforcement, and real-time fleet visualization using self-hosted open-source infrastructure.</p>
-
-<!-- ========== KEY METRICS ========== -->
-<div class="grid-3">
-  <div class="metric"><div class="value">20ms</div><div class="label">Dispatch Latency</div></div>
-  <div class="metric"><div class="value">47ms</div><div class="label">Geofencing (95th %ile)</div></div>
-  <div class="metric"><div class="value">99.8%</div><div class="label">Route Success Rate</div></div>
-  <div class="metric"><div class="value">218x</div><div class="label">Faster than Python Baseline</div></div>
-  <div class="metric"><div class="value">156ms</div><div class="label">Map Refresh Interval</div></div>
-  <div class="metric"><div class="value">$24/mo</div><div class="label">Infrastructure Cost</div></div>
-</div>
-
-<!-- ========== FEATURES ========== -->
-<h2><i class="fas fa-star" style="color: #1e40af; margin-right: 10px;"></i> Key Features</h2>
-
-<div class="grid-2">
-  <div class="card"><i class="fas fa-wand-magic-sparkles"></i> <strong>Customer Portal</strong><br>4-step job wizard, AI goods classification, live tracking with ETA, weather-aware adjustments</div>
-  <div class="card"><i class="fas fa-moon"></i> <strong>Courier Portal</strong><br>Dark theme dashboard, live GPS tracking, job acceptance, delivery proof capture</div>
-  <div class="card"><i class="fas fa-draw-polygon"></i> <strong>Geofencing Engine</strong><br>Winding Number PiP algorithm, 3-point jitter dampening, ENTER/EXIT event detection</div>
-  <div class="card"><i class="fas fa-arrows-spin"></i> <strong>Distance Cascade</strong><br>Haversine (&#60;1mi) &#8594; Karney Geodesic (1-10mi) &#8594; OSRM (&#62;10mi)</div>
-  <div class="card"><i class="fas fa-location-dot"></i> <strong>Service Area</strong><br>ST_Contains boundary validation, snap-to-road using OSRM nearest endpoint</div>
-  <div class="card"><i class="fas fa-map"></i> <strong>Visualization</strong><br>Self-hosted vector tiles (PostGIS MVT + Martin + MapLibre GL JS), WebSocket streaming</div>
-</div>
-
-<!-- ========== TECHNOLOGY STACK ========== -->
-<h2><i class="fas fa-cubes" style="color: #1e40af; margin-right: 10px;"></i> Technology Stack</h2>
-
-<table>
-  <tr><th>Layer</th><th>Technology</th><th>Version</th><th>Purpose</th></tr>
-  <tr><td>Backend</td><td>Django with GeoDjango</td><td>4.2</td><td>REST API, spatial ORM</td></tr>
-  <tr><td>Spatial DB</td><td>PostgreSQL with PostGIS</td><td>16 / 3.4</td><td>GiST indexing, spatial queries</td></tr>
-  <tr><td>Routing</td><td>OSRM (Docker)</td><td>5.27.1</td><td>Road network, MLD algorithm</td></tr>
-  <tr><td>Tasks</td><td>Celery + Redis</td><td>5.3 / 7.0</td><td>Background geofence evaluation</td></tr>
-  <tr><td>Maps</td><td>Leaflet.js + MapLibre GL JS</td><td>1.9 / 3.0</td><td>Interactive mapping, vector tiles</td></tr>
-  <tr><td>Payments</td><td>Stripe API</td><td>2025-02</td><td>Payment processing</td></tr>
-  <tr><td>Notifications</td><td>Twilio API</td><td>-</td><td>WhatsApp messaging</td></tr>
-  <tr><td>Orchestration</td><td>Docker + Docker Compose</td><td>20.10 / 2.20</td><td>Container management</td></tr>
-</table>
-
-<!-- ========== SYSTEM ARCHITECTURE ========== -->
-<h2><i class="fas fa-sitemap" style="color: #1e40af; margin-right: 10px;"></i> System Architecture</h2>
-
-<div class="code-block" style="color: #94a3b8; background: #0f172a; padding: 20px; border-radius: 8px; font-size: 13px; line-height: 1.8;">
-<pre style="margin:0; color:#e2e8f0;">
-┌────────────────────────────────────────────────────────────────────┐
-│ <span style="color:#60a5fa;">PRESENTATION LAYER</span>                                                   │
-│  ┌────────────┐  ┌────────────┐  ┌────────────────────────────┐ │
-│  │  Customer  │  │   Courier  │  │        Admin               │ │
-│  │   Portal   │  │   Portal   │  │       Dashboard             │ │
-│  │ (Leaflet)  │  │ (Dark Map) │  │    (Django Admin)           │ │
-│  └────────────┘  └────────────┘  └────────────────────────────┘ │
-└───────────────────────────────────┬────────────────────────────────┘
-                                    │ REST API + WebSocket
-┌───────────────────────────────────▼────────────────────────────────┐
-│ <span style="color:#60a5fa;">APPLICATION LAYER</span>                                                   │
-│  ┌────────────┐  ┌────────────┐  ┌────────────────────────────┐ │
-│  │  Django    │  │  GeoDjango │  │         Celery             │ │
-│  │  REST API  │  │    ORM     │  │         Workers            │ │
-│  └────────────┘  └────────────┘  └────────────────────────────┘ │
-│  ┌──────────────────────────────────────────────────────────────┐ │
-│  │                       Redis (Cache)                          │ │
-│  └──────────────────────────────────────────────────────────────┘ │
-└───────────────────────────────────┬────────────────────────────────┘
-                                    │
-┌───────────────────────────────────▼────────────────────────────────┐
-│ <span style="color:#60a5fa;">ROUTING INTEGRATION LAYER</span>                                           │
-│  ┌──────────────────────────────────────────────────────────────┐ │
-│  │           OSRM Container (MLD Algorithm)                     │ │
-│  │           Fallback: ORS → Haversine                         │ │
-│  └──────────────────────────────────────────────────────────────┘ │
-└───────────────────────────────────┬────────────────────────────────┘
-                                    │
-┌───────────────────────────────────▼────────────────────────────────┐
-│ <span style="color:#60a5fa;">DATA LAYER</span>                                                        │
-│  ┌──────────────────────────────────────────────────────────────┐ │
-│  │           PostgreSQL 16 + PostGIS 3.4                        │ │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌─────────────────┐ │ │
-│  │  │ Service  │ │  GeoZone │ │ Courier  │ │  GeofenceEvent  │ │ │
-│  │  │  Area    │ │          │ │ Location │ │                 │ │ │
-│  │  └──────────┘ └──────────┘ └──────────┘ └─────────────────┘ │ │
-│  └──────────────────────────────────────────────────────────────┘ │
-└────────────────────────────────────────────────────────────────────┘
-</pre>
-</div>
-
-<!-- ========== GALLERY ========== -->
-<h2><i class="fas fa-images" style="color: #1e40af; margin-right: 10px;"></i> Screenshots</h2>
-
-<div class="gallery">
-  <div class="gallery-item">
-    <div class="placeholder"><i class="fas fa-image" style="font-size: 32px;"></i><br>Customer Step 1</div>
-    <div class="caption">Item Details &amp; AI Classification</div>
+  <!-- ===== HEADER ===== -->
+  <div class="flex items-start gap-4 mb-6">
+    <div>
+      <h1 class="text-3xl font-bold text-slate-900">
+        <i class="fas fa-truck text-blue-700 mr-3"></i>RVC Geospatial Logistics Platform
+      </h1>
+      <p class="text-base text-slate-500 mt-1">An Intelligent, Resilience-Optimized Logistics Platform for Real-Time Dynamic Dispatch</p>
+    </div>
   </div>
-  <div class="gallery-item">
-    <div class="placeholder"><i class="fas fa-image" style="font-size: 32px;"></i><br>Customer Step 2</div>
-    <div class="caption">Pickup Location with Service Area</div>
+
+  <!-- ===== BADGES ===== -->
+  <div class="flex flex-wrap gap-2 mb-6">
+    <span class="bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full"><i class="fab fa-python mr-1"></i>Python 3.11</span>
+    <span class="bg-green-50 text-green-700 text-xs font-semibold px-3 py-1 rounded-full"><i class="fab fa-django mr-1"></i>Django 4.2</span>
+    <span class="bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full"><i class="fas fa-database mr-1"></i>PostGIS 3.4</span>
+    <span class="bg-amber-50 text-amber-700 text-xs font-semibold px-3 py-1 rounded-full"><i class="fas fa-route mr-1"></i>OSRM 5.27</span>
+    <span class="bg-purple-50 text-purple-700 text-xs font-semibold px-3 py-1 rounded-full"><i class="fab fa-docker mr-1"></i>Docker</span>
+    <span class="bg-red-50 text-red-700 text-xs font-semibold px-3 py-1 rounded-full"><i class="fas fa-code mr-1"></i>MIT</span>
   </div>
-  <div class="gallery-item">
-    <div class="placeholder"><i class="fas fa-image" style="font-size: 32px;"></i><br>Customer Step 3</div>
-    <div class="caption">OSRM Route &amp; Price Breakdown</div>
+
+  <hr class="border-slate-200 my-6" />
+
+  <!-- ===== OVERVIEW ===== -->
+  <h2 class="text-xl font-semibold text-slate-900 mt-8 mb-3 pb-2 border-b border-slate-200">
+    <i class="fas fa-info-circle text-blue-700 mr-2"></i>Overview
+  </h2>
+  <p class="text-slate-600 mb-3"><strong>Rift Valley Carriers (RVC)</strong> is a full-stack geospatial logistics and courier dispatch platform designed for trucking operations across Georgia and surrounding U.S. states. The platform unifies courier coordination, delivery routing, and fleet management into an intelligent web-based system.</p>
+  <p class="text-slate-600">This repository contains the <strong>Geospatial Computing</strong> component, powering road routing, automated dispatch, geofencing, service area enforcement, and real-time fleet visualization using self-hosted open-source infrastructure.</p>
+
+  <!-- ===== METRICS ===== -->
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-4 my-6">
+    <div class="bg-slate-50 rounded-lg p-4 text-center border border-slate-200">
+      <div class="text-2xl font-bold text-slate-900">20ms</div>
+      <div class="text-xs text-slate-500 uppercase tracking-wide">Dispatch Latency</div>
+    </div>
+    <div class="bg-slate-50 rounded-lg p-4 text-center border border-slate-200">
+      <div class="text-2xl font-bold text-slate-900">47ms</div>
+      <div class="text-xs text-slate-500 uppercase tracking-wide">Geofencing (95th %ile)</div>
+    </div>
+    <div class="bg-slate-50 rounded-lg p-4 text-center border border-slate-200">
+      <div class="text-2xl font-bold text-slate-900">99.8%</div>
+      <div class="text-xs text-slate-500 uppercase tracking-wide">Route Success Rate</div>
+    </div>
+    <div class="bg-slate-50 rounded-lg p-4 text-center border border-slate-200">
+      <div class="text-2xl font-bold text-slate-900">218x</div>
+      <div class="text-xs text-slate-500 uppercase tracking-wide">Faster than Python Baseline</div>
+    </div>
+    <div class="bg-slate-50 rounded-lg p-4 text-center border border-slate-200">
+      <div class="text-2xl font-bold text-slate-900">156ms</div>
+      <div class="text-xs text-slate-500 uppercase tracking-wide">Map Refresh Interval</div>
+    </div>
+    <div class="bg-slate-50 rounded-lg p-4 text-center border border-slate-200">
+      <div class="text-2xl font-bold text-slate-900">$24/mo</div>
+      <div class="text-xs text-slate-500 uppercase tracking-wide">Infrastructure Cost</div>
+    </div>
   </div>
-  <div class="gallery-item">
-    <div class="placeholder"><i class="fas fa-image" style="font-size: 32px;"></i><br>Tracking Page</div>
-    <div class="caption">Live Courier with ETA Countdown</div>
+
+  <!-- ===== FEATURES ===== -->
+  <h2 class="text-xl font-semibold text-slate-900 mt-8 mb-3 pb-2 border-b border-slate-200">
+    <i class="fas fa-star text-blue-700 mr-2"></i>Key Features
+  </h2>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <div class="bg-slate-50 border border-slate-200 rounded-lg p-4"><i class="fas fa-wand-magic-sparkles text-blue-700 w-6 mr-2"></i><strong>Customer Portal</strong><br class="block sm:hidden" /><span class="text-slate-600">4-step job wizard, AI classification, live tracking with ETA, weather adjustments</span></div>
+    <div class="bg-slate-50 border border-slate-200 rounded-lg p-4"><i class="fas fa-moon text-blue-700 w-6 mr-2"></i><strong>Courier Portal</strong><br class="block sm:hidden" /><span class="text-slate-600">Dark theme dashboard, live GPS tracking, job acceptance, delivery proof</span></div>
+    <div class="bg-slate-50 border border-slate-200 rounded-lg p-4"><i class="fas fa-draw-polygon text-blue-700 w-6 mr-2"></i><strong>Geofencing Engine</strong><br class="block sm:hidden" /><span class="text-slate-600">Winding Number PiP, 3-point jitter dampening, ENTER/EXIT detection</span></div>
+    <div class="bg-slate-50 border border-slate-200 rounded-lg p-4"><i class="fas fa-arrows-spin text-blue-700 w-6 mr-2"></i><strong>Distance Cascade</strong><br class="block sm:hidden" /><span class="text-slate-600">Haversine → Karney Geodesic → OSRM with auto fallback</span></div>
+    <div class="bg-slate-50 border border-slate-200 rounded-lg p-4"><i class="fas fa-location-dot text-blue-700 w-6 mr-2"></i><strong>Service Area</strong><br class="block sm:hidden" /><span class="text-slate-600">ST_Contains validation, snap-to-road via OSRM nearest endpoint</span></div>
+    <div class="bg-slate-50 border border-slate-200 rounded-lg p-4"><i class="fas fa-map text-blue-700 w-6 mr-2"></i><strong>Visualization</strong><br class="block sm:hidden" /><span class="text-slate-600">Self-hosted vector tiles (PostGIS MVT + Martin + MapLibre GL JS)</span></div>
   </div>
-  <div class="gallery-item">
-    <div class="placeholder"><i class="fas fa-image" style="font-size: 32px;"></i><br>Courier Dashboard</div>
-    <div class="caption">Current Job with Live GPS</div>
+
+  <!-- ===== TECH STACK ===== -->
+  <h2 class="text-xl font-semibold text-slate-900 mt-8 mb-3 pb-2 border-b border-slate-200">
+    <i class="fas fa-cubes text-blue-700 mr-2"></i>Technology Stack
+  </h2>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm border-collapse">
+      <thead><tr class="bg-slate-50 text-left"><th class="p-3 font-semibold border-b-2 border-slate-200">Layer</th><th class="p-3 font-semibold border-b-2 border-slate-200">Technology</th><th class="p-3 font-semibold border-b-2 border-slate-200">Version</th><th class="p-3 font-semibold border-b-2 border-slate-200">Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="p-3 border-b border-slate-200">Backend</td><td class="p-3 border-b border-slate-200">Django with GeoDjango</td><td class="p-3 border-b border-slate-200">4.2</td><td class="p-3 border-b border-slate-200">REST API, spatial ORM</td></tr>
+        <tr><td class="p-3 border-b border-slate-200">Spatial DB</td><td class="p-3 border-b border-slate-200">PostgreSQL with PostGIS</td><td class="p-3 border-b border-slate-200">16 / 3.4</td><td class="p-3 border-b border-slate-200">GiST indexing, spatial queries</td></tr>
+        <tr><td class="p-3 border-b border-slate-200">Routing</td><td class="p-3 border-b border-slate-200">OSRM (Docker)</td><td class="p-3 border-b border-slate-200">5.27.1</td><td class="p-3 border-b border-slate-200">MLD algorithm, road network</td></tr>
+        <tr><td class="p-3 border-b border-slate-200">Tasks</td><td class="p-3 border-b border-slate-200">Celery + Redis</td><td class="p-3 border-b border-slate-200">5.3 / 7.0</td><td class="p-3 border-b border-slate-200">Background geofence evaluation</td></tr>
+        <tr><td class="p-3 border-b border-slate-200">Maps</td><td class="p-3 border-b border-slate-200">Leaflet.js + MapLibre GL JS</td><td class="p-3 border-b border-slate-200">1.9 / 3.0</td><td class="p-3 border-b border-slate-200">Interactive mapping, vector tiles</td></tr>
+        <tr><td class="p-3 border-b border-slate-200">Payments</td><td class="p-3 border-b border-slate-200">Stripe API</td><td class="p-3 border-b border-slate-200">2025-02</td><td class="p-3 border-b border-slate-200">Payment processing</td></tr>
+        <tr><td class="p-3 border-b border-slate-200">Notifications</td><td class="p-3 border-b border-slate-200">Twilio API</td><td class="p-3 border-b border-slate-200">-</td><td class="p-3 border-b border-slate-200">WhatsApp messaging</td></tr>
+        <tr><td class="p-3">Orchestration</td><td class="p-3">Docker + Docker Compose</td><td class="p-3">20.10 / 2.20</td><td class="p-3">Container management</td></tr>
+      </tbody>
+    </table>
   </div>
-  <div class="gallery-item">
-    <div class="placeholder"><i class="fas fa-image" style="font-size: 32px;"></i><br>Geofencing</div>
-    <div class="caption">Zone Entry/Exit Event Detection</div>
+
+  <!-- ===== GALLERY ===== -->
+  <h2 class="text-xl font-semibold text-slate-900 mt-8 mb-3 pb-2 border-b border-slate-200">
+    <i class="fas fa-images text-blue-700 mr-2"></i>Screenshots
+  </h2>
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+    <div class="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden text-center">
+      <div class="bg-slate-200 h-36 flex items-center justify-center text-slate-400 text-sm"><i class="fas fa-image text-3xl mr-2"></i> Customer Step 1</div>
+      <div class="p-2 text-sm font-medium text-slate-700">Item Details &amp; AI Classification</div>
+    </div>
+    <div class="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden text-center">
+      <div class="bg-slate-200 h-36 flex items-center justify-center text-slate-400 text-sm"><i class="fas fa-image text-3xl mr-2"></i> Customer Step 2</div>
+      <div class="p-2 text-sm font-medium text-slate-700">Pickup Location</div>
+    </div>
+    <div class="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden text-center">
+      <div class="bg-slate-200 h-36 flex items-center justify-center text-slate-400 text-sm"><i class="fas fa-image text-3xl mr-2"></i> Customer Step 3</div>
+      <div class="p-2 text-sm font-medium text-slate-700">OSRM Route &amp; Price</div>
+    </div>
+    <div class="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden text-center">
+      <div class="bg-slate-200 h-36 flex items-center justify-center text-slate-400 text-sm"><i class="fas fa-image text-3xl mr-2"></i> Tracking Page</div>
+      <div class="p-2 text-sm font-medium text-slate-700">Live Courier &amp; ETA</div>
+    </div>
+    <div class="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden text-center">
+      <div class="bg-slate-200 h-36 flex items-center justify-center text-slate-400 text-sm"><i class="fas fa-image text-3xl mr-2"></i> Courier Dashboard</div>
+      <div class="p-2 text-sm font-medium text-slate-700">Live GPS Tracking</div>
+    </div>
+    <div class="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden text-center">
+      <div class="bg-slate-200 h-36 flex items-center justify-center text-slate-400 text-sm"><i class="fas fa-image text-3xl mr-2"></i> Geofencing</div>
+      <div class="p-2 text-sm font-medium text-slate-700">Zone Entry/Exit Detection</div>
+    </div>
   </div>
-</div>
+  <p class="text-xs text-slate-400 mt-2"><i class="fas fa-folder mr-1"></i>Screenshots stored in <code class="bg-slate-100 px-1 rounded">readme_images/</code></p>
 
-<p style="font-size: 13px; color: #94a3b8;"><i class="fas fa-folder"></i> All screenshots are stored in the <code>readme_images/</code> folder.</p>
+  <!-- ===== QUICK START ===== -->
+  <h2 class="text-xl font-semibold text-slate-900 mt-8 mb-3 pb-2 border-b border-slate-200">
+    <i class="fas fa-rocket text-blue-700 mr-2"></i>Quick Start
+  </h2>
+  <div class="bg-slate-900 text-slate-200 rounded-lg p-4 font-mono text-sm overflow-x-auto">
+    <span class="text-slate-500"># Clone the repository</span><br />
+    git clone https://github.com/JosephNderitu/RVC-PYTHONANYWHERE.git<br />
+    cd RVC-PYTHONANYWHERE<br /><br />
+    <span class="text-slate-500"># Build and start containers</span><br />
+    docker compose up -d<br /><br />
+    <span class="text-slate-500"># Apply migrations</span><br />
+    docker compose exec web python manage.py migrate<br /><br />
+    <span class="text-slate-500"># Create superuser</span><br />
+    docker compose exec web python manage.py createsuperuser
+  </div>
 
-<!-- ========== QUICK START ========== -->
-<h2><i class="fas fa-rocket" style="color: #1e40af; margin-right: 10px;"></i> Quick Start</h2>
+  <h3 class="text-base font-semibold text-slate-800 mt-4">Access the Application</h3>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm border-collapse">
+      <tbody>
+        <tr><td class="p-2 border-b border-slate-200 font-medium">Customer Portal</td><td class="p-2 border-b border-slate-200"><code class="bg-slate-100 px-2 py-0.5 rounded">http://localhost:8000/customer/</code></td></tr>
+        <tr><td class="p-2 border-b border-slate-200 font-medium">Courier Portal</td><td class="p-2 border-b border-slate-200"><code class="bg-slate-100 px-2 py-0.5 rounded">http://localhost:8000/courier/</code></td></tr>
+        <tr><td class="p-2 border-b border-slate-200 font-medium">Admin Dashboard</td><td class="p-2 border-b border-slate-200"><code class="bg-slate-100 px-2 py-0.5 rounded">http://localhost:8000/admin/</code></td></tr>
+        <tr><td class="p-2 font-medium">OSRM API</td><td class="p-2"><code class="bg-slate-100 px-2 py-0.5 rounded">http://localhost:5000/</code></td></tr>
+      </tbody>
+    </table>
+  </div>
 
-<div class="code-block">
-<span class="comment"># Clone the repository</span>
-git clone https://github.com/JosephNderitu/RVC-PYTHONANYWHERE.git
-cd RVC-PYTHONANYWHERE
+  <!-- ===== GPS SIMULATION ===== -->
+  <h2 class="text-xl font-semibold text-slate-900 mt-8 mb-3 pb-2 border-b border-slate-200">
+    <i class="fas fa-play text-blue-700 mr-2"></i>GPS Simulation
+  </h2>
+  <p class="text-slate-600 mb-2">Test US operations from Kenya without physical couriers:</p>
+  <div class="bg-slate-900 text-slate-200 rounded-lg p-4 font-mono text-sm overflow-x-auto">
+    <span class="text-slate-500"># Extract route from OSRM</span><br />
+    python extract_route.py --pickup "33.749,-84.388" --delivery "32.083,-81.099"<br /><br />
+    <span class="text-slate-500"># Run simulation</span><br />
+    python gps_replay.py --route atlanta_savannah --speed 5
+  </div>
 
-<span class="comment"># Build and start containers</span>
-docker compose up -d
+  <h3 class="text-base font-semibold text-slate-800 mt-4">Demo Scenarios</h3>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm border-collapse">
+      <thead><tr class="bg-slate-50 text-left"><th class="p-3 font-semibold border-b-2 border-slate-200">Scenario</th><th class="p-3 font-semibold border-b-2 border-slate-200">Route</th><th class="p-3 font-semibold border-b-2 border-slate-200">Duration</th><th class="p-3 font-semibold border-b-2 border-slate-200">Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="p-3 border-b border-slate-200">Quick Demo</td><td class="p-3 border-b border-slate-200">Atlanta → Marietta (~20 mi)</td><td class="p-3 border-b border-slate-200">90s at 10x</td><td class="p-3 border-b border-slate-200">Full job lifecycle</td></tr>
+        <tr><td class="p-3 border-b border-slate-200">Full Route</td><td class="p-3 border-b border-slate-200">Atlanta → Savannah (~250 mi)</td><td class="p-3 border-b border-slate-200">3min at 60x</td><td class="p-3 border-b border-slate-200">OSRM network scale</td></tr>
+        <tr><td class="p-3">Geofence Focus</td><td class="p-3">Short route with zone</td><td class="p-3">60s at 1x</td><td class="p-3">Zone entry/exit detection</td></tr>
+      </tbody>
+    </table>
+  </div>
 
-<span class="comment"># Apply migrations</span>
-docker compose exec web python manage.py migrate
+  <!-- ===== API ENDPOINTS ===== -->
+  <h2 class="text-xl font-semibold text-slate-900 mt-8 mb-3 pb-2 border-b border-slate-200">
+    <i class="fas fa-code text-blue-700 mr-2"></i>API Endpoints
+  </h2>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm border-collapse">
+      <thead><tr class="bg-slate-50 text-left"><th class="p-3 font-semibold border-b-2 border-slate-200">Method</th><th class="p-3 font-semibold border-b-2 border-slate-200">Endpoint</th><th class="p-3 font-semibold border-b-2 border-slate-200">Description</th></tr></thead>
+      <tbody>
+        <tr><td class="p-3 border-b border-slate-200 font-mono text-xs bg-slate-50">POST</td><td class="p-3 border-b border-slate-200"><code>/courier/api/update-location/</code></td><td class="p-3 border-b border-slate-200">Update courier GPS position</td></tr>
+        <tr><td class="p-3 border-b border-slate-200 font-mono text-xs bg-slate-50">GET</td><td class="p-3 border-b border-slate-200"><code>/courier/api/courier-location/{job_id}/</code></td><td class="p-3 border-b border-slate-200">Get courier location for tracking</td></tr>
+        <tr><td class="p-3 border-b border-slate-200 font-mono text-xs bg-slate-50">GET</td><td class="p-3 border-b border-slate-200"><code>/courier/api/available-jobs/</code></td><td class="p-3 border-b border-slate-200">List available jobs</td></tr>
+        <tr><td class="p-3 border-b border-slate-200 font-mono text-xs bg-slate-50">POST</td><td class="p-3 border-b border-slate-200"><code>/courier/api/accept-job/</code></td><td class="p-3 border-b border-slate-200">Accept assigned job</td></tr>
+        <tr><td class="p-3 border-b border-slate-200 font-mono text-xs bg-slate-50">GET</td><td class="p-3 border-b border-slate-200"><code>/api/validate-location/</code></td><td class="p-3 border-b border-slate-200">Validate pin within service area</td></tr>
+        <tr><td class="p-3 font-mono text-xs bg-slate-50">GET</td><td class="p-3"><code>/api/osrm-route/</code></td><td class="p-3">Get OSRM route between points</td></tr>
+      </tbody>
+    </table>
+  </div>
 
-<span class="comment"># Create superuser</span>
-docker compose exec web python manage.py createsuperuser
-</div>
+  <!-- ===== CONTRIBUTORS ===== -->
+  <h2 class="text-xl font-semibold text-slate-900 mt-8 mb-3 pb-2 border-b border-slate-200">
+    <i class="fas fa-users text-blue-700 mr-2"></i>Contributors
+  </h2>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm border-collapse">
+      <thead><tr class="bg-slate-50 text-left"><th class="p-3 font-semibold border-b-2 border-slate-200">Name</th><th class="p-3 font-semibold border-b-2 border-slate-200">Role</th><th class="p-3 font-semibold border-b-2 border-slate-200">Contribution</th></tr></thead>
+      <tbody>
+        <tr><td class="p-3 border-b border-slate-200 font-medium">Joseph Gikuru Nderitu</td><td class="p-3 border-b border-slate-200">Geospatial Computing Specialist</td><td class="p-3 border-b border-slate-200">Geofencing, Distance Engine, Dispatch, Visualization</td></tr>
+        <tr><td class="p-3 border-b border-slate-200">Boniface Mwangi</td><td class="p-3 border-b border-slate-200">PWA Resilience Specialist</td><td class="p-3 border-b border-slate-200">Progressive Web Application, Service Worker</td></tr>
+        <tr><td class="p-3">Loren Odhiambo</td><td class="p-3">Machine Learning Specialist</td><td class="p-3">AI Goods Classification, Prohibited Item Detection</td></tr>
+      </tbody>
+    </table>
+  </div>
 
-<h3>Access the Application</h3>
-<table>
-  <tr><th>Service</th><th>URL</th></tr>
-  <tr><td>Customer Portal</td><td>http://localhost:8000/customer/</td></tr>
-  <tr><td>Courier Portal</td><td>http://localhost:8000/courier/</td></tr>
-  <tr><td>Admin Dashboard</td><td>http://localhost:8000/admin/</td></tr>
-  <tr><td>OSRM API</td><td>http://localhost:5000/</td></tr>
-</table>
+  <!-- ===== ACKNOWLEDGMENTS ===== -->
+  <h2 class="text-xl font-semibold text-slate-900 mt-8 mb-3 pb-2 border-b border-slate-200">
+    <i class="fas fa-heart text-blue-700 mr-2"></i>Acknowledgments
+  </h2>
+  <ul class="list-disc pl-6 text-slate-600 space-y-1">
+    <li>Dr. Isaiah Mulang' and Mr. Stephen Kun'gu for supervision and guidance</li>
+    <li>Jomo Kenyatta University of Agriculture and Technology</li>
+    <li>PostGIS, OSRM, Django, and Leaflet.js open-source communities</li>
+    <li>Geofabrik for OpenStreetMap data extracts</li>
+  </ul>
 
-<!-- ========== GPS SIMULATION ========== -->
-<h2><i class="fas fa-play" style="color: #1e40af; margin-right: 10px;"></i> GPS Simulation</h2>
-
-<p>Test US operations from Kenya without physical couriers:</p>
-
-<div class="code-block">
-<span class="comment"># Extract route from OSRM</span>
-python extract_route.py --pickup "33.749,-84.388" --delivery "32.083,-81.099"
-
-<span class="comment"># Run simulation</span>
-python gps_replay.py --route atlanta_savannah --speed 5
-</div>
-
-<h3>Demo Scenarios</h3>
-<table>
-  <tr><th>Scenario</th><th>Route</th><th>Duration</th><th>Purpose</th></tr>
-  <tr><td>Quick Demo</td><td>Atlanta → Marietta (~20 mi)</td><td>90s at 10x</td><td>Full job lifecycle</td></tr>
-  <tr><td>Full Route</td><td>Atlanta → Savannah (~250 mi)</td><td>3min at 60x</td><td>OSRM network scale</td></tr>
-  <tr><td>Geofence Focus</td><td>Short route with zone</td><td>60s at 1x</td><td>Zone entry/exit detection</td></tr>
-</table>
-
-<!-- ========== API ENDPOINTS ========== -->
-<h2><i class="fas fa-code" style="color: #1e40af; margin-right: 10px;"></i> API Endpoints</h2>
-
-<table>
-  <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
-  <tr><td>POST</td><td><code>/courier/api/update-location/</code></td><td>Update courier GPS position</td></tr>
-  <tr><td>GET</td><td><code>/courier/api/courier-location/{job_id}/</code></td><td>Get courier location for tracking</td></tr>
-  <tr><td>GET</td><td><code>/courier/api/available-jobs/</code></td><td>List available jobs</td></tr>
-  <tr><td>POST</td><td><code>/courier/api/accept-job/</code></td><td>Accept assigned job</td></tr>
-  <tr><td>GET</td><td><code>/api/validate-location/</code></td><td>Validate pin within service area</td></tr>
-  <tr><td>GET</td><td><code>/api/osrm-route/</code></td><td>Get OSRM route between points</td></tr>
-</table>
-
-<!-- ========== CONTRIBUTORS ========== -->
-<h2><i class="fas fa-users" style="color: #1e40af; margin-right: 10px;"></i> Contributors</h2>
-
-<table>
-  <tr><th>Name</th><th>Role</th><th>Contribution</th></tr>
-  <tr><td><strong>Joseph Gikuru Nderitu</strong></td><td>Geospatial Computing Specialist</td><td>Geofencing, Distance Engine, Dispatch Algorithm, Visualization</td></tr>
-  <tr><td>Boniface Mwangi</td><td>PWA Resilience Specialist</td><td>Progressive Web Application, Service Worker</td></tr>
-  <tr><td>Loren Odhiambo</td><td>Machine Learning Specialist</td><td>AI Goods Classification, Prohibited Item Detection</td></tr>
-</table>
-
-<!-- ========== ACKNOWLEDGMENTS ========== -->
-<h2><i class="fas fa-heart" style="color: #1e40af; margin-right: 10px;"></i> Acknowledgments</h2>
-
-<ul style="padding-left: 20px; color: #334155;">
-  <li>Dr. Isaiah Mulang' and Mr. Stephen Kun'gu for supervision and guidance</li>
-  <li>Jomo Kenyatta University of Agriculture and Technology</li>
-  <li>PostGIS, OSRM, Django, and Leaflet.js open-source communities</li>
-  <li>Geofabrik for OpenStreetMap data extracts</li>
-</ul>
-
-<!-- ========== FOOTER ========== -->
-<div class="footer">
-  <p>
-    <i class="fab fa-github"></i> <a href="https://github.com/JosephNderitu/RVC-PYTHONANYWHERE">GitHub Repository</a> &nbsp;|&nbsp;
-    <i class="fab fa-linkedin"></i> <a href="https://linkedin.com/in/joseph-nderitu">Joseph Gikuru Nderitu</a> &nbsp;|&nbsp;
-    <i class="fas fa-envelope"></i> jndr.ke@gmail.com
-  </p>
-  <p style="font-size: 13px; color: #94a3b8;">MIT License &bull; 2026 Rift Valley Carriers</p>
-</div>
+  <!-- ===== FOOTER ===== -->
+  <div class="mt-12 pt-6 border-t border-slate-200 text-sm text-slate-400 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+    <div>
+      <i class="fab fa-github mr-1"></i><a href="https://github.com/JosephNderitu/RVC-PYTHONANYWHERE" class="text-blue-600 hover:underline">GitHub</a>
+      <span class="mx-2">|</span>
+      <i class="fab fa-linkedin mr-1"></i><a href="https://linkedin.com/in/joseph-nderitu" class="text-blue-600 hover:underline">LinkedIn</a>
+    </div>
+    <div>
+      <i class="fas fa-envelope mr-1"></i><a href="mailto:gikurujoseph53@gmail.com" class="text-blue-600 hover:underline">gikurujoseph53@gmail.com</a>
+      <span class="mx-2">|</span>
+      <i class="fas fa-phone mr-1"></i><span class="text-slate-500">0715369835 / 0110423886</span>
+    </div>
+  </div>
+  <p class="text-xs text-slate-400 mt-4">MIT License &bull; 2026 Rift Valley Carriers</p>
 
 </body>
 </html>
