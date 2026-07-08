@@ -71,13 +71,13 @@ This repository contains the **Geospatial Computing** component, powering road r
 
 <div align="center">
 
-| Customer Step 1 | Customer Step 2 | Customer Step 3 |
-|:---:|:---:|:---:|
+| Customer Step 1 | Customer Step 2 | Customer Step 3 | Final Step |
+|:---:|:---:|:---:|:---:|
 | <img src="readme_images/create_job_step2.png" width="260"/> | <img src="readme_images/create_job_step3.png" width="260"/> | <img src="readme_images/create_job_step3.png" width="260"/> | <img src="readme_images/create_job final step.png" width="260"/> |
-| ickup Location | Delivery Location | OSRM Route & Price | checkout page |
+| Pickup Location | Delivery Location | OSRM Route & Price | checkout page |
 
-| Tracking Page | Courier Dashboard | Geofencing |
-|:---:|:---:|:---:|
+| Customer Live Tracking & ETA | Live Courier & ETA  | system Architecture | Live GPS Tracking |
+|:---:|:---:|:---:|:---:|
 | <img src="readme_images/customer_liveTracking.png" width="260"/> | <img src="readme_images/courier_select_jobPage.png" width="260"/> | <img src="readme_images/systemArch.png" width="260"/> | <img src="readme_images/courier_tracking.png" width="260"/> |
 | Customer Live Tracking & ETA | Live Courier & ETA | system Architecture | Live GPS Tracking |
 
