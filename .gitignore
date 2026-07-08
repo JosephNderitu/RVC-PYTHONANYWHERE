@@ -9,4 +9,11 @@ media/
 *.png
 *.jpg
 *.jpeg
+
+# Except README screenshots
+!readme_images/
+!readme_images/*.png
+!readme_images/*.jpg
+!readme_images/*.jpeg
+
 celerybeat-schedule
